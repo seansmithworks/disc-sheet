@@ -243,7 +243,13 @@ export function Disc({ children, className, ...aria }: DiscProps) {
           <motion.div
             layoutId={reduceMotion ? undefined : `${ctx.idBase}-surface`}
             className={styles.discSurface}
-            transition={transition.open}
+            // This disc surface is the ENTERING element on close (it is
+            // gated behind `{!open && ...}`, so it mounts only once open
+            // flips false), and with a shared layoutId the entering side's
+            // transition governs the FLIP. This must be transition.close,
+            // not transition.open — see the matching note on Sheet.tsx's
+            // layoutId transition for why the transposition mattered.
+            transition={transition.close}
             data-disc-sheet-part="disc-surface"
             // Framer Motion's shared-layout border-radius correction only
             // tracks a border-radius it manages as an inline style value —

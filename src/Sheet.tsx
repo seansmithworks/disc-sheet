@@ -108,9 +108,15 @@ export function Sheet({
     }
     measure();
     window.addEventListener("resize", measure);
+    // Deliberately does NOT clear sheetRect here. This cleanup runs the
+    // instant `open` flips false — i.e. exactly when the close animation
+    // STARTS, not when it finishes. Shadow.tsx reads sheetRect for the
+    // entire close morph; nulling it here collapsed the silhouette to the
+    // disc's box for the whole close animation. sheetRect is cleared once,
+    // in AnimatePresence's onExitComplete below, after the exit animation
+    // has actually finished.
     return () => {
       window.removeEventListener("resize", measure);
-      setSheetRect(null);
     };
   }, [open, setSheetRect]);
 
@@ -183,6 +189,9 @@ export function Sheet({
     <AnimatePresence
       onExitComplete={() => {
         triggerElRef.current?.focus();
+        // Exit-complete is when the close morph is actually done — the
+        // correct moment to drop sheetRect (see the measure effect above).
+        setSheetRect(null);
       }}
     >
       {open && (
@@ -218,7 +227,17 @@ export function Sheet({
                 }
               : {
                   layoutId: `${idBase}-surface`,
-                  transition: transition.close,
+                  // The SHEET is the entering element on open (Disc's surface
+                  // is the entering element on close, gated behind
+                  // `{!open && ...}`), and with a shared layoutId the
+                  // ENTERING side's transition governs the FLIP. This must be
+                  // transition.open, not transition.close — passing .close
+                  // here made the open morph run the close spring (plus its
+                  // baked-in SURFACE_CLOSE_LEAD_DELAY_MS) while
+                  // collapseProgress ran the open spring with no delay,
+                  // which is why the shadow silhouette and this box visibly
+                  // separated on open.
+                  transition: transition.open,
                   style: {
                     borderRadius,
                     zIndex: zIndex + 102,
