@@ -37,12 +37,15 @@ export function resolveDiscSize(
 export function useDiscSize(
   discSize: number | DiscSizeRamp | undefined,
 ): number {
+  // The lazy initializer runs during the client's hydration render, not
+  // before it — so reading window.innerWidth here (as the previous version
+  // did) makes the server emit the ramp's base value while the client's
+  // FIRST render computes the real one, and React 19 flags that as a
+  // hydration mismatch. Always resolve at vpW=0 (the ramp's base / the fixed
+  // number) so the client's first render matches SSR exactly; the resize
+  // effect below promotes to the real size immediately after mount.
   const initial = useCallback(
-    () =>
-      resolveDiscSize(
-        discSize,
-        typeof window === "undefined" ? 0 : window.innerWidth,
-      ),
+    () => resolveDiscSize(discSize, 0),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- resolved once at mount, then kept live by the resize effect below
     [],
   );

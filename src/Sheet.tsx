@@ -8,7 +8,7 @@ import {
   useTransform,
 } from "motion/react";
 import { sheetPlacement } from "./anchors";
-import { useDiscSheetInternal } from "./context";
+import { SlotContext, useDiscSheetInternal } from "./context";
 import {
   RADIUS_CLOSE_DELAY_SEC,
   RADIUS_HOLD_FRACTION,
@@ -230,7 +230,9 @@ export function Sheet({
             dragElastic={{ top: 0, bottom: 0.3 }}
             onDragEnd={handleDragEnd}
           >
-            {children}
+            <SlotContext.Provider value="sheet">
+              {children}
+            </SlotContext.Provider>
           </motion.div>
         </>
       )}

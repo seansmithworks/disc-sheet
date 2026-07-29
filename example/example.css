@@ -1,0 +1,33 @@
+/*
+ * example.css — content styling for the disc-sheet example app only. The
+ * package itself ships zero typography/spacing decisions for <Item> content
+ * (docs/PACKAGE-DESIGN.md §1: "No props beyond that" — those are the
+ * consumer's to make). This file is that consumer decision, made once here
+ * so the example doesn't demo a11y and layout bugs (raw UA styles) that were
+ * never package defects (review finding E2).
+ */
+
+[data-disc-sheet-part="item"] {
+  padding-top: 16px;
+}
+
+[data-disc-sheet-part="item"]:first-of-type {
+  padding-top: 24px;
+}
+
+[data-disc-sheet-part="content"] h2 {
+  font-size: 20px;
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+[data-disc-sheet-part="content"] p {
+  margin: 0;
+  line-height: 1.5;
+  color: #4b4b52;
+}
+
+[data-disc-sheet-part="content"] nav a {
+  color: #6366f1;
+  text-decoration: underline;
+}

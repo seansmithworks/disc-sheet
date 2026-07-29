@@ -49,12 +49,12 @@ export function CloseMask() {
       const closing = velocity > 0;
 
       if (!closing) {
-        sheetEl.style.maskImage =
-          "linear-gradient(to top, #000 0%, #000 100%, transparent 100%)";
-        sheetEl.style.setProperty(
-          "-webkit-mask-image",
-          "linear-gradient(to top, #000 0%, #000 100%, transparent 100%)",
-        );
+        // No fade at rest or during an open: clear the property rather than
+        // paint a "0% -> 100% solid" gradient. An identity mask is still a
+        // mask — it forces compositing and creates a new containing block on
+        // an element that also runs a FLIP, for zero visual benefit (E3).
+        sheetEl.style.removeProperty("mask-image");
+        sheetEl.style.removeProperty("-webkit-mask-image");
         return;
       }
 

@@ -44,6 +44,22 @@ export const DiscSheetContext = createContext<DiscSheetContextValue | null>(
 );
 
 /**
+ * SlotContext — the disc/sheet slot discriminator. Provided by <Disc> and
+ * <Sheet> around their children, read by <Shared> to decide which of the two
+ * shapes it renders (docs/PACKAGE-DESIGN.md's B2/M7 fix): the disc-side
+ * instance is an inset, circular clip; the sheet-side instance is an in-flow,
+ * margined circle. One mechanism serves both findings.
+ */
+export type DiscSheetSlot = "disc" | "sheet";
+
+export const SlotContext = createContext<DiscSheetSlot | null>(null);
+
+export function useDiscSheetSlot(): DiscSheetSlot | undefined {
+  const slot = useContext(SlotContext);
+  return slot ?? undefined;
+}
+
+/**
  * useDiscSheet — the public escape hatch. Throws outside <DiscSheet.Root>.
  *
  * usePKG().collapseProgress is the raw MotionValue the package's own radius,

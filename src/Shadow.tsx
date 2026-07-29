@@ -3,6 +3,7 @@
 import { cloneElement, isValidElement, useEffect, useRef } from "react";
 import type { CSSProperties, ReactElement } from "react";
 import { useDiscSheetInternal } from "./context";
+import { readVarPx } from "./readVarPx";
 import type { ShadowProps } from "./types";
 import styles from "./styles.module.css";
 
@@ -48,7 +49,11 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const cy = sheet.cy + (disc.cy - sheet.cy) * p;
       const halfW = sheet.halfWidth + (disc.radius - sheet.halfWidth) * p;
       const halfH = sheet.halfHeight + (disc.radius - sheet.halfHeight) * p;
-      const radius = sheet.halfWidth + (disc.radius - sheet.halfWidth) * p;
+      // The silhouette's corner radius interpolates between the SHEET's own
+      // corner radius (not its half-width, which produced a stadium instead
+      // of the sheet's actual rounded-rect silhouette) and the disc's radius.
+      const sheetRadius = readVarPx(el, "--disc-sheet-sheet-radius", 32);
+      const radius = sheetRadius + (disc.radius - sheetRadius) * p;
 
       el.style.setProperty("--disc-sheet-collapse", String(p));
       el.style.setProperty("--disc-sheet-shadow-x", `${cx}px`);

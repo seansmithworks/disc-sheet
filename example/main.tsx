@@ -1,19 +1,37 @@
 import { createRoot } from "react-dom/client";
 import { DiscSheet } from "../src/index";
 import { CloseMask } from "./CloseMask";
+import "./example.css";
 
-function ColorCircle({ size }: { size: number }) {
+// Sized to 100% of its parent, not a fixed px value: <DiscSheet.Shared>'s two
+// instances (disc-side and sheet-side) are laid out at different sizes by the
+// package itself (the disc's inset circle, the sheet's margined circle), so
+// the child inside must fill whatever box it's given rather than assert its
+// own size. Passing two differently-sized children into the two slots is
+// exactly the footgun docs/PACKAGE-DESIGN.md §7B warns about (E1).
+function ColorCircle() {
   return (
     <div
       style={{
-        width: size,
-        height: size,
+        width: "100%",
+        height: "100%",
         borderRadius: "50%",
         background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
       }}
     />
   );
 }
+
+// Test-only prop overrides via query string (e.g. ?zIndex=500&sheetMaxWidth=600),
+// so geometry.spec.ts can assert M1/M2 (zIndex / sheetMaxWidth actually
+// reaching the CSS) without a second, divergent example mount.
+const testParams = new URLSearchParams(window.location.search);
+const zIndexOverride = testParams.has("zIndex")
+  ? Number(testParams.get("zIndex"))
+  : undefined;
+const sheetMaxWidthOverride = testParams.has("sheetMaxWidth")
+  ? Number(testParams.get("sheetMaxWidth"))
+  : undefined;
 
 function App() {
   return (
@@ -24,18 +42,21 @@ function App() {
         default) — drag it to any of the six anchors first if you like.
       </p>
 
-      <DiscSheet.Root>
+      <DiscSheet.Root
+        zIndex={zIndexOverride}
+        sheetMaxWidth={sheetMaxWidthOverride}
+      >
         <DiscSheet.Shadow />
 
         <DiscSheet.Disc aria-label="Open example sheet">
           <DiscSheet.Shared>
-            <ColorCircle size={96} />
+            <ColorCircle />
           </DiscSheet.Shared>
         </DiscSheet.Disc>
 
         <DiscSheet.Sheet aria-labelledby="example-sheet-title">
           <DiscSheet.Shared>
-            <ColorCircle size={64} />
+            <ColorCircle />
           </DiscSheet.Shared>
 
           <DiscSheet.Content>

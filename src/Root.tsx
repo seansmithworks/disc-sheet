@@ -200,7 +200,24 @@ export function Root({
   return (
     <DiscSheetContext.Provider value={contextValue}>
       <LayoutGroup id={idBase}>
-        <div className={className} data-disc-sheet-root="">
+        <div
+          className={className}
+          data-disc-sheet-root=""
+          style={{
+            // Root's wrapper is an ANCESTOR of both <Disc> and <Sheet>, unlike
+            // the disc root div (a sibling of <Sheet>), so custom properties
+            // written here are the only ones both slots can inherit. B1:
+            // --disc-sheet-disc-size was previously written only on the disc
+            // root, making it invisible to .shared in the sheet above the
+            // ramp's base breakpoint. M1/M2: --disc-sheet-z and
+            // --disc-sheet-sheet-max-width were never written at all, leaving
+            // the zIndex and sheetMaxWidth props orphaned from the CSS that
+            // reads them.
+            ["--disc-sheet-disc-size" as string]: `${discSize}px`,
+            ["--disc-sheet-z" as string]: String(zIndex),
+            ["--disc-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
+          }}
+        >
           {children}
         </div>
       </LayoutGroup>

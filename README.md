@@ -19,8 +19,9 @@ Installed from GitHub, consumed via your bundler's native TS support
 npm install github:seansmith/disc-sheet
 ```
 
-Peer dependencies: `react`, `react-dom`, `motion` (`motion/react`). None are
-bundled — install them yourself if your app doesn't already have them.
+Peer dependencies: `react` (>=19), `react-dom` (>=19), `motion` (>=12,
+`motion/react`). None are bundled — install them yourself if your app doesn't
+already have them.
 
 ## Usage
 
@@ -77,6 +78,31 @@ function usePKG() {
 }
 ```
 
+## DOM contract: `data-disc-sheet-part`
+
+Every element the package renders carries `data-disc-sheet-part`, and this is
+public, stable surface — not an accident of implementation you happen to be
+able to reach. Use it for CSS overrides or, as `example/CloseMask.tsx` does,
+to find the live element from outside the package via `usePKG()` + a
+`document.querySelector`.
+
+| Value | Element |
+| --- | --- |
+| `disc-root` | The disc's fixed drag wrapper |
+| `disc-trigger` | The disc's trigger `<button>` |
+| `disc-surface` | The disc's circular seed surface (the FLIP source) |
+| `shared` | `<DiscSheet.Shared>`, on both its disc- and sheet-side instances |
+| `sheet` | `<DiscSheet.Sheet>`'s panel |
+| `backdrop` | The invisible outside-click catcher (only when `dismissOnBackdrop`) |
+| `content` | `<DiscSheet.Content>`'s scroll region |
+| `item` | `<DiscSheet.Item>` |
+| `close` | `<DiscSheet.Close>`'s button |
+| `shadow` | `<DiscSheet.Shadow>`'s default div (also merged onto an `asChild` child) |
+
+`<DiscSheet.Shared>` additionally carries `data-disc-sheet-slot="disc"` or
+`"sheet"`, so consumer CSS (or the package's own `.shared[data-disc-sheet-slot=…]`
+rules) can target either instance without relying on className precedence.
+
 ## Theming
 
 Every visual token is a CSS custom property with a hardcoded fallback, so the
@@ -93,6 +119,7 @@ package renders correctly out of the box:
 | `--disc-sheet-shared-size` | matches `--disc-sheet-disc-size` |
 | `--disc-sheet-sheet-radius` | `32px` |
 | `--disc-sheet-disc-radius` | `9999px` |
+| `--disc-sheet-sheet-padding` | `24px` |
 | `--disc-sheet-edge-margin` | `16px` |
 | `--disc-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
 | `--disc-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |

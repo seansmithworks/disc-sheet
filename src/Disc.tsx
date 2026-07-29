@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
-import type { PanInfo, TransformProperties } from "motion/react";
+import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
-import { useDiscSheetInternal } from "./context";
+import { SlotContext, useDiscSheetInternal } from "./context";
 import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
 import type { DiscProps } from "./types";
 import styles from "./styles.module.css";
@@ -44,6 +44,10 @@ export function Disc({ children, className, ...aria }: DiscProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const mountedRef = useRef(false);
+  const lastRectRef = useRef<{ cx: number; cy: number; radius: number } | null>(
+    null,
+  );
+  const rafRef = useRef<number | null>(null);
 
   // Seed x/y at the anchor's resting position on mount and whenever the
   // anchor or disc size changes while the sheet is not being dragged.
@@ -79,16 +83,37 @@ export function Disc({ children, className, ...aria }: DiscProps) {
   // documented as package-written/consumer-readable — directly on the
   // wrapper without a React re-render, mirroring the source site's bloom-
   // tracking pattern.
+  //
+  // setDiscRect is React state on Root, so calling it synchronously here
+  // would re-render the whole Root subtree on every pointer-move frame of a
+  // drag. The imperative --disc-sheet-disc-x/-y writes stay per-frame; the
+  // React commit is rAF-coalesced to at most once per frame and skipped
+  // entirely when the rect hasn't moved by more than half a pixel.
   useEffect(() => {
-    const update = () => {
+    const commit = () => {
+      rafRef.current = null;
       const el = triggerRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      setDiscRect({
+      const next = {
         cx: rect.left + rect.width / 2,
         cy: rect.top + rect.height / 2,
         radius: rect.width / 2,
-      });
+      };
+      const last = lastRectRef.current;
+      if (
+        last &&
+        Math.abs(last.cx - next.cx) < 0.5 &&
+        Math.abs(last.cy - next.cy) < 0.5 &&
+        Math.abs(last.radius - next.radius) < 0.5
+      ) {
+        return;
+      }
+      lastRectRef.current = next;
+      setDiscRect(next);
+    };
+
+    const update = () => {
       wrapperRef.current?.style.setProperty(
         "--disc-sheet-disc-x",
         `${x.get()}px`,
@@ -97,6 +122,9 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         "--disc-sheet-disc-y",
         `${y.get()}px`,
       );
+      if (rafRef.current == null) {
+        rafRef.current = requestAnimationFrame(commit);
+      }
     };
     update();
     const unsubX = x.on("change", update);
@@ -106,6 +134,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       unsubX();
       unsubY();
       window.removeEventListener("resize", update);
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
   }, [x, y, setDiscRect]);
 
@@ -168,11 +197,6 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     setOpen(true);
   }, [setOpen]);
 
-  const transformTemplate = useCallback(
-    (_t: TransformProperties, generated: string) => generated,
-    [],
-  );
-
   return (
     <motion.div
       ref={(el) => {
@@ -186,7 +210,6 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         height: discSize,
         ["--disc-sheet-disc-size" as string]: `${discSize}px`,
       }}
-      transformTemplate={transformTemplate}
       data-disc-sheet-part="disc-root"
       drag={draggable && !open ? true : false}
       dragMomentum={false}
@@ -232,7 +255,9 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             style={{ borderRadius: "var(--disc-sheet-disc-radius, 9999px)" }}
           />
         )}
-        {!open && children}
+        {!open && (
+          <SlotContext.Provider value="disc">{children}</SlotContext.Provider>
+        )}
       </button>
     </motion.div>
   );
