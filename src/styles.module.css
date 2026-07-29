@@ -1,0 +1,158 @@
+/*
+ * disc-sheet — all package CSS. Every variable is --disc-sheet-* and every
+ * one has a hardcoded fallback, so the package renders correctly with a
+ * consumer who sets nothing (docs/PACKAGE-DESIGN.md §2).
+ *
+ * --disc-sheet-disc-size is written by the package (Root/useDiscSize), never
+ * read from an @media block here — JS is the single source for the
+ * responsive disc size (the one behavior-preserving cleanup taken during
+ * extraction; the source site duplicated these breakpoints in JS and CSS).
+ */
+
+.dragWrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--disc-sheet-z, 100);
+  cursor: grab;
+  touch-action: none;
+}
+
+.dragWrapper:active {
+  cursor: grabbing;
+}
+
+.discTrigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  cursor: inherit;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.discTrigger:focus-visible {
+  outline: 2px solid var(--disc-sheet-accent, #b4512e);
+  outline-offset: 5px;
+  border-radius: var(--disc-sheet-disc-radius, 9999px);
+}
+
+.discSurface {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--disc-sheet-disc-radius, 9999px);
+  background: var(--disc-sheet-surface, #faf7f2);
+  border: 1px solid var(--disc-sheet-surface-border, #e6dfd2);
+  box-shadow: var(
+    --disc-sheet-shadow,
+    0 1px 4px rgba(26, 22, 16, 0.14),
+    0 6px 24px rgba(0, 0, 0, 0.15)
+  );
+  overflow: hidden;
+}
+
+/*
+ * .shared — the shared-element slot. Sized to --disc-sheet-shared-size,
+ * which defaults to the live --disc-sheet-disc-size. In <DiscSheet.Disc> it
+ * is a sibling of .discSurface (inset 2px, clipped to a circle); in
+ * <DiscSheet.Sheet> the consumer positions it via className — the package
+ * intentionally does not lay out the sheet-side instance (see
+ * docs/PACKAGE-DESIGN.md §7B).
+ */
+.shared {
+  /* position:relative (not static) puts this in the CSS painting order's
+   * "positioned elements" bucket, ordered by DOM position — so it paints
+   * above .discSurface (position:absolute) despite discSurface being an
+   * earlier sibling. Without this, the absolutely-positioned surface would
+   * paint over the shared element regardless of DOM order. */
+  position: relative;
+  width: var(--disc-sheet-shared-size, var(--disc-sheet-disc-size, 96px));
+  height: var(--disc-sheet-shared-size, var(--disc-sheet-disc-size, 96px));
+  pointer-events: none;
+}
+
+.sheet {
+  position: fixed;
+  width: min(var(--disc-sheet-sheet-max-width, 480px), calc(100vw - 32px));
+  left: var(--disc-sheet-sheet-left, 16px);
+  /* Default: grow upward from the bottom edge. When the disc is anchored in
+   * the top half of the viewport, Sheet.tsx overrides `top`/`bottom` inline
+   * (not via a var) so the sheet grows downward instead — see Sheet.tsx's
+   * placementStyle. */
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  background: var(--disc-sheet-surface, #faf7f2);
+  border: 1px solid var(--disc-sheet-surface-border, #e6dfd2);
+  box-shadow: var(
+    --disc-sheet-sheet-shadow,
+    0 8px 48px rgba(0, 0, 0, 0.24),
+    0 2px 8px rgba(0, 0, 0, 0.12)
+  );
+  max-height: 88dvh;
+  overflow: hidden;
+  color: var(--disc-sheet-text, #1a1610);
+}
+
+.sheet:focus {
+  outline: none;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 22, 16, 0.27);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  touch-action: pan-y;
+}
+
+.item {
+  /* Layout-neutral: the consumer styles this via className. Stagger + reveal
+   * motion is applied by Content/Item's variants, not this class. */
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--disc-sheet-text, #1a1610);
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.closeButton:focus-visible {
+  outline: 2px solid var(--disc-sheet-accent, #b4512e);
+  outline-offset: 2px;
+}
+
+.shadow {
+  border-radius: var(--disc-sheet-shadow-radius, 9999px);
+  box-shadow: var(
+    --disc-sheet-shadow,
+    0 1px 4px rgba(26, 22, 16, 0.14),
+    0 6px 24px rgba(0, 0, 0, 0.15)
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragWrapper,
+  .discTrigger {
+    cursor: pointer;
+  }
+}
