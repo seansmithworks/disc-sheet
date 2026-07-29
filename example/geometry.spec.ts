@@ -60,6 +60,47 @@ async function openSheet(page: Page) {
   await waitForStableWidth(page, sheet);
 }
 
+/**
+ * Frame-samples `[data-disc-sheet-part="shadow"]` against whichever surface
+ * node currently shares its layoutId (`sheet` while opening, `disc-surface`
+ * while closing — both project to the same box during the FLIP, so either
+ * selector matching is sufficient) for `durationMs`, via an in-page rAF loop
+ * so sampling isn't gated by Playwright's own polling cadence. Returns the
+ * worst |top delta| and |height delta| seen across every sampled frame —
+ * this is the regression gate for the D1/D2 fix (docs: the transposed
+ * layoutId transitions and the premature sheetRect clear): before that fix,
+ * these two numbers were 315px (open) and 487px (close).
+ */
+async function sampleShadowSurfaceDelta(page: Page, durationMs: number) {
+  return page.evaluate((duration) => {
+    return new Promise<{ worstTop: number; worstHeight: number }>((resolve) => {
+      let worstTop = 0;
+      let worstHeight = 0;
+      const start = performance.now();
+      function tick() {
+        const surface = document.querySelector(
+          '[data-disc-sheet-part="sheet"], [data-disc-sheet-part="disc-surface"]',
+        );
+        const shadow = document.querySelector(
+          '[data-disc-sheet-part="shadow"]',
+        );
+        if (surface && shadow) {
+          const s = surface.getBoundingClientRect();
+          const sh = shadow.getBoundingClientRect();
+          worstTop = Math.max(worstTop, Math.abs(sh.top - s.top));
+          worstHeight = Math.max(worstHeight, Math.abs(sh.height - s.height));
+        }
+        if (performance.now() - start < duration) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve({ worstTop, worstHeight });
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }, durationMs);
+}
+
 for (const viewport of VIEWPORTS) {
   for (const mode of MOTION_MODES) {
     const reduced = mode === "reduced-motion";
@@ -194,6 +235,64 @@ for (const viewport of VIEWPORTS) {
         const expectedWidth = Math.min(600, viewport.width - 32);
         expect(sheetWidth).toBeCloseTo(expectedWidth, 0);
       });
+
+      // Reduced motion drops layoutId entirely on both sides (§6) and
+      // cross-fades in 200ms flat — there is no mid-morph FLIP to sample,
+      // and reduced-motion's own correctness is covered by a11y.spec.ts and
+      // test (b) above. This gate is about the normal-motion morph only.
+      if (!reduced) {
+        test("(e) shadow tracks the surface box through open AND close", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+
+          const disc = page.getByRole("button", { name: DISC_LABEL });
+          await disc.click();
+
+          // 1.2s covers settle for both the open spring (375/42.5/1.75) and
+          // the close spring (240/34/1.75 + the 100ms SURFACE_CLOSE_LEAD_
+          // DELAY_MS) at real wall-clock speed, generous over either's
+          // measured settle time so a slow CI runner doesn't clip the tail.
+          const openResult = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} open: ` +
+              `worst |Δtop|=${openResult.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${openResult.worstHeight.toFixed(1)}px`,
+          );
+
+          // Thresholds: the shadow (Shadow.tsx) and the surface box
+          // (Sheet.tsx / Disc.tsx) are updated on two independent paths —
+          // Motion's own projection engine drives the surface FLIP, while a
+          // `collapseProgress.on("change", …)` subscription writes the
+          // shadow's geometry as plain styles. On open (no configured
+          // delay), that leaves roughly a 1-frame scheduling gap between
+          // React's passive-effect timing (which starts the collapseProgress
+          // spring) and Motion's own layout-effect timing (which starts the
+          // FLIP), and 1 frame of a fast-moving spring covers more distance
+          // at larger viewports — measured worst case is 15.1px Δtop /
+          // 54.1px Δheight at 1700px. On close, SURFACE_CLOSE_LEAD_DELAY_MS
+          // re-anchors both clocks to the same delayed start and the gap
+          // nearly disappears — measured worst case 2.7px / 2.7px. Both are
+          // one to two orders of magnitude under the pre-fix numbers (315px
+          // open / 487px close), so 70 / 10 gives real margin over the
+          // measured worst case while still catching a regression back
+          // toward "two different springs" territory.
+          const OPEN_THRESHOLD_PX = 70;
+          const CLOSE_THRESHOLD_PX = 10;
+          expect(openResult.worstTop).toBeLessThan(OPEN_THRESHOLD_PX);
+          expect(openResult.worstHeight).toBeLessThan(OPEN_THRESHOLD_PX);
+
+          await page.keyboard.press("Escape");
+          const closeResult = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} close: ` +
+              `worst |Δtop|=${closeResult.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${closeResult.worstHeight.toFixed(1)}px`,
+          );
+          expect(closeResult.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX);
+          expect(closeResult.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX);
+        });
+      }
     });
   }
 }
