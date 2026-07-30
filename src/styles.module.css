@@ -3,10 +3,13 @@
  * one has a hardcoded fallback, so the package renders correctly with a
  * consumer who sets nothing (docs/PACKAGE-DESIGN.md §2).
  *
- * --disc-sheet-disc-size is written by the package (Root/useDiscSize), never
- * read from an @media block here — JS is the single source for the
- * responsive disc size (the one behavior-preserving cleanup taken during
- * extraction; the source site duplicated these breakpoints in JS and CSS).
+ * --disc-sheet-disc-size is written by Root.tsx as a scoped @media-query
+ * <style> block (derived from useDiscSize's resolveDiscSize, its one source
+ * of truth), not an inline style — that is the D3 fix (stale first-open
+ * shared-layoutId snapshot): a real @media query resolves correctly at
+ * first paint, before any JS runs, so there is never a stale pre-promotion
+ * value for Motion to snapshot. This file never hand-copies the ramp's
+ * breakpoint numbers — it only ever reads the resulting custom property.
  */
 
 .dragWrapper {
@@ -14,6 +17,8 @@
   top: 0;
   left: 0;
   z-index: var(--disc-sheet-z, 100);
+  width: var(--disc-sheet-disc-size, 96px);
+  height: var(--disc-sheet-disc-size, 96px);
   cursor: grab;
   touch-action: none;
 }

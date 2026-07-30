@@ -6,16 +6,21 @@ export interface DiscSizeRamp {
   xl?: number;
 }
 
-const MD_BREAKPOINT = 768;
-const XL_BREAKPOINT = 1600;
+export const MD_BREAKPOINT = 768;
+export const XL_BREAKPOINT = 1600;
 
 /**
  * resolveDiscSize — the single source of truth for the disc's responsive
- * diameter. JS resolves the size; the CSS module only ever reads the
- * resulting --disc-sheet-disc-size custom property (see
- * docs/PACKAGE-DESIGN.md §2, "One fix taken during extraction" — the source
- * site duplicated these breakpoints in JS and CSS with a "keep in sync"
- * comment; that duplication is not carried over here).
+ * diameter. Root.tsx calls this at three fixed widths (0 / MD_BREAKPOINT /
+ * XL_BREAKPOINT) to derive the @media rules it renders in a scoped <style>
+ * (see the D3 fix note on Root.tsx) — so the ramp's breakpoints are declared
+ * ONCE, here, and every consumer (the live JS value below, AND the
+ * server-rendered CSS) derives from this one function. This is still the
+ * fix docs/PACKAGE-DESIGN.md §2 describes ("One fix taken during
+ * extraction" — the source site duplicated these breakpoints in JS and CSS
+ * with a "keep in sync" comment): there is one ramp, JS reads it via this
+ * function and CSS reads it via rules generated FROM this function, never a
+ * hand-copied second literal.
  */
 export function resolveDiscSize(
   discSize: number | DiscSizeRamp | undefined,
@@ -33,6 +38,17 @@ export function resolveDiscSize(
  * useDiscSize — resolves the disc's diameter from the current viewport width
  * and keeps it live across resizes. SSR-safe: returns the ramp's base value
  * (or the fixed number) until mounted.
+ *
+ * This live JS value now feeds ONLY position math (anchors.ts) and the
+ * imperative drag-constraint numbers in Disc.tsx — never a FLIP-tracked
+ * element's painted box. That box is sized by CSS alone, reading
+ * --disc-sheet-disc-size, which Root.tsx sets via a server-rendered
+ * @media-query <style> block (derived from resolveDiscSize above) rather
+ * than an inline write of this hook's return value. That is the D3 fix:
+ * the promotion window this hook still has (base value until the effect
+ * below fires) no longer matters to Motion's shared-layoutId snapshot,
+ * because the box it snapshots is never sized from this hook's return
+ * value in the first place.
  */
 export function useDiscSize(
   discSize: number | DiscSizeRamp | undefined,

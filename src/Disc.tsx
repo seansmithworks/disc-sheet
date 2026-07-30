@@ -203,13 +203,15 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         wrapperRef.current = el;
       }}
       className={`${styles.dragWrapper} ${className ?? ""}`}
-      style={{
-        x,
-        y,
-        width: discSize,
-        height: discSize,
-        ["--disc-sheet-disc-size" as string]: `${discSize}px`,
-      }}
+      // width/height come from .dragWrapper's CSS rule (var(--disc-sheet-
+      // disc-size)), not an inline write of `discSize` — an inline write
+      // here would win over Root's scoped @media block regardless of
+      // viewport, reproducing D3 one level down (this element is the
+      // ancestor .shared[data-disc-sheet-slot="disc"] inherits from). `x`/
+      // `y` still come from the live discSize for position math (anchors.ts)
+      // — that's unaffected by D3, which is a BOX-SIZE defect, not a
+      // position one.
+      style={{ x, y }}
       data-disc-sheet-part="disc-root"
       drag={draggable && !open ? true : false}
       dragMomentum={false}

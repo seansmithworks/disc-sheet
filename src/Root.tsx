@@ -17,7 +17,12 @@ import {
   SURFACE_CLOSE_LEAD_DELAY_MS,
 } from "./motion";
 import type { Rect, RootProps, SheetRect } from "./types";
-import { useDiscSize } from "./useDiscSize";
+import {
+  MD_BREAKPOINT,
+  resolveDiscSize,
+  useDiscSize,
+  XL_BREAKPOINT,
+} from "./useDiscSize";
 import { usePersistedAnchor } from "./usePersistedAnchor";
 
 /**
@@ -73,6 +78,34 @@ export function Root({
   );
 
   const discSize = useDiscSize(discSizeProp);
+
+  // D3 fix — cold-first-open stale shared-layoutId FLIP origin
+  // (docs/PACKAGE-DESIGN.md, reference_pinned-bottoms-collapse-dtop-and-
+  // dheight-into-one-assertion). `discSize` above still resolves at vpW=0 on
+  // first render for hydration safety, then promotes in a post-mount effect
+  // — Motion snapshots a shared-layoutId element's box at first paint, which
+  // lands INSIDE that pre-promotion window, so the disc-side box gets
+  // FLIP-tracked at the ramp's base size even on a real (non-base) viewport.
+  // Root re-mounting or re-snapshotting later can't fix this: the snapshot
+  // that matters is the FIRST one, and it is already stale by the time any
+  // JS effect could run.
+  //
+  // CSS can resolve a viewport-dependent value at first paint with no JS and
+  // no hydration risk — a real @media query, evaluated by the browser before
+  // any script runs. discSizeCss below derives the same three breakpoint
+  // values from resolveDiscSize (the ramp's one source of truth, shared with
+  // the live `discSize` above) and Root renders them as a scoped <style>
+  // block. Every element that reads --disc-sheet-disc-size (Disc.tsx's drag
+  // wrapper, .shared in styles.module.css) now gets the CORRECT size on the
+  // very first frame, so there is never a stale snapshot for Motion to
+  // chase. `discSize` (JS) still exists and still promotes post-mount, but
+  // now only for position math (anchors.ts) and drag-constraint numbers —
+  // never for a FLIP-tracked element's box.
+  const discSizeCss = {
+    base: resolveDiscSize(discSizeProp, 0),
+    md: resolveDiscSize(discSizeProp, MD_BREAKPOINT),
+    xl: resolveDiscSize(discSizeProp, XL_BREAKPOINT),
+  };
 
   const [isDragging, setIsDragging] = useState(false);
 
@@ -194,12 +227,23 @@ export function Root({
     contentScrollElRef,
   };
 
+  // Scoped by idBase (unique per <Root> instance via useId or a
+  // consumer-supplied `id`) so multiple mounted Roots' rules can't collide.
+  // A plain <style> child (React text content, not dangerouslySetInnerHTML)
+  // — server-rendered and deterministic from props alone, so the server and
+  // the client's first render emit byte-identical CSS and there is no
+  // hydration mismatch risk (E5).
+  const discSizeStyleRule = `[data-disc-sheet-root="${idBase}"]{--disc-sheet-disc-size:${discSizeCss.base}px}`;
+  const discSizeStyleMd = `@media (min-width:${MD_BREAKPOINT}px){[data-disc-sheet-root="${idBase}"]{--disc-sheet-disc-size:${discSizeCss.md}px}}`;
+  const discSizeStyleXl = `@media (min-width:${XL_BREAKPOINT}px){[data-disc-sheet-root="${idBase}"]{--disc-sheet-disc-size:${discSizeCss.xl}px}}`;
+
   return (
     <DiscSheetContext.Provider value={contextValue}>
       <LayoutGroup id={idBase}>
+        <style>{`${discSizeStyleRule}${discSizeStyleMd}${discSizeStyleXl}`}</style>
         <div
           className={className}
-          data-disc-sheet-root=""
+          data-disc-sheet-root={idBase}
           style={{
             // Root's wrapper is an ANCESTOR of both <Disc> and <Sheet>, unlike
             // the disc root div (a sibling of <Sheet>), so custom properties
@@ -210,7 +254,11 @@ export function Root({
             // --disc-sheet-sheet-max-width were never written at all, leaving
             // the zIndex and sheetMaxWidth props orphaned from the CSS that
             // reads them.
-            ["--disc-sheet-disc-size" as string]: `${discSize}px`,
+            //
+            // --disc-sheet-disc-size is NOT written here anymore (D3 fix,
+            // above) — an inline style write on this element would always
+            // beat the scoped <style> block's @media rules, for any
+            // viewport, defeating the whole point of resolving it in CSS.
             ["--disc-sheet-z" as string]: String(zIndex),
             ["--disc-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
           }}

@@ -10,29 +10,45 @@ import { test, expect, type Page } from "@playwright/test";
  *   (c) content sits inside the sheet's padding box — M4
  *   (d) --disc-sheet-z / --disc-sheet-sheet-max-width respond to props — M1/M2
  *
- * KNOWN OPEN FAILURE — Defect 3 (stale first-open shared-layoutId snapshot)
- * is NOT fixed as of this commit, and tests (e), (g), (j), and (k) fail at
- * 1280x800 and 1700x1000 (never at 375x812 — no disc-size promotion happens
- * below the md breakpoint, so there is nothing to be stale). Confirmed root
- * cause: Motion's shared-layoutId tracking for the disc surface takes its
- * initial mount measurement from the SSR-safe pre-promotion (96px) paint,
- * and does not reliably catch up to the promoted size (128/144px) before a
- * fast first click — empirically, waiting several hundred ms after mount
- * removes it on its own, purely from giving Motion's own update cycle real
- * time to run. FIVE candidate fixes were tried and rejected: (1) gating the
- * layoutId prop on a "settled" flag — broke the FLIP outright (Motion does
- * not tolerate a layoutId'd node's identity/prop toggling after mount); (2)
- * remounting via `key` on settle — same breakage; (3) dispatching a
- * synthetic `resize` event post-promotion — no effect, confirming this isn't
- * resize-EVENT-driven; (4) `flushSync`-ing the promotion inside `useEffect`
- * — no effect; (5) moving the promotion to `useLayoutEffect` — made it
- * dramatically worse (600-800px), evidently by racing Disc.tsx's own mount
- * jump. None of these are silently left in the source — useDiscSize.ts is
- * unchanged from before this pass. This needs its own follow-up spike
- * (possibly a Motion version bump, or `layout` + a documented way to give
- * only the idle/non-FLIP case a zero-duration transition — the naive
- * `transition.layout.duration=0` attempt zeroed the CLOSE FLIP too, since
- * FLIP and continuous `layout` tracking share one transition channel).
+ * FIXED — Defect 3 (stale first-open shared-layoutId snapshot). Tests (e),
+ * (j), and (k) are green. FIVE candidate fixes were tried and rejected
+ * first (see git history for the full writeup that used to live here); all
+ * five tried to make Motion RE-snapshot the box AFTER JS promoted
+ * `discSize` from its SSR-safe base value: gating `layoutId` on a "settled"
+ * flag, remounting via `key`, a synthetic `resize` event, `flushSync`-ing
+ * the promotion, and moving promotion to `useLayoutEffect`. All five were
+ * on the wrong axis — Motion snapshots the element's real DOM box at first
+ * paint, not React state, so nothing that fires AFTER that paint can help.
+ *
+ * Isolation evidence that pointed at the real axis: sampling
+ * `?openDelay=0.25` at 120ms (nothing animating yet, so no spring blur) gave
+ * |Δbottom| = 0.0 / 32.0 / 48.0 at 375/1280/1700 — EXACTLY the ramp's
+ * promotion delta (128−96=32, 144−96=48), and |Δtop| stayed 0.0 throughout
+ * (the two boxes share a pinned bottom edge; see
+ * reference_pinned-bottoms-collapse-dtop-and-dheight-into-one-
+ * assertion). That means the disc-side shared element was being PAINTED at
+ * the base size on the real (non-base) viewport, not just measured wrong.
+ *
+ * The fix: make the first-paint box CORRECT instead of chasing a
+ * re-snapshot. `useDiscSize`'s JS value still resolves at vpW=0 on first
+ * render (still needed for hydration-safe position math in anchors.ts), but
+ * it no longer sizes any FLIP-tracked element. Root.tsx now renders a
+ * scoped `<style>` block with real `@media` rules for
+ * `--disc-sheet-disc-size`, derived from `resolveDiscSize` (the ramp's one
+ * source of truth) at the ramp's own breakpoints. A real `@media` query
+ * resolves correctly in the browser before any script runs, so there is
+ * never a stale value for Motion to snapshot in the first place. Neither
+ * Root.tsx's wrapper nor Disc.tsx's drag wrapper write
+ * `--disc-sheet-disc-size` inline anymore — an inline write on either would
+ * have kept beating the `<style>` block's `@media` rules regardless of
+ * viewport, which is why Disc.tsx's drag wrapper (an ANCESTOR of the
+ * disc-side `.shared`) needed the same change as Root.tsx, not just one of
+ * the two.
+ *
+ * (g) is a SEPARATE, still-unfixed defect (reversed morph — Escape fired
+ * mid-open) and stays red on purpose: it fails at all three viewports,
+ * including 375px where no disc-size promotion ever happens, so it cannot
+ * be D3. Leave it red; do not "helpfully" chase it here.
  */
 
 const VIEWPORTS = [
