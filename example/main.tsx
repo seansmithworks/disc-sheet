@@ -32,6 +32,13 @@ const zIndexOverride = testParams.has("zIndex")
 const sheetMaxWidthOverride = testParams.has("sheetMaxWidth")
   ? Number(testParams.get("sheetMaxWidth"))
   : undefined;
+// Test-only: a consumer-supplied delay on transition.open, so geometry.spec.ts
+// can assert D4 (Root.tsx's drivenOpenTransition used to force delay:0 on the
+// collapseProgress clock while Sheet.tsx's layoutId transition kept the
+// consumer's delay, desyncing the two clocks by exactly this amount).
+const openDelayOverride = testParams.has("openDelay")
+  ? Number(testParams.get("openDelay"))
+  : undefined;
 
 function App() {
   return (
@@ -45,6 +52,19 @@ function App() {
       <DiscSheet.Root
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}
+        transition={
+          openDelayOverride !== undefined
+            ? {
+                open: {
+                  type: "spring",
+                  stiffness: 375,
+                  damping: 42.5,
+                  mass: 1.75,
+                  delay: openDelayOverride,
+                },
+              }
+            : undefined
+        }
       >
         <DiscSheet.Shadow />
 

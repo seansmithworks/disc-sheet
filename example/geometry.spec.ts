@@ -9,6 +9,30 @@ import { test, expect, type Page } from "@playwright/test";
  *   (b) sheet border-radius > 0 in both motion modes — B3
  *   (c) content sits inside the sheet's padding box — M4
  *   (d) --disc-sheet-z / --disc-sheet-sheet-max-width respond to props — M1/M2
+ *
+ * KNOWN OPEN FAILURE — Defect 3 (stale first-open shared-layoutId snapshot)
+ * is NOT fixed as of this commit, and tests (e), (g), (j), and (k) fail at
+ * 1280x800 and 1700x1000 (never at 375x812 — no disc-size promotion happens
+ * below the md breakpoint, so there is nothing to be stale). Confirmed root
+ * cause: Motion's shared-layoutId tracking for the disc surface takes its
+ * initial mount measurement from the SSR-safe pre-promotion (96px) paint,
+ * and does not reliably catch up to the promoted size (128/144px) before a
+ * fast first click — empirically, waiting several hundred ms after mount
+ * removes it on its own, purely from giving Motion's own update cycle real
+ * time to run. FIVE candidate fixes were tried and rejected: (1) gating the
+ * layoutId prop on a "settled" flag — broke the FLIP outright (Motion does
+ * not tolerate a layoutId'd node's identity/prop toggling after mount); (2)
+ * remounting via `key` on settle — same breakage; (3) dispatching a
+ * synthetic `resize` event post-promotion — no effect, confirming this isn't
+ * resize-EVENT-driven; (4) `flushSync`-ing the promotion inside `useEffect`
+ * — no effect; (5) moving the promotion to `useLayoutEffect` — made it
+ * dramatically worse (600-800px), evidently by racing Disc.tsx's own mount
+ * jump. None of these are silently left in the source — useDiscSize.ts is
+ * unchanged from before this pass. This needs its own follow-up spike
+ * (possibly a Motion version bump, or `layout` + a documented way to give
+ * only the idle/non-FLIP case a zero-duration transition — the naive
+ * `transition.layout.duration=0` attempt zeroed the CLOSE FLIP too, since
+ * FLIP and continuous `layout` tracking share one transition channel).
  */
 
 const VIEWPORTS = [
@@ -66,16 +90,32 @@ async function openSheet(page: Page) {
  * while closing — both project to the same box during the FLIP, so either
  * selector matching is sufficient) for `durationMs`, via an in-page rAF loop
  * so sampling isn't gated by Playwright's own polling cadence. Returns the
- * worst |top delta| and |height delta| seen across every sampled frame —
- * this is the regression gate for the D1/D2 fix (docs: the transposed
- * layoutId transitions and the premature sheetRect clear): before that fix,
- * these two numbers were 315px (open) and 487px (close).
+ * worst |top delta|, |height delta| AND |bottom delta| seen across every
+ * sampled frame.
+ *
+ * |Δbottom| is the informative axis (adversarial review finding D5): both
+ * boxes' bottom edges are pinned to `viewport - 16` at rest, so a HEALTHY
+ * desync interpolates top and height together and leaves the bottom edge
+ * algebraically invariant — |Δtop| and |Δheight| collapse to the same
+ * number and never expose a defect that breaks that invariant (e.g. a
+ * shared-layout FLIP seeded from a stale snapshot, D3). |Δbottom| is the
+ * only axis that catches that class of bug, and previously wasn't sampled
+ * at all.
+ *
+ * Regression gate for the D1/D2 fix (docs: the transposed layoutId
+ * transitions and the premature sheetRect clear): before that fix, worstTop/
+ * worstHeight were 315px (open) and 487px (close).
  */
 async function sampleShadowSurfaceDelta(page: Page, durationMs: number) {
   return page.evaluate((duration) => {
-    return new Promise<{ worstTop: number; worstHeight: number }>((resolve) => {
+    return new Promise<{
+      worstTop: number;
+      worstHeight: number;
+      worstBottom: number;
+    }>((resolve) => {
       let worstTop = 0;
       let worstHeight = 0;
+      let worstBottom = 0;
       const start = performance.now();
       function tick() {
         const surface = document.querySelector(
@@ -89,11 +129,12 @@ async function sampleShadowSurfaceDelta(page: Page, durationMs: number) {
           const sh = shadow.getBoundingClientRect();
           worstTop = Math.max(worstTop, Math.abs(sh.top - s.top));
           worstHeight = Math.max(worstHeight, Math.abs(sh.height - s.height));
+          worstBottom = Math.max(worstBottom, Math.abs(sh.bottom - s.bottom));
         }
         if (performance.now() - start < duration) {
           requestAnimationFrame(tick);
         } else {
-          resolve({ worstTop, worstHeight });
+          resolve({ worstTop, worstHeight, worstBottom });
         }
       }
       requestAnimationFrame(tick);
@@ -241,6 +282,22 @@ for (const viewport of VIEWPORTS) {
       // and reduced-motion's own correctness is covered by a11y.spec.ts and
       // test (b) above. This gate is about the normal-motion morph only.
       if (!reduced) {
+        // Open thresholds: 30px. Close (Escape path): 6px. Tightened from
+        // 70/10 per the adversarial review's read of the post-fix spread
+        // (open worst case measured 15.1-29.6px across viewports once D1-D3
+        // are fixed; close worst case measured 2.7-4px). These stay well
+        // under the pre-fix numbers (315px open / 487px close) while no
+        // longer parking the bound miles above what a healthy run produces.
+        const OPEN_THRESHOLD_PX = 30;
+        const CLOSE_THRESHOLD_PX = 6;
+        // |Δbottom| bound: both boxes are bottom-pinned at rest, so a
+        // healthy desync leaves the bottom edge algebraically invariant
+        // (see the comment on sampleShadowSurfaceDelta). 2px is not "loose
+        // margin over noise" — it is close to zero on purpose, because this
+        // is the axis D3 (the stale first-open FLIP snapshot) breaks by
+        // tens of px while Δtop/Δheight stay inside their own bounds.
+        const BOTTOM_THRESHOLD_PX = 2;
+
         test("(e) shadow tracks the surface box through open AND close", async ({
           page,
         }) => {
@@ -257,42 +314,305 @@ for (const viewport of VIEWPORTS) {
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} open: ` +
               `worst |Δtop|=${openResult.worstTop.toFixed(1)}px, ` +
-              `worst |Δheight|=${openResult.worstHeight.toFixed(1)}px`,
+              `worst |Δheight|=${openResult.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${openResult.worstBottom.toFixed(1)}px`,
           );
-
-          // Thresholds: the shadow (Shadow.tsx) and the surface box
-          // (Sheet.tsx / Disc.tsx) are updated on two independent paths —
-          // Motion's own projection engine drives the surface FLIP, while a
-          // `collapseProgress.on("change", …)` subscription writes the
-          // shadow's geometry as plain styles. On open (no configured
-          // delay), that leaves roughly a 1-frame scheduling gap between
-          // React's passive-effect timing (which starts the collapseProgress
-          // spring) and Motion's own layout-effect timing (which starts the
-          // FLIP), and 1 frame of a fast-moving spring covers more distance
-          // at larger viewports — measured worst case is 15.1px Δtop /
-          // 54.1px Δheight at 1700px. On close, SURFACE_CLOSE_LEAD_DELAY_MS
-          // re-anchors both clocks to the same delayed start and the gap
-          // nearly disappears — measured worst case 2.7px / 2.7px. Both are
-          // one to two orders of magnitude under the pre-fix numbers (315px
-          // open / 487px close), so 70 / 10 gives real margin over the
-          // measured worst case while still catching a regression back
-          // toward "two different springs" territory.
-          const OPEN_THRESHOLD_PX = 70;
-          const CLOSE_THRESHOLD_PX = 10;
           expect(openResult.worstTop).toBeLessThan(OPEN_THRESHOLD_PX);
           expect(openResult.worstHeight).toBeLessThan(OPEN_THRESHOLD_PX);
+          expect(openResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
 
           await page.keyboard.press("Escape");
           const closeResult = await sampleShadowSurfaceDelta(page, 1200);
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} close: ` +
               `worst |Δtop|=${closeResult.worstTop.toFixed(1)}px, ` +
-              `worst |Δheight|=${closeResult.worstHeight.toFixed(1)}px`,
+              `worst |Δheight|=${closeResult.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${closeResult.worstBottom.toFixed(1)}px`,
           );
           expect(closeResult.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX);
           expect(closeResult.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX);
+          expect(closeResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
+        test("(f) shadow tracks the sheet through a swipe-to-dismiss drag (D1)", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+          await openSheet(page);
+
+          const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+          const box = (await sheet.boundingBox())!;
+          // Top strip of the sheet, above <DiscSheet.Shared>'s 24px margin
+          // and the Close button inside Content — a safe drag-handle point
+          // that isn't an interactive child.
+          const startX = box.x + box.width / 2;
+          const startY = box.y + 8;
+
+          await page.mouse.move(startX, startY);
+          await page.mouse.down();
+
+          // Drag well past SWIPE_OFFSET_PX (96) in small steps, without
+          // releasing — this is the HELD-DRAG sample the prior gate never
+          // took (it only ever closed via Escape, never via drag).
+          const dragSteps = 10;
+          for (let i = 1; i <= dragSteps; i++) {
+            await page.mouse.move(startX, startY + (140 * i) / dragSteps, {
+              steps: 1,
+            });
+          }
+
+          const held = await page.evaluate(() => {
+            const surface = document.querySelector(
+              '[data-disc-sheet-part="sheet"]',
+            )!;
+            const shadow = document.querySelector(
+              '[data-disc-sheet-part="shadow"]',
+            )!;
+            const s = surface.getBoundingClientRect();
+            const sh = shadow.getBoundingClientRect();
+            return {
+              top: Math.abs(sh.top - s.top),
+              bottom: Math.abs(sh.bottom - s.bottom),
+            };
+          });
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} held-drag: ` +
+              `|Δtop|=${held.top.toFixed(1)}px, |Δbottom|=${held.bottom.toFixed(1)}px`,
+          );
+          // Loose on purpose: mid-drag the sheet is user-dragged away from
+          // its resting anchor by up to ~140px of pointer travel, and the
+          // shadow must follow that same translation, not just settle at
+          // rest. 20px covers drag-vs-shadow frame lag without hiding a
+          // fixed-anchor shadow that never moved at all (pre-fix: ~145px on
+          // a comparable real-device swipe per the adversarial review).
+          expect(held.top).toBeLessThan(20);
+          expect(held.bottom).toBeLessThan(20);
+
+          // Release past the dismiss threshold and sample through the close
+          // this swipe triggers.
+          await page.mouse.move(startX, startY + 220, { steps: 3 });
+          await page.mouse.up();
+
+          const closeResult = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} swipe-dismiss close: ` +
+              `worst |Δtop|=${closeResult.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${closeResult.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${closeResult.worstBottom.toFixed(1)}px`,
+          );
+          expect(closeResult.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX);
+          expect(closeResult.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX);
+          expect(closeResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
+        test("(g) shadow tracks a reversed morph — Escape fired mid-open", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+          const disc = page.getByRole("button", { name: DISC_LABEL });
+          await disc.click();
+
+          // Fire the reversal partway through the open spring's settle,
+          // before it has a chance to finish — this is the state a
+          // fast-double-tap or an impatient Escape produces, and the prior
+          // gate never exercised it at all.
+          await page.waitForTimeout(160);
+          await page.keyboard.press("Escape");
+
+          const result = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} reversed-morph: ` +
+              `worst |Δtop|=${result.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${result.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${result.worstBottom.toFixed(1)}px`,
+          );
+          // The reversal itself runs the close spring/timing (same code
+          // path as a normal close), so it is held to the close bound, not
+          // the looser open one.
+          expect(result.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+          expect(result.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+          expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
+        test("(h) shadow tracks a rapid open/close toggle (3 cycles)", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+          const disc = page.getByRole("button", { name: DISC_LABEL });
+
+          let worstTop = 0;
+          let worstHeight = 0;
+          let worstBottom = 0;
+          for (let i = 0; i < 3; i++) {
+            await disc.click();
+            await page.waitForTimeout(220);
+            const openSample = await sampleShadowSurfaceDelta(page, 220);
+            worstTop = Math.max(worstTop, openSample.worstTop);
+            worstHeight = Math.max(worstHeight, openSample.worstHeight);
+            worstBottom = Math.max(worstBottom, openSample.worstBottom);
+
+            await page.keyboard.press("Escape");
+            await page.waitForTimeout(220);
+            const closeSample = await sampleShadowSurfaceDelta(page, 220);
+            worstTop = Math.max(worstTop, closeSample.worstTop);
+            worstHeight = Math.max(worstHeight, closeSample.worstHeight);
+            worstBottom = Math.max(worstBottom, closeSample.worstBottom);
+          }
+
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} rapid-toggle (3x): ` +
+              `worst |Δtop|=${worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${worstBottom.toFixed(1)}px`,
+          );
+          expect(worstTop).toBeLessThan(OPEN_THRESHOLD_PX);
+          expect(worstHeight).toBeLessThan(OPEN_THRESHOLD_PX);
+          expect(worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
+        test("(i) shadow tracks the sheet through a resize mid-close (D2)", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+          await openSheet(page);
+          await page.keyboard.press("Escape");
+
+          // 90ms into the close, resize the viewport — matches the
+          // adversarial review's repro (orientation change / iOS URL-bar
+          // collapse mid-close).
+          await page.waitForTimeout(90);
+          await page.setViewportSize({
+            width: viewport.width,
+            height: Math.round(viewport.height * 0.63),
+          });
+
+          // Two different measurements on purpose, because a live resize
+          // mid-close mixes TWO effects this repo's own methodology can't
+          // otherwise tell apart:
+          //
+          // 1. D2 itself (Sheet.tsx's resize listener now stays registered
+          //    through the whole close, so sheetRect keeps updating instead
+          //    of freezing) — this is what makes the geometry CONVERGE to a
+          //    correct end state at all, instead of staying wrong for the
+          //    rest of the close the way the pre-fix 481.7px case did.
+          // 2. A SEPARATE, NOT fixed here interaction: Disc.tsx's own
+          //    resize handler re-seats the disc wrapper with an instant
+          //    `.jump()` (no animation), and while a shared-layoutId FLIP is
+          //    actively in flight, that instant jump and the FLIP's own
+          //    in-progress transform briefly disagree about the surface's
+          //    on-screen box — producing a large, MULTI-FRAME (not
+          //    single-frame) transient right after the resize before both
+          //    sides settle back together. Confirmed via direct probing:
+          //    sheetRect itself tracks correctly the entire time (it is NOT
+          //    frozen); the transient is in the PAINTED surface box, a
+          //    genuinely different mechanism.
+          //
+          // So: the SETTLE window (last 300ms of the sample) asserts D2's
+          // own fix — convergence — and is tight. The full-window worst is
+          // logged, not gated, and documented here rather than hidden: it is
+          // large (500-900px) and is a real, separately-tracked follow-up
+          // (the disc's resize re-seat should probably suppress itself, or
+          // suppress the FLIP, while collapseProgress is mid-flight) — out
+          // of this brief's named scope (D2 was specifically the resize
+          // LISTENER teardown) but surfaced honestly rather than papered
+          // over with a threshold loose enough to swallow it silently.
+          const full = await sampleShadowSurfaceDelta(page, 1200);
+          const settleWindowMs = 300;
+          const settled = await sampleShadowSurfaceDelta(page, settleWindowMs);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} resize-mid-close FULL WINDOW (not gated, known transient — see comment): ` +
+              `worst |Δtop|=${full.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${full.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${full.worstBottom.toFixed(1)}px`,
+          );
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} resize-mid-close SETTLE WINDOW (gated, D2's own mechanism): ` +
+              `worst |Δtop|=${settled.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${settled.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${settled.worstBottom.toFixed(1)}px`,
+          );
+          expect(settled.worstTop).toBeLessThan(15);
+          expect(settled.worstHeight).toBeLessThan(15);
+        });
+
+        test("(j) cold first open does not FLIP from a stale disc-size snapshot (D3)", async ({
+          page,
+        }) => {
+          // Deliberately does NOT call waitForStableWidth or otherwise wait
+          // for useDiscSize's post-mount promotion to land before opening —
+          // that wait is exactly what makes every OTHER test in this file a
+          // warm open. This is a fresh navigation (a new Page per Playwright
+          // test) with the earliest possible click, which is what a real
+          // visitor's first interaction after page load looks like.
+          await gotoExample(page, reduced);
+          const disc = page.getByRole("button", { name: DISC_LABEL });
+          await disc.click();
+
+          const result = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} cold-first-open: ` +
+              `worst |Δtop|=${result.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${result.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${result.worstBottom.toFixed(1)}px`,
+          );
+          // |Δbottom| is the assertion that matters here — see the D3 note
+          // on sampleShadowSurfaceDelta. A stale pre-promotion snapshot
+          // breaks exactly this invariant while leaving Δtop/Δheight inside
+          // their normal bound.
+          expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
         });
       }
     });
   }
 }
+
+/**
+ * (k) — D4: a consumer's transition.open delay must reach BOTH clocks (the
+ * layoutId FLIP on <Sheet> and the collapseProgress spring driving
+ * <Shadow>), not just one. Root.tsx's drivenOpenTransition used to strip the
+ * consumer's delay from collapseProgress alone (forcing delay: 0) while
+ * Sheet.tsx passed transition.open through untouched — exactly the class of
+ * desync D1/D2 fixed, but reachable through a documented public prop.
+ *
+ * example/main.tsx plumbs `?openDelay=<seconds>` into transition.open. A
+ * consumer-set 250ms delay should hold the surface AND the shadow at the
+ * disc's own box for (most of) that window — sampled at 120ms in, well
+ * before the delay elapses, so a broken clock has already visibly diverged
+ * but a working one hasn't started moving yet.
+ */
+test.describe("1280x800 — normal — D4 consumer delay", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("(k) shadow and surface both honour transition.open's delay", async ({
+    page,
+  }) => {
+    await gotoExample(page, false, { openDelay: "0.25" });
+    const disc = page.getByRole("button", { name: DISC_LABEL });
+    await disc.click();
+
+    await page.waitForTimeout(120);
+    const midDelay = await page.evaluate(() => {
+      const surface = document.querySelector('[data-disc-sheet-part="sheet"]');
+      const shadow = document.querySelector('[data-disc-sheet-part="shadow"]');
+      if (!surface || !shadow) return null;
+      const s = surface.getBoundingClientRect();
+      const sh = shadow.getBoundingClientRect();
+      return {
+        top: Math.abs(sh.top - s.top),
+        bottom: Math.abs(sh.bottom - s.bottom),
+      };
+    });
+    expect(midDelay, "sheet must be mounted 120ms after click").not.toBeNull();
+    console.log(
+      `[geometry] 1280x800 D4 mid-delay(120ms of 250ms): ` +
+        `|Δtop|=${midDelay!.top.toFixed(1)}px, |Δbottom|=${midDelay!.bottom.toFixed(1)}px`,
+    );
+    // Both clocks are still inside the consumer's 250ms delay window at
+    // 120ms — a working component holds both at the disc's box (near 0
+    // desync). A stripped delay on one clock alone (the D4 bug) lets that
+    // clock run ahead for the whole 120ms window, which measured 182.7px at
+    // 1280 pre-fix.
+    expect(midDelay!.top).toBeLessThan(10);
+    expect(midDelay!.bottom).toBeLessThan(10);
+  });
+});
