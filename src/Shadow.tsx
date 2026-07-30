@@ -23,7 +23,14 @@ import styles from "./styles.module.css";
  */
 export function Shadow({ className, asChild, children }: ShadowProps) {
   const ctx = useDiscSheetInternal("Shadow");
-  const { collapseProgress, discRect, sheetRect, zIndex, isDragging } = ctx;
+  const {
+    collapseProgress,
+    discRect,
+    sheetRect,
+    sheetDragY,
+    zIndex,
+    isDragging,
+  } = ctx;
   const elRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -38,12 +45,21 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
           ? Math.min(sheetRect.halfWidth, sheetRect.halfHeight)
           : 0,
       };
-      const sheet = sheetRect ?? {
-        cx: disc.cx,
-        cy: disc.cy,
-        halfWidth: disc.radius,
-        halfHeight: disc.radius,
-      };
+      // sheetRect is measured from offsetLeft/Top (Sheet.tsx), which by
+      // definition excludes transforms — so a live drag on the sheet never
+      // shows up there. sheetDragY is the sheet's own drag `y` MotionValue
+      // (bound directly, not re-measured per frame — see the D1 fix note
+      // in context.ts), folded in here as a translation on top of the
+      // measured rect.
+      const dragY = sheetDragY.get();
+      const sheet = sheetRect
+        ? { ...sheetRect, cy: sheetRect.cy + dragY }
+        : {
+            cx: disc.cx,
+            cy: disc.cy,
+            halfWidth: disc.radius,
+            halfHeight: disc.radius,
+          };
 
       const cx = sheet.cx + (disc.cx - sheet.cx) * p;
       const cy = sheet.cy + (disc.cy - sheet.cy) * p;
@@ -68,9 +84,17 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
     };
 
     apply();
-    const unsubscribe = collapseProgress.on("change", apply);
-    return unsubscribe;
-  }, [collapseProgress, discRect, sheetRect]);
+    const unsubscribeProgress = collapseProgress.on("change", apply);
+    // Drag frames must re-run apply() too, or the shadow only picks up the
+    // drag offset on the NEXT collapseProgress tick (i.e. never, while the
+    // sheet sits fully open at p=0 with no progress change in flight) — this
+    // is the D1 fix.
+    const unsubscribeDrag = sheetDragY.on("change", apply);
+    return () => {
+      unsubscribeProgress();
+      unsubscribeDrag();
+    };
+  }, [collapseProgress, discRect, sheetRect, sheetDragY]);
 
   const dataState = isDragging ? "dragging" : ctx.open ? "open" : "closed";
 

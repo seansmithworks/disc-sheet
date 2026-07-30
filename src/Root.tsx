@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   LayoutGroup,
   animate,
@@ -93,6 +86,13 @@ export function Root({
   const collapseProgress = useMotionValue(1);
   const prevOpenRef = useRef<boolean | null>(null);
 
+  // Sheet's drag="y" gesture writes into this directly (bound as its motion
+  // `y` style) so Shadow can read the live drag offset without re-measuring
+  // sheetRect every drag frame (docs: the D1 fix — sheetRect is measured
+  // from offsetLeft/Top, which excludes transforms by definition, so it can
+  // never see a drag on its own).
+  const sheetDragY = useMotionValue(0);
+
   const openTransition = mergeTransition(transition?.open, DEFAULT_OPEN_SPRING);
   const closeTransition = mergeTransition(
     transition?.close,
@@ -102,11 +102,6 @@ export function Root({
   const sharedTransition = mergeTransition(
     transition?.shared,
     DEFAULT_SHARED_SPRING,
-  );
-
-  const drivenOpenTransition = useMemo(
-    () => ({ ...openTransition, delay: 0 }),
-    [openTransition],
   );
 
   // Drive collapseProgress on genuine open/close transitions only — a
@@ -130,19 +125,20 @@ export function Root({
       collapseProgress.set(1);
       // Cast: animate()'s MotionValue<number> overload wants motion-dom's
       // ValueAnimationTransition, which framer-motion doesn't re-export —
-      // drivenOpenTransition is the same public `Transition` shape used on
+      // openTransition is the same public `Transition` shape used on
       // <motion.div transition>, just not nominally that type.
-      animate(collapseProgress, 0, drivenOpenTransition as never);
+      //
+      // This must be the SAME openTransition object Sheet.tsx's layoutId
+      // transition uses (context.transition.open below), not a copy with
+      // delay forced to 0 — a consumer's transition.open.delay has to shift
+      // both the surface FLIP and this collapseProgress clock together, or
+      // the shadow desyncs from the surface for exactly the delay window
+      // (the same class of bug 686bf58 fixed for the untouched-delay case).
+      animate(collapseProgress, 0, openTransition as never);
     } else {
       animate(collapseProgress, 1, closeTransition as never);
     }
-  }, [
-    open,
-    collapseProgress,
-    drivenOpenTransition,
-    closeTransition,
-    reduceMotion,
-  ]);
+  }, [open, collapseProgress, openTransition, closeTransition, reduceMotion]);
 
   const [discRect, setDiscRect] = useState<Rect | null>(null);
   const [sheetRect, setSheetRect] = useState<SheetRect | null>(null);
@@ -186,6 +182,7 @@ export function Root({
     setDiscRect,
     sheetRect,
     setSheetRect,
+    sheetDragY,
     transition: {
       open: openTransition,
       close: closeTransition,

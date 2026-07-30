@@ -28,6 +28,13 @@ export interface DiscSheetContextValue extends DiscSheetState {
   };
   setDiscRect: (rect: Rect | null) => void;
   setSheetRect: (rect: SheetRect | null) => void;
+  /** Live drag-y offset (px) of the sheet's `drag="y"` gesture, 0 at rest.
+   * Sheet.tsx binds this as its motion `y` style so drag writes into it
+   * directly; Shadow.tsx reads it to keep the silhouette locked to the
+   * sheet's dragged position instead of its measured (pre-drag) rect —
+   * offsetLeft/Top used for sheetRect excludes transforms by definition, so
+   * this is the only signal that carries the drag. */
+  sheetDragY: MotionValue<number>;
   /** Dev-only: Close registers itself here so Root can warn if the sheet
    * opens with no visible close control rendered. */
   registerClose: () => () => void;

@@ -47,6 +47,7 @@ export function Sheet({
     sheetId,
     collapseProgress,
     setSheetRect,
+    sheetDragY,
     transition,
     triggerElRef,
     contentScrollElRef,
@@ -77,6 +78,14 @@ export function Sheet({
     };
   }, [open]);
 
+  // Reset the drag offset on every open — a value left over from the
+  // previous open's drag (or its dismiss) must not leak into a fresh mount;
+  // Shadow.tsx reads sheetDragY unconditionally, even before the user has
+  // dragged at all this time.
+  useEffect(() => {
+    if (open) sheetDragY.jump(0);
+  }, [open, sheetDragY]);
+
   useEffect(() => {
     if (
       open &&
@@ -96,6 +105,30 @@ export function Sheet({
   // and would produce a jumping rect).
   useLayoutEffect(() => {
     if (!open) return;
+    const el = sheetRef.current;
+    if (!el) return;
+    setSheetRect({
+      cx: el.offsetLeft + el.offsetWidth / 2,
+      cy: el.offsetTop + el.offsetHeight / 2,
+      halfWidth: el.offsetWidth / 2,
+      halfHeight: el.offsetHeight / 2,
+    });
+  }, [open, setSheetRect]);
+
+  // Resize listener, deliberately NOT gated on `open`: the sheet DOM node
+  // stays mounted for the entire close animation (AnimatePresence only
+  // removes it once the exit finishes), and its CSS geometry (`bottom: 16px`
+  // etc.) keeps re-laying-out live if the viewport resizes mid-close —
+  // Disc.tsx's resting position re-seats on the very same resize. Gating this
+  // listener's registration on `open` (the previous shape: one effect doing
+  // both the initial measure AND the listener, keyed on [open]) tore the
+  // listener down the INSTANT `open` flipped false, i.e. exactly when the
+  // close starts, freezing the sheet's cached rect for the whole ~1s close
+  // while the disc re-seated live — reproduced a 481.7px Δtop. Same
+  // principle as sheetRect's own release below: state a leaving element's
+  // siblings still need is released on completion, never on the state
+  // change that begins the exit.
+  useEffect(() => {
     function measure() {
       const el = sheetRef.current;
       if (!el) return;
@@ -106,19 +139,11 @@ export function Sheet({
         halfHeight: el.offsetHeight / 2,
       });
     }
-    measure();
     window.addEventListener("resize", measure);
-    // Deliberately does NOT clear sheetRect here. This cleanup runs the
-    // instant `open` flips false — i.e. exactly when the close animation
-    // STARTS, not when it finishes. Shadow.tsx reads sheetRect for the
-    // entire close morph; nulling it here collapsed the silhouette to the
-    // disc's box for the whole close animation. sheetRect is cleared once,
-    // in AnimatePresence's onExitComplete below, after the exit animation
-    // has actually finished.
     return () => {
       window.removeEventListener("resize", measure);
     };
-  }, [open, setSheetRect]);
+  }, [setSheetRect]);
 
   // Time-gate: on close, hold the sheet radius for RADIUS_CLOSE_DELAY_SEC
   // before the progress-based hold/interpolation below is allowed to round it
@@ -181,6 +206,18 @@ export function Sheet({
       info.offset.y > SWIPE_OFFSET_PX ||
       info.velocity.y > SWIPE_VELOCITY_PX_S
     ) {
+      // Once AnimatePresence starts the exit, the box's PAINTED position is
+      // governed by the layoutId FLIP target, not by the drag gesture's own
+      // y value — but the drag's elastic release/snap-back animation on
+      // sheetDragY keeps running in the background regardless, still
+      // updating a value nothing renders anymore. Shadow.tsx reads that
+      // value live, so it kept tracking a phantom in-flight release while
+      // the actual surface sat frozen at its lead-delay hold position — a
+      // flat ~30px error across the whole swipe-dismiss close. stop()
+      // freezes sheetDragY at exactly the value it holds at the moment of
+      // dismiss (matching where the surface is actually still painted, mid
+      // elastic-drag, right up until the FLIP takes over).
+      sheetDragY.stop();
       setOpen(false);
     }
   }
@@ -241,6 +278,11 @@ export function Sheet({
                   style: {
                     borderRadius,
                     zIndex: zIndex + 102,
+                    // Bound as our own MotionValue (not left for Motion's
+                    // drag gesture to create internally) so Shadow.tsx can
+                    // subscribe to the live drag offset — see the D1 fix
+                    // note on sheetDragY in context.ts.
+                    y: sheetDragY,
                     ...placementStyle,
                   },
                 })}
