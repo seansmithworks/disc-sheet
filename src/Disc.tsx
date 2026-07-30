@@ -36,6 +36,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     setDiscRect,
     transition,
     triggerElRef,
+    sheetRect,
   } = ctx;
 
   const x = useMotionValue(0);
@@ -48,6 +49,15 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     null,
   );
   const rafRef = useRef<number | null>(null);
+  // Set while <Sheet> is mounted (open, or closing but not yet exit-complete
+  // — Sheet.tsx nulls this at onExitComplete). While it's non-null, disc-
+  // surface may be mid-FLIP (it's the entering element on close), and this
+  // wrapper's own x/y transform is an ANCESTOR of that FLIPping element —
+  // jumping it instantly compounds with Motion's still-interpolating
+  // projection transform on the child, producing a large multi-frame
+  // desync. Defer the resize re-seat until the morph is provably over
+  // rather than fighting it live.
+  const pendingResizeRef = useRef(false);
 
   // Seed x/y at the anchor's resting position on mount and whenever the
   // anchor or disc size changes while the sheet is not being dragged.
@@ -67,16 +77,37 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     }
   }, [anchor, discSize, x, y]);
 
-  // Resize: re-seat the disc at its anchor's new resting position.
+  // Resize: re-seat the disc at its anchor's new resting position. While
+  // <Sheet> is mounted (sheetRect !== null), defer instead of jumping now —
+  // see pendingResizeRef above. The disc isn't visible in that window
+  // anyway (its content is gated behind `{!open && ...}` below), so nothing
+  // is lost by waiting; the flush effect re-seats at the CURRENT viewport
+  // size once the morph settles.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onResize = () => {
+      if (sheetRect !== null) {
+        pendingResizeRef.current = true;
+        return;
+      }
       x.jump(restingLeft(anchor, window.innerWidth, discSize));
       y.jump(restingTop(anchor, window.innerHeight, discSize));
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [anchor, discSize, x, y]);
+  }, [anchor, discSize, sheetRect, x, y]);
+
+  // Flush a deferred resize once the morph is over (sheetRect settles back
+  // to null at Sheet's onExitComplete, or was never set — the open case
+  // where a resize is deferred until the sheet later closes).
+  useEffect(() => {
+    if (sheetRect !== null) return;
+    if (!pendingResizeRef.current) return;
+    pendingResizeRef.current = false;
+    if (typeof window === "undefined") return;
+    x.jump(restingLeft(anchor, window.innerWidth, discSize));
+    y.jump(restingTop(anchor, window.innerHeight, discSize));
+  }, [anchor, discSize, sheetRect, x, y]);
 
   // Report the disc's live rect for the escape hatch (usePKG().discRect) and
   // for Sheet's shadow-mask morph. Also writes --disc-sheet-disc-x/-y —

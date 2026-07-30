@@ -543,32 +543,44 @@ for (const viewport of VIEWPORTS) {
           //    of freezing) — this is what makes the geometry CONVERGE to a
           //    correct end state at all, instead of staying wrong for the
           //    rest of the close the way the pre-fix 481.7px case did.
-          // 2. A SEPARATE, NOT fixed here interaction: Disc.tsx's own
-          //    resize handler re-seats the disc wrapper with an instant
-          //    `.jump()` (no animation), and while a shared-layoutId FLIP is
-          //    actively in flight, that instant jump and the FLIP's own
-          //    in-progress transform briefly disagree about the surface's
-          //    on-screen box — producing a large, MULTI-FRAME (not
-          //    single-frame) transient right after the resize before both
-          //    sides settle back together. Confirmed via direct probing:
-          //    sheetRect itself tracks correctly the entire time (it is NOT
-          //    frozen); the transient is in the PAINTED surface box, a
-          //    genuinely different mechanism.
+          // 2. A residual, KNOWN AND ACCEPTED transient, now much smaller
+          //    than it was: Disc.tsx's resize handler used to re-seat the
+          //    disc wrapper with an instant `.jump()` even while a shared-
+          //    layoutId FLIP was in flight — that ancestor-transform jump
+          //    compounded with the FLIP's own in-progress transform on its
+          //    child (disc-surface), producing an 868–869px worst-case
+          //    (375/1280/1700: 868–869 / 586–587 / 651–653px, three runs).
+          //    Fixed: the handler now defers the re-seat (pendingResizeRef)
+          //    until Sheet's onExitComplete nulls sheetRect, matching the
+          //    onExitComplete pattern already established for sheetRect's
+          //    own release. That cut the worst case by ~60–70% (three runs,
+          //    375/1280/1700: 298–299 / 294–295 / 367–369px) but did not
+          //    zero it, because a SEPARATE, structurally different
+          //    mechanism remains: this test's queried "surface" (the actual
+          //    disc-surface/sheet DOM box) reflows natively and
+          //    synchronously the instant the viewport resizes, while
+          //    Shadow.tsx's silhouette is driven by `sheetRect`, which is
+          //    D2's OWN tracking value — plumbed through React state, one
+          //    render tick behind the native reflow by construction.
+          //    Removing that lag would mean making sheetRect update
+          //    synchronously with the resize event, which touches the exact
+          //    mechanism D2 fixed and is out of this test's bounds. worst
+          //    |Δheight| stays ~2.5–4px throughout (both boxes keep the
+          //    right SIZE — this is a POSITION-only artifact, same
+          //    signature as the fixed defect, opposite of D3).
           //
           // So: the SETTLE window (last 300ms of the sample) asserts D2's
-          // own fix — convergence — and is tight. The full-window worst is
-          // logged, not gated, and documented here rather than hidden: it is
-          // large (500-900px) and is a real, separately-tracked follow-up
-          // (the disc's resize re-seat should probably suppress itself, or
-          // suppress the FLIP, while collapseProgress is mid-flight) — out
-          // of this brief's named scope (D2 was specifically the resize
-          // LISTENER teardown) but surfaced honestly rather than papered
-          // over with a threshold loose enough to swallow it silently.
+          // own fix — convergence — and is tight. The FULL window is now
+          // gated too, at a bound with real headroom over three stable
+          // post-fix runs (worst observed 369px at 1700x1000): this is an
+          // accepted, bounded artifact of resizing mid-morph, not an
+          // unknown regression budget.
+          const FULL_WINDOW_THRESHOLD_PX = 450;
           const full = await sampleShadowSurfaceDelta(page, 1200);
           const settleWindowMs = 300;
           const settled = await sampleShadowSurfaceDelta(page, settleWindowMs);
           console.log(
-            `[geometry] ${viewport.width}x${viewport.height} resize-mid-close FULL WINDOW (not gated, known transient — see comment): ` +
+            `[geometry] ${viewport.width}x${viewport.height} resize-mid-close FULL WINDOW (gated, known bounded transient — see comment): ` +
               `worst |Δtop|=${full.worstTop.toFixed(1)}px, ` +
               `worst |Δheight|=${full.worstHeight.toFixed(1)}px, ` +
               `worst |Δbottom|=${full.worstBottom.toFixed(1)}px`,
@@ -579,6 +591,7 @@ for (const viewport of VIEWPORTS) {
               `worst |Δheight|=${settled.worstHeight.toFixed(1)}px, ` +
               `worst |Δbottom|=${settled.worstBottom.toFixed(1)}px`,
           );
+          expect(full.worstBottom).toBeLessThan(FULL_WINDOW_THRESHOLD_PX);
           expect(settled.worstTop).toBeLessThan(15);
           expect(settled.worstHeight).toBeLessThan(15);
         });
