@@ -456,9 +456,27 @@ for (const viewport of VIEWPORTS) {
               `worst |Δheight|=${result.worstHeight.toFixed(1)}px, ` +
               `worst |Δbottom|=${result.worstBottom.toFixed(1)}px`,
           );
-          // The reversal itself runs the close spring/timing (same code
-          // path as a normal close), so it is held to the close bound, not
-          // the looser open one.
+          // Was: "the reversal runs the close spring/timing (same code path
+          // as a normal close)". That was never true, and the pre-fix
+          // numbers prove it — worstTop measured 26-37px here vs. 2.7-4px
+          // for an actual close (e). The real cause: collapseProgress's
+          // animate() call inherited the in-flight open animation's
+          // velocity by default (motion-dom's animateMotionValue defaults to
+          // value.getVelocity()), while Motion's own layout-projection
+          // spring — the one actually moving the shared-layoutId surface —
+          // unconditionally restarts its internal progress value at
+          // velocity 0 on every animation, reversal or not
+          // (motion-dom's create-projection-node.mjs startAnimation:
+          // `jump(0, false)` then `animateSingleValue(..., { velocity: 0
+          // })`). Two clocks starting a reversal from different velocities
+          // diverge. Root.tsx's collapseProgress animate() calls now pass
+          // an explicit `velocity: 0` on both the open and close branches to
+          // match — sampled 26x across all three viewports post-fix:
+          // worstTop 5.7-11.9px. That is a real fix (26-37px -> 5.7-11.9px),
+          // but it only aligned the two clocks' STARTING velocity, not their
+          // spring constants, so a reversal still settles a few px above
+          // what a fresh close (e) achieves (2.7-4px) — hence this stays at
+          // CLOSE_THRESHOLD_PX * 3, not CLOSE_THRESHOLD_PX itself.
           expect(result.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
           expect(result.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
           expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);

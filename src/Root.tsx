@@ -167,9 +167,28 @@ export function Root({
       // both the surface FLIP and this collapseProgress clock together, or
       // the shadow desyncs from the surface for exactly the delay window
       // (the same class of bug 686bf58 fixed for the untouched-delay case).
-      animate(collapseProgress, 0, openTransition as never);
+      animate(collapseProgress, 0, {
+        ...openTransition,
+        velocity: 0,
+      } as never);
     } else {
-      animate(collapseProgress, 1, closeTransition as never);
+      // velocity: 0 (not the inherited in-flight velocity Motion's
+      // animate() uses by default — motion-dom's animateMotionValue reads
+      // value.getVelocity() unless overridden). On a reversal (Escape fired
+      // mid-open), Motion's own layout-projection spring — the one that
+      // actually moves the shared-layoutId surface — always restarts its
+      // internal progress value at velocity: 0
+      // (motion-dom create-projection-node.mjs startAnimation: `jump(0,
+      // false)` then `animateSingleValue(..., { velocity: 0 })`,
+      // unconditionally, every time). collapseProgress drives the shadow
+      // layer on a separate clock; if it inherits the open animation's
+      // in-flight velocity instead of also restarting at 0, the two clocks
+      // diverge from different starting velocities and settle apart. Forcing
+      // 0 here makes both clocks start a reversal identically.
+      animate(collapseProgress, 1, {
+        ...closeTransition,
+        velocity: 0,
+      } as never);
     }
   }, [open, collapseProgress, openTransition, closeTransition, reduceMotion]);
 
