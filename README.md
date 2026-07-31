@@ -228,5 +228,4 @@ code.
 
 ## License
 
-No `LICENSE` file or `license` field ships in this package as extracted.
-Confirm licensing before publishing.
+MIT. See `LICENSE` for the full text.
