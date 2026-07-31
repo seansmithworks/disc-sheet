@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 // Relative import: the example lives inside the package repo itself (no
 // publish step yet), so it reaches the package the same way main.tsx does.
-// A real consumer would import from "@seansmith/disc-sheet".
+// A real consumer would import from "@seansmithworks/disc-sheet".
 import { useDiscSheet } from "../src/index";
 
 /**

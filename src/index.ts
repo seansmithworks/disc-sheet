@@ -25,8 +25,6 @@ import { Shadow } from "./Shadow";
  *   </DiscSheet.Sheet>
  * </DiscSheet.Root>
  * ```
- *
- * Name is provisional — see README.
  */
 export const DiscSheet = {
   Root,

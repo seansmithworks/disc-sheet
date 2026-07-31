@@ -1,8 +1,8 @@
 {
-  "name": "@seansmith/disc-sheet",
+  "name": "@seansmithworks/disc-sheet",
   "version": "0.1.0",
   "type": "module",
-  "description": "Draggable disc that morphs into a modal sheet. Generic React primitive, compound-component API. Name is provisional — see README.",
+  "description": "Draggable disc that morphs into a modal sheet. Generic React primitive, compound-component API.",
   "exports": {
     ".": "./src/index.ts"
   },

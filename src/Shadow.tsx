@@ -18,7 +18,7 @@ import styles from "./styles.module.css";
  * asChild: clones the single child and merges the fixed positioning,
  * z-index, aria-hidden, pointer-events, data-* attributes, and all
  * --disc-sheet-shadow-* custom properties onto it — the shape a consumer
- * swaps in a `@seansmith/surface-fx` dither layer through. This package
+ * swaps in a `@seansmithworks/surface-fx` dither layer through. This package
  * never imports surface-fx (docs/PACKAGE-DESIGN.md §4).
  */
 export function Shadow({ className, asChild, children }: ShadowProps) {
