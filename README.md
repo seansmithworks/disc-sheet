@@ -36,6 +36,14 @@ const nextConfig = {
 
 This mirrors how `@seansmithworks/device-frame` is consumed.
 
+### Vite
+
+Works with no config. Because the package ships TypeScript source rather than
+compiled output, a Vite consumer's own `tsc -b` typechecks our `src/`
+directly as part of `npm run build` — so an unusually strict or
+`types`-restricted consumer `tsconfig.json` typechecks our source too, not
+just yours.
+
 ## Peer dependencies
 
 - `react` >=19

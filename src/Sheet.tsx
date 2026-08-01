@@ -20,6 +20,11 @@ import { useDialogBehavior } from "./useDialogBehavior";
 import type { SheetProps } from "./types";
 import styles from "./styles.module.css";
 
+// `process` is not declared in a Vite consumer's tsconfig (`types` is an
+// allowlist, so @types/node never loads). Declare it locally rather than
+// depending on the consumer's ambient globals.
+declare const process: { env: { NODE_ENV?: string } } | undefined;
+
 /**
  * <DiscSheet.Sheet> — the modal surface. Shares the disc's layoutId so
  * Motion FLIPs the box between the two, and drives border-radius as a pure
@@ -89,6 +94,7 @@ export function Sheet({
   useEffect(() => {
     if (
       open &&
+      typeof process !== "undefined" &&
       process.env.NODE_ENV !== "production" &&
       !hasRegisteredClose()
     ) {
