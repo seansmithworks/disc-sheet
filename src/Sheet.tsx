@@ -23,7 +23,7 @@ import styles from "./styles.module.css";
 // `process` is not declared in a Vite consumer's tsconfig (`types` is an
 // allowlist, so @types/node never loads). Declare it locally rather than
 // depending on the consumer's ambient globals.
-declare const process: { env: { NODE_ENV?: string } } | undefined;
+declare const process: { env: { NODE_ENV?: string } };
 
 /**
  * <DiscSheet.Sheet> — the modal surface. Shares the disc's layoutId so
@@ -94,7 +94,6 @@ export function Sheet({
   useEffect(() => {
     if (
       open &&
-      typeof process !== "undefined" &&
       process.env.NODE_ENV !== "production" &&
       !hasRegisteredClose()
     ) {
