@@ -130,7 +130,6 @@ package renders correctly out of the box:
 | `--disc-sheet-sheet-radius` | `32px` |
 | `--disc-sheet-disc-radius` | `9999px` |
 | `--disc-sheet-sheet-padding` | `24px` |
-| `--disc-sheet-edge-margin` | `16px` |
 | `--disc-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
 | `--disc-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |
 | `--disc-sheet-z` | `100` |

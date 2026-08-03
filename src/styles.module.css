@@ -133,7 +133,7 @@
   bottom: 16px;
   display: flex;
   flex-direction: column;
-  background: var(--disc-sheet-surface, #faf7f2);
+  background: var(--disc-sheet-surface-elevated, #f4f0e8);
   border: 1px solid var(--disc-sheet-surface-border, #e6dfd2);
   /* Motion's inline borderRadius MotionValue (Sheet.tsx) wins during the
    * morph; this supplies the resting shape AND the reduced-motion shape,

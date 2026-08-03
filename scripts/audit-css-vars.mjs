@@ -14,6 +14,16 @@
  *
  * Exit 0 and print a clean report if every read var is covered. Exit 1 and
  * list the orphans otherwise.
+ *
+ * Inverse direction: every --disc-sheet-* variable the README documents as a
+ * consumer token must actually be READ somewhere in src/ (the CSS module's
+ * var(...) calls, or a JS/TS reference — e.g. readVarPx). A documented var
+ * nothing reads is dead documentation: a consumer who sets it gets silence,
+ * and nothing in the repo would ever tell them. This is the audit's
+ * structural blind spot — "read implies written-or-documented" says nothing
+ * about "documented implies read" — and it is exactly how
+ * --disc-sheet-surface-elevated and --disc-sheet-edge-margin survived as
+ * phantom tokens in the README with zero occurrences in src/.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -64,6 +74,16 @@ const readmePath = join(ROOT, "README.md");
 const readme = readFileSync(readmePath, "utf8");
 const documentedVars = uniqueMatches(readme, VAR_RE);
 
+// 3b. Just the theming TABLE rows (`| \`--disc-sheet-x\` | ... |`), not the
+// "package writes ..." prose list further down. The two are documented
+// differently on purpose: table rows are the consumer-set contract this
+// inverse check is guarding; the prose list is package-written-and-consumer-
+// read vars (e.g. --disc-sheet-collapse), which the CSS/JS read scan below
+// would false-positive on if it tried to hold them to the same rule.
+const tableRowRe = /^\|\s*`(--disc-sheet-[a-zA-Z0-9-]+)`\s*\|/gm;
+const tableDocumentedVars = new Set();
+for (const m of readme.matchAll(tableRowRe)) tableDocumentedVars.add(m[1]);
+
 const orphans = [...readVars].filter(
   (v) => !writtenVars.has(v) && !documentedVars.has(v),
 );
@@ -73,14 +93,45 @@ console.log(`Written by package (JS/TS): ${writtenVars.size}`);
 console.log(`Documented (README table):  ${documentedVars.size}`);
 console.log("");
 
+// 4. Vars READ anywhere in src/: styles.module.css's var(...) calls (readVars
+// from step 1), plus any --disc-sheet-* string literal passed to a runtime
+// getter (getPropertyValue(...) / readVarPx(...)) in JS/TS. This is
+// deliberately broader than "written" — a var can be read without the
+// package ever writing it (e.g. a shape token a consumer overrides and the
+// package reads back via readVarPx).
+const jsReadRe =
+  /(?:getPropertyValue|readVarPx)\(\s*[^,]*,?\s*["'](--disc-sheet-[a-zA-Z0-9-]+)["']/g;
+const jsReadVars = new Set();
+for (const file of srcFiles) {
+  const text = readFileSync(file, "utf8");
+  for (const m of text.matchAll(jsReadRe)) jsReadVars.add(m[1]);
+}
+const readAnywhere = new Set([...readVars, ...jsReadVars]);
+
+// Documented table vars nothing in src/ ever reads — dead documentation.
+// This is the inverse of the orphan check above: "documented implies read,"
+// not just "read implies documented."
+const unreadDocumented = [...tableDocumentedVars].filter(
+  (v) => !readAnywhere.has(v),
+);
+
 if (orphans.length > 0) {
   console.error("FAIL — CSS reads a variable that is neither written nor documented:");
   for (const v of orphans.sort()) console.error(`  ${v}`);
   process.exit(1);
 }
 
+if (unreadDocumented.length > 0) {
+  console.error(
+    "FAIL — README documents a variable that nothing in src/ ever reads:",
+  );
+  for (const v of unreadDocumented.sort()) console.error(`  ${v}`);
+  process.exit(1);
+}
+
 console.log("PASS — every --disc-sheet-* variable styles.module.css reads is either");
-console.log("written by the package or documented as a consumer token.");
+console.log("written by the package or documented as a consumer token, and every");
+console.log("documented consumer token is actually read somewhere in src/.");
 console.log("");
 console.log("Read vars:");
 for (const v of [...readVars].sort()) console.log(`  ${v}`);
