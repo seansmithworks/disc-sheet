@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import {
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   LayoutGroup,
   animate,
@@ -16,6 +22,7 @@ import {
   mergeTransition,
   SURFACE_CLOSE_LEAD_DELAY_MS,
 } from "./motion";
+import type { Transition } from "motion/react";
 import type { Rect, RootProps, SheetRect } from "./types";
 import {
   MD_BREAKPOINT,
@@ -137,12 +144,111 @@ export function Root({
     DEFAULT_SHARED_SPRING,
   );
 
+  // ── Clock coupling (audit M2: "a ghost card leads the sheet on open") ─────
+  // The shadow's collapseProgress clock and Motion's layout-projection clock
+  // for the shared layoutId must START TOGETHER. They didn't, and the gap was
+  // never a fixed number of frames — it scaled with how much work the page's
+  // open commit did (measured: ~15ms on the generic example, ~24ms on the
+  // flagship, both a LEAD, i.e. the shadow running ahead).
+  //
+  // Mechanism, from motion-dom 12.43's source rather than inference:
+  //   * `time.now()` (frameloop/sync-time.mjs) is NOT performance.now() — it
+  //     caches one timestamp per microtask checkpoint. A click handler, the
+  //     React render/commit it triggers, and the passive effects React runs
+  //     at the end of that same task all share ONE cached value, stamped
+  //     whenever Motion first asked for the time in that task (pointer
+  //     handling, well before the commit).
+  //   * `animate(motionValue, …)` builds an AsyncMotionValueAnimation whose
+  //     `createdAt = time.now()` becomes the underlying JSAnimation's
+  //     `startTime` (AsyncMotionValueAnimation.mjs). Called from an effect,
+  //     it therefore back-dates its start to the top of the click task.
+  //   * Motion's own layout animation is created later, in the microtask
+  //     `didUpdate() → microtask.read(scheduleUpdate)` schedules AFTER the
+  //     commit (create-projection-node.mjs), where `frameData.timestamp` has
+  //     been re-stamped — so it starts from a FRESH clock.
+  // The delta between those two stamps is exactly the commit's own duration,
+  // which is why the flagship (bigger tree, heavier commit) desynced ~1.6x
+  // harder than the generic example, and why no constant frame offset could
+  // ever fix it (the rejected double-rAF attempt overshot into a ~90px trail
+  // for the same reason — it moved our start into a fresh, LATER task).
+  //
+  // The fix is structural, not a delay: arm the morph here, and let Motion's
+  // own `onLayoutAnimationStart` (fired synchronously from JSAnimation's
+  // play(), inside the frameloop pass that creates the projection animation)
+  // pull the trigger. `time.now()` inside that callback returns the very
+  // `frameData.timestamp` the projection animation stamped itself with, so
+  // both clocks get an identical startTime by construction — on both the
+  // open (Sheet's `.sheet` is the entering element) and the close (Disc's
+  // `.discSurface` is), and for any consumer transition, delay included,
+  // since both sides read the same transition object (D4).
+  //
+  // The same rule covers a RE-start: if the sheet's own box changes mid-morph
+  // (a font landing, an image finishing), Motion abandons the layout
+  // animation in flight and starts a fresh one from wherever the box is now,
+  // at velocity 0, toward the new layout. Both curves are then
+  // `start + (end - start) * g(t)` for the same normalized spring g, so the
+  // shadow stays locked to the surface only if it restarts on the same frame
+  // — hence startMorphClock re-fires for the whole duration of a morph, not
+  // just once. `from` gates it to whichever element is the LEAD for this
+  // direction (Sheet on open, Disc on close); the other one is a follow node
+  // whose own layout animation must not re-time the morph.
+  const morphRef = useRef<{
+    to: number;
+    transition: Transition;
+    started: boolean;
+  } | null>(null);
+  const morphFallbackRafRef = useRef<number | null>(null);
+
+  const startMorphClock = useCallback(
+    (from: "disc" | "sheet") => {
+      const morph = morphRef.current;
+      if (!morph) return;
+      if ((morph.to === 0) !== (from === "sheet")) return;
+      // Already settled on target — an unrelated layout animation on an
+      // idle disc/sheet, not a morph to re-time.
+      if (morph.started && collapseProgress.get() === morph.to) return;
+      morph.started = true;
+      if (morphFallbackRafRef.current !== null) {
+        cancelAnimationFrame(morphFallbackRafRef.current);
+        morphFallbackRafRef.current = null;
+      }
+      // Cast: animate()'s MotionValue<number> overload wants motion-dom's
+      // ValueAnimationTransition, which framer-motion doesn't re-export — the
+      // transition here is the same public `Transition` shape used on
+      // <motion.div transition>, just not nominally that type.
+      //
+      // velocity: 0 (not the inherited in-flight velocity Motion's animate()
+      // uses by default — motion-dom's animateMotionValue reads
+      // value.getVelocity() unless overridden). Motion's own layout-projection
+      // spring — the one that actually moves the shared-layoutId surface —
+      // always (re)starts its internal progress value at velocity: 0
+      // (motion-dom create-projection-node.mjs startAnimation: `jump(0,
+      // false)` then `animateSingleValue(…, { velocity: 0 })`,
+      // unconditionally, every time). collapseProgress drives the shadow
+      // layer on a separate clock; if it inherits the previous animation's
+      // in-flight velocity instead of also restarting at 0, the two clocks
+      // diverge from different starting velocities and settle apart — on a
+      // reversal (Escape fired mid-open) and on a mid-morph relayout alike.
+      animate(collapseProgress, morph.to, {
+        ...morph.transition,
+        velocity: 0,
+      } as never);
+    },
+    [collapseProgress],
+  );
+
   // Drive collapseProgress on genuine open/close transitions only — a
   // reference change on `transition` while the sheet is already open must
-  // never re-trigger the bloom. Runs as an effect (not during render):
-  // animate() is a side effect and must not fire synchronously in the
-  // render pass.
-  useEffect(() => {
+  // never re-trigger the bloom.
+  //
+  // A LAYOUT effect, deliberately: this only arms a ref and seeds a
+  // MotionValue (no animate() call, so nothing side-effecting runs in the
+  // render pass), and running during the commit is what guarantees the arm
+  // lands BEFORE the microtask in which Motion creates the layout animation
+  // and fires onLayoutAnimationStart. A passive effect happens to run first
+  // on React 19 too, but only by scheduling accident; the ordering the fix
+  // depends on should be the one React actually contracts.
+  useLayoutEffect(() => {
     const wasOpen = prevOpenRef.current === true;
     prevOpenRef.current = open;
     const isOpening = open && !wasOpen;
@@ -150,72 +256,40 @@ export function Root({
     if (!isOpening && !isClosing) return;
 
     if (reduceMotion) {
+      morphRef.current = null;
       collapseProgress.jump(open ? 0 : 1);
       return;
     }
 
     if (isOpening) {
       collapseProgress.set(1);
-      // Cast: animate()'s MotionValue<number> overload wants motion-dom's
-      // ValueAnimationTransition, which framer-motion doesn't re-export —
-      // openTransition is the same public `Transition` shape used on
-      // <motion.div transition>, just not nominally that type.
-      //
-      // This must be the SAME openTransition object Sheet.tsx's layoutId
-      // transition uses (context.transition.open below), not a copy with
-      // delay forced to 0 — a consumer's transition.open.delay has to shift
-      // both the surface FLIP and this collapseProgress clock together, or
-      // the shadow desyncs from the surface for exactly the delay window
-      // (the same class of bug 686bf58 fixed for the untouched-delay case).
-      //
-      // Audit M2 ("ghost card on open") prescribes deferring this call into
-      // a double requestAnimationFrame, reasoning that Motion's layout
-      // projection for the newly mounted shared layoutId doesn't start
-      // until ~2 rendered frames after this commit, so starting
-      // collapseProgress immediately lets the shadow lead the real surface
-      // by that window. DEVIATION, measured not assumed: on this
-      // environment/Motion version that diagnosis doesn't hold. Baseline
-      // (this synchronous call, unchanged) measures the shadow leading the
-      // flagship's surface by ~47-52px (close to the audit's reported
-      // 63.8px) and the generic example's by ~9-12px, both decaying to
-      // single digits by ~250ms — consistent with the audit. But adding
-      // EITHER a single or a double rAF delay here doesn't shrink that gap
-      // — it overshoots it and flips the sign: the flagship's ~50px LEAD
-      // becomes an ~90-95px TRAIL (worse in magnitude, wrong direction) and
-      // the generic example's ~10px lead becomes a ~44-47px trail, blowing
-      // through geometry.spec.ts's own OPEN_THRESHOLD_PX (30) on every
-      // viewport (`npm run test:geometry`). Sampled via an in-page rAF probe
-      // identical in method to sampleShadowSurfaceDelta, both with and
-      // without the delay, on both pages, repeatably. Given a confidently-
-      // wrong "fix" here would both regress the protected geometry suite AND
-      // make the flagship's actual open worse by the audit's own metric,
-      // left as a synchronous call (unchanged from pre-fix) rather than
-      // landing the rAF delay. Root cause still open — see
-      // docs/PACKAGE-DESIGN.md or a follow-up task; M1 and M11 are landed.
-      animate(collapseProgress, 0, {
-        ...openTransition,
-        velocity: 0,
-      } as never);
-    } else {
-      // velocity: 0 (not the inherited in-flight velocity Motion's
-      // animate() uses by default — motion-dom's animateMotionValue reads
-      // value.getVelocity() unless overridden). On a reversal (Escape fired
-      // mid-open), Motion's own layout-projection spring — the one that
-      // actually moves the shared-layoutId surface — always restarts its
-      // internal progress value at velocity: 0
-      // (motion-dom create-projection-node.mjs startAnimation: `jump(0,
-      // false)` then `animateSingleValue(..., { velocity: 0 })`,
-      // unconditionally, every time). collapseProgress drives the shadow
-      // layer on a separate clock; if it inherits the open animation's
-      // in-flight velocity instead of also restarting at 0, the two clocks
-      // diverge from different starting velocities and settle apart. Forcing
-      // 0 here makes both clocks start a reversal identically.
-      animate(collapseProgress, 1, {
-        ...closeTransition,
-        velocity: 0,
-      } as never);
     }
-  }, [open, collapseProgress, openTransition, closeTransition, reduceMotion]);
+    morphRef.current = {
+      to: isOpening ? 0 : 1,
+      transition: isOpening ? openTransition : closeTransition,
+      started: false,
+    };
+    // Fallback for the morphs Motion never reports a layout animation for:
+    // a <Root defaultOpen> mount (nothing to FLIP from), or a layout that
+    // measured unchanged. Cannot preempt the real trigger — Motion creates
+    // the layout animation in a microtask after this commit, and a rAF
+    // scheduled here cannot run until after that microtask has drained.
+    if (morphFallbackRafRef.current !== null) {
+      cancelAnimationFrame(morphFallbackRafRef.current);
+    }
+    const fallbackFrom = isOpening ? "sheet" : "disc";
+    morphFallbackRafRef.current = requestAnimationFrame(() => {
+      morphFallbackRafRef.current = null;
+      if (!morphRef.current?.started) startMorphClock(fallbackFrom);
+    });
+  }, [
+    open,
+    collapseProgress,
+    openTransition,
+    closeTransition,
+    reduceMotion,
+    startMorphClock,
+  ]);
 
   const [discRect, setDiscRect] = useState<Rect | null>(null);
   const [sheetRect, setSheetRect] = useState<SheetRect | null>(null);
@@ -271,6 +345,7 @@ export function Root({
     sheetRect,
     setSheetRect,
     sheetDragY,
+    startMorphClock,
     transition: {
       open: openTransition,
       close: closeTransition,

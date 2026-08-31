@@ -35,6 +35,13 @@ export interface DiscSheetContextValue extends DiscSheetState {
    * a relay rather than a directly-shared instance. Sheet.tsx's own `.sheet`
    * binds to its local computation directly, not to this. */
   collapseRadius: MotionValue<number>;
+  /** Starts the armed collapseProgress morph (audit M2). Root arms a pending
+   * morph in its own layout effect; whichever of Sheet's `.sheet` (open) or
+   * Disc's `.discSurface` (close) receives Motion's `onLayoutAnimationStart`
+   * calls this, so the shadow clock and Motion's layout-projection clock are
+   * created in the SAME frameloop pass and therefore share a start time. See
+   * the long note in Root.tsx. No-op when nothing is armed. */
+  startMorphClock: (from: "disc" | "sheet") => void;
   /** Live drag-y offset (px) of the sheet's `drag="y"` gesture, 0 at rest.
    * Sheet.tsx binds this as its motion `y` style so drag writes into it
    * directly; Shadow.tsx reads it to keep the silhouette locked to the

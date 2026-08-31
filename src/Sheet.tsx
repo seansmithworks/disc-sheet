@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { sheetPlacement } from "./anchors";
 import { SlotContext, useDiscSheetInternal } from "./context";
 import { SWIPE_OFFSET_PX, SWIPE_VELOCITY_PX_S } from "./motion";
 import { useCollapseRadius } from "./useCollapseRadius";
 import { useDialogBehavior } from "./useDialogBehavior";
-import type { SheetProps } from "./types";
+import type { SheetProps, SheetRect } from "./types";
 import styles from "./styles.module.css";
 
 // `process` is not declared in a Vite consumer's tsconfig (`types` is an
@@ -48,6 +48,7 @@ export function Sheet({
     contentScrollElRef,
     hasRegisteredClose,
     collapseRadius,
+    startMorphClock,
   } = ctx;
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -82,18 +83,71 @@ export function Sheet({
 
   // Measure the sheet's settled CSS geometry (offsetLeft/Top, not
   // getBoundingClientRect — the latter includes the in-flight FLIP transform
-  // and would produce a jumping rect).
+  // and would produce a jumping rect). `force` skips the unchanged-box guard,
+  // for the callers that must publish a rect even if it matches the last one
+  // (the open below, after sheetRect has been released to null on the
+  // previous exit-complete).
+  const lastSheetRectRef = useRef<SheetRect | null>(null);
+  const measureSheetRect = useCallback(
+    (force: boolean) => {
+      const el = sheetRef.current;
+      if (!el) return;
+      const next: SheetRect = {
+        cx: el.offsetLeft + el.offsetWidth / 2,
+        cy: el.offsetTop + el.offsetHeight / 2,
+        halfWidth: el.offsetWidth / 2,
+        halfHeight: el.offsetHeight / 2,
+      };
+      const last = lastSheetRectRef.current;
+      if (
+        !force &&
+        last &&
+        Math.abs(last.cx - next.cx) < 0.25 &&
+        Math.abs(last.cy - next.cy) < 0.25 &&
+        Math.abs(last.halfWidth - next.halfWidth) < 0.25 &&
+        Math.abs(last.halfHeight - next.halfHeight) < 0.25
+      ) {
+        return;
+      }
+      lastSheetRectRef.current = next;
+      setSheetRect(next);
+    },
+    [setSheetRect],
+  );
+
   useLayoutEffect(() => {
     if (!open) return;
-    const el = sheetRef.current;
-    if (!el) return;
-    setSheetRect({
-      cx: el.offsetLeft + el.offsetWidth / 2,
-      cy: el.offsetTop + el.offsetHeight / 2,
-      halfWidth: el.offsetWidth / 2,
-      halfHeight: el.offsetHeight / 2,
-    });
-  }, [open, setSheetRect]);
+    measureSheetRect(true);
+  }, [open, measureSheetRect]);
+
+  // The sheet's own box can change AFTER the open commit that measured it —
+  // a web font landing, an image finishing, a scrollbar appearing. Motion's
+  // layout projection re-targets the surface on that relayout; without this,
+  // Shadow.tsx keeps interpolating toward the box measured above and holds
+  // the resulting error for the rest of the morph and beyond (measured on
+  // the flagship example at 390x844: the sheet's first open grew 592 -> 618px
+  // when its text fonts landed ~40ms in, and the shadow sat 26px off the
+  // surface from that frame onward — the second open, fonts cached, tracked
+  // to 0.2px). A callback ref rather than an effect so the observer's
+  // lifetime is exactly the sheet element's own: attached while it is in the
+  // DOM, still attached through the whole exit animation (same principle as
+  // the resize listener below), detached when React removes the node.
+  const sheetResizeObserverRef = useRef<ResizeObserver | null>(null);
+  const attachSheetRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      sheetRef.current = node;
+      sheetResizeObserverRef.current?.disconnect();
+      sheetResizeObserverRef.current = null;
+      if (!node || typeof ResizeObserver === "undefined") {
+        lastSheetRectRef.current = null;
+        return;
+      }
+      const observer = new ResizeObserver(() => measureSheetRect(false));
+      observer.observe(node);
+      sheetResizeObserverRef.current = observer;
+    },
+    [measureSheetRect],
+  );
 
   // Resize listener, deliberately NOT gated on `open`: the sheet DOM node
   // stays mounted for the entire close animation (AnimatePresence only
@@ -109,21 +163,12 @@ export function Sheet({
   // siblings still need is released on completion, never on the state
   // change that begins the exit.
   useEffect(() => {
-    function measure() {
-      const el = sheetRef.current;
-      if (!el) return;
-      setSheetRect({
-        cx: el.offsetLeft + el.offsetWidth / 2,
-        cy: el.offsetTop + el.offsetHeight / 2,
-        halfWidth: el.offsetWidth / 2,
-        halfHeight: el.offsetHeight / 2,
-      });
-    }
+    const measure = () => measureSheetRect(true);
     window.addEventListener("resize", measure);
     return () => {
       window.removeEventListener("resize", measure);
     };
-  }, [setSheetRect]);
+  }, [measureSheetRect]);
 
   // Extracted (audit M1) so the exact same hold/interpolation curve is
   // available to Disc.tsx's disc-surface too — see useCollapseRadius.ts.
@@ -231,7 +276,7 @@ export function Sheet({
       >
         {open && (
           <motion.div
-            ref={sheetRef}
+            ref={attachSheetRef}
             id={sheetId}
             className={`${styles.sheet} ${className ?? ""}`}
             data-disc-sheet-part="sheet"
@@ -260,6 +305,15 @@ export function Sheet({
                   // which is why the shadow silhouette and this box visibly
                   // separated on open.
                   transition: transition.open,
+                  // audit M2: this element is the entering side of the shared
+                  // layoutId on OPEN, so its layout animation is the one that
+                  // moves the box — starting Root's collapseProgress clock
+                  // from here puts both animations in the same frameloop pass
+                  // with the same start time. Root ignores this unless it has
+                  // a morph armed, so the layout animations Motion runs for
+                  // anything else (a resize-driven relayout, say) can't
+                  // re-trigger the bloom. See Root.tsx's clock-coupling note.
+                  onLayoutAnimationStart: () => startMorphClock("sheet"),
                   style: {
                     // Bound directly to the locally-computed value (not the
                     // relayed ctx.collapseRadius container Disc.tsx reads) —

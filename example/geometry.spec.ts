@@ -341,13 +341,18 @@ for (const viewport of VIEWPORTS) {
       // and reduced-motion's own correctness is covered by a11y.spec.ts and
       // test (b) above. This gate is about the normal-motion morph only.
       if (!reduced) {
-        // Open thresholds: 30px. Close (Escape path): 6px. Tightened from
-        // 70/10 per the adversarial review's read of the post-fix spread
-        // (open worst case measured 15.1-29.6px across viewports once D1-D3
-        // are fixed; close worst case measured 2.7-4px). These stay well
-        // under the pre-fix numbers (315px open / 487px close) while no
-        // longer parking the bound miles above what a healthy run produces.
-        const OPEN_THRESHOLD_PX = 30;
+        // Open thresholds: 8px. Close (Escape path): 6px. The open bound was
+        // 30px, which only ever passed because it was set from a measured
+        // spread (15.1-29.6px) that was itself the M2 defect — the shadow
+        // clock and Motion's layout-projection clock starting from two
+        // different timestamps. With those two clocks structurally coupled
+        // (Root.tsx's startMorphClock, fired from Motion's own
+        // onLayoutAnimationStart), a healthy open measures 0.1-0.4px worst
+        // |Δtop| on both example pages at 390x844 and 1280x800. 8px is
+        // therefore ~20x the observed spread, not a margin over it: it is
+        // low enough that any reappearance of a start-time offset — even a
+        // single frame of one — fails here rather than passing quietly.
+        const OPEN_THRESHOLD_PX = 8;
         const CLOSE_THRESHOLD_PX = 6;
         // |Δbottom| bound: both boxes are bottom-pinned at rest, so a
         // healthy desync leaves the bottom edge algebraically invariant
@@ -398,6 +403,59 @@ for (const viewport of VIEWPORTS) {
           const closeResult = await sampleShadowSurfaceDelta(page, 1200);
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} close: ` +
+              `worst |Δtop|=${closeResult.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${closeResult.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${closeResult.worstBottom.toFixed(1)}px`,
+          );
+          expect(closeResult.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX);
+          expect(closeResult.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX);
+          expect(closeResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
+        // Same gate as (e), on the OTHER example page. The M2 clock desync
+        // scaled with how much work a page's open commit did, so it was 3-4x
+        // worse on the flagship (a photo, a five-row nav, a real type ramp)
+        // than on the generic example (e) samples — 58-74px vs 18-21px worst
+        // |Δtop| at the same viewports. A gate that only ever opens the
+        // lightest page in the repo cannot see that class of regression at
+        // all, which is exactly how a 30px bound came to look reasonable.
+        test("(m) shadow tracks the flagship example's surface through open AND close", async ({
+          page,
+        }) => {
+          await page.goto("/flagship.html");
+          await page.waitForSelector('[data-disc-sheet-part="disc-trigger"]');
+          // The flagship's text faces are used ONLY inside its sheet, so they
+          // are still unloaded when the disc is tapped and the swap re-lays
+          // the sheet out mid-morph (measured at 390x844: 592 -> 618px tall,
+          // ~40ms in). Shadow.tsx re-measures and both clocks restart
+          // together when that happens, but Motion's own projection paints
+          // one frame against the pre-relayout transform, and that frame is
+          // the example page's font strategy talking, not the package's
+          // clock. Load the faces first so this gate measures the morph.
+          await page.evaluate(() =>
+            Promise.all([...document.fonts].map((f) => f.load())),
+          );
+          await waitForStableWidth(
+            page,
+            page.locator('[data-disc-sheet-part="disc-trigger"]'),
+          );
+
+          await page.locator('[data-disc-sheet-part="disc-trigger"]').click();
+          const openResult = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} flagship open: ` +
+              `worst |Δtop|=${openResult.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${openResult.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${openResult.worstBottom.toFixed(1)}px`,
+          );
+          expect(openResult.worstTop).toBeLessThan(OPEN_THRESHOLD_PX);
+          expect(openResult.worstHeight).toBeLessThan(OPEN_THRESHOLD_PX);
+          expect(openResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+
+          await page.keyboard.press("Escape");
+          const closeResult = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} flagship close: ` +
               `worst |Δtop|=${closeResult.worstTop.toFixed(1)}px, ` +
               `worst |Δheight|=${closeResult.worstHeight.toFixed(1)}px, ` +
               `worst |Δbottom|=${closeResult.worstBottom.toFixed(1)}px`,

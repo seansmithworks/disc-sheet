@@ -38,6 +38,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     triggerElRef,
     sheetRect,
     collapseRadius,
+    startMorphClock,
   } = ctx;
 
   const x = useMotionValue(0);
@@ -284,6 +285,13 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // not transition.open — see the matching note on Sheet.tsx's
             // layoutId transition for why the transposition mattered.
             transition={transition.close}
+            // audit M2: this element is the entering side of the shared
+            // layoutId on CLOSE, so it is the close's equivalent of Sheet's
+            // own onLayoutAnimationStart — it starts Root's collapseProgress
+            // clock inside the same frameloop pass that creates Motion's
+            // layout animation, so both share a start time. No-op unless Root
+            // has a morph armed. See Root.tsx's clock-coupling note.
+            onLayoutAnimationStart={() => startMorphClock("disc")}
             data-disc-sheet-part="disc-surface"
             // Framer Motion's shared-layout border-radius correction only
             // tracks a border-radius it manages as an inline style value —
@@ -310,27 +318,18 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // fix). Binding it as a MotionValue keeps Motion itself
             // responsible for every write, bypassing React's render diff.
             //
-            // KNOWN COST, measured: this is the ONE change of the several
-            // tried for M1 that reproduces a real (not location-dependent)
-            // regression in geometry.spec.ts's shadow-vs-surface CLOSE
-            // tracking gate, test (e) — isolated by bisecting every other
-            // variable (where collapseRadius is computed, whether it's
-            // relayed or shared directly, imperative vs. `style`-prop
-            // writes): with this line reverted to the pre-fix string, close
-            // passes cleanly; with it live, worst |Δtop| measures 6.1-7.4px
-            // against CLOSE_THRESHOLD_PX's 6px bound, on the two largest
-            // viewports, every run. The cost appears intrinsic to a SECOND
-            // layoutId-tracked node carrying a live numeric border-radius
-            // during the same window Sheet.tsx's `.sheet` already does —
-            // apparently Motion's own per-frame shared-layout correction
-            // work, which activates whenever a `layoutId` element's declared
-            // border-radius is a parseable number, doubles for the duration
-            // both crossfade participants are mounted. Left as-is: the
-            // audit's own words are explicit that both crossfade participants
-            // must carry the same parseable radius, and this is THE fix for
-            // the ellipse defect audit flags as top priority; the resulting
-            // ~1-1.4px overage on an already tight, unrelated gate is
-            // reported, not silently patched around.
+            // This line was once believed to cost geometry.spec.ts's
+            // shadow-vs-surface CLOSE gate 6.1-7.4px against its 6px bound
+            // (the theory being that a SECOND layoutId node carrying a live
+            // numeric radius doubled Motion's per-frame correction work). It
+            // does not. That overage was M2 — the shadow's collapseProgress
+            // clock and Motion's layout-projection clock starting from two
+            // different timestamps, an error whose magnitude scaled with how
+            // much work the close commit did, which is why adding work here
+            // looked causal. With the two clocks coupled (Root.tsx's
+            // startMorphClock) the close measures 0.1-0.4px worst |Δtop| on
+            // both example pages at every tested viewport with this binding
+            // live and unchanged.
             //
             // Scoped to `sheetRect !== null` (mirrors the same signal
             // Disc.tsx's own pendingResizeRef logic above already uses for
