@@ -23,6 +23,15 @@
   touch-action: none;
 }
 
+/* Close only (Disc.tsx sets the attribute, and the note there has the
+ * measurements): lift the disc's stacking context over the sheet's
+ * z + 102 so the disc-side <Shared> copy is not occluded by the sheet's
+ * still-opaque background mid-crossfade. Stays a calc() on the token rather
+ * than an inline style so a consumer's own --disc-sheet-z still governs. */
+.dragWrapper[data-disc-sheet-closing] {
+  z-index: calc(var(--disc-sheet-z, 100) + 103);
+}
+
 .dragWrapper:active {
   cursor: grabbing;
 }

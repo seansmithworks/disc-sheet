@@ -279,6 +279,39 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       // position one.
       style={{ x, y }}
       data-disc-sheet-part="disc-root"
+      // Lift the disc's stacking context above the sheet's for the duration
+      // of a CLOSE. `.dragWrapper` is `position: fixed` with a z-index, so it
+      // is a stacking context: everything inside it — including the disc-side
+      // <Shared> instance — is capped at `--disc-sheet-z` (100) and painted
+      // under the sheet at z + 102.
+      //
+      // That cap put a hole in the middle of every close. The two layoutId
+      // pairs crossfade on DIFFERENT springs: `-shared` runs on
+      // transition.shared (500/45), `-surface` on transition.close plus
+      // SURFACE_CLOSE_LEAD_DELAY_MS. Measured per frame on both example
+      // pages, the sheet-side <Shared> had faded to opacity 0 by 229ms while
+      // the sheet element it sits on was STILL at opacity 1 until 246ms —
+      // and the disc-side copy, already at opacity 1 since 87ms and exactly
+      // co-located, was underneath that opaque sheet background. Composited
+      // visibility of the shared element at its worst frame (screencast
+      // pixels sampled at its live centre, 1.0 = its own colour, 0.0 = fully
+      // washed to the surface behind it): 0.021 on index at 238ms, 0.000 on
+      // flagship at 238ms. The crossfade was correct; the compositing was
+      // not — a circle that vanished and came back.
+      //
+      // Lifting the wrapper to z + 103 lets the disc-side copy paint through,
+      // so it covers the gap the sheet-side copy leaves: worst frame 0.987
+      // (index) / 0.981 (flagship). Both surfaces are the same
+      // --disc-sheet-surface, co-located and same-radius by construction
+      // mid-FLIP, so the reordered pair reads identically; the sheet's
+      // content is already at opacity 0 by 80ms (CONTENT_FADE_OUT_MS), long
+      // before disc-surface has any opacity at all (0 until 121ms).
+      //
+      // Gated to the close, NOT to `sheetRect !== null`: while the sheet is
+      // OPEN this button still renders (only its children are behind
+      // `{!open && ...}`), so lifting it then would float an invisible
+      // disc-size hit target over the open sheet and swallow its clicks.
+      data-disc-sheet-closing={sheetRect !== null && !open ? "" : undefined}
       drag={draggable && !open ? true : false}
       dragMomentum={false}
       dragElastic={reduceMotion ? 0 : 0.06}
