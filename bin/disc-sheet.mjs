@@ -4,7 +4,14 @@ import path from "node:path";
 import process from "node:process";
 
 const SRC_DIR = new URL("../src/", import.meta.url);
-const EXCLUDE = new Set(["anchors.test.ts", "css-modules.d.ts"]);
+// css-modules.d.ts is the only file that genuinely needs per-file
+// conditional logic (see hasAmbientCssModuleDecl below) rather than a
+// pattern match, so it stays a named special case. Test files are excluded
+// by suffix, not by a literal filename, so the next *.test.ts/*.test.tsx
+// file added to src/ is excluded automatically instead of shipping to
+// consumers unless someone remembers to also edit this file.
+const SPECIAL_CASED = new Set(["css-modules.d.ts"]);
+const TEST_FILE_RE = /\.test\.tsx?$/;
 
 function usage() {
   console.log(`disc-sheet — a draggable disc that morphs into a modal sheet
@@ -23,7 +30,8 @@ function readSrcFiles() {
   const dirPath = SRC_DIR;
   const entries = fs.readdirSync(dirPath);
   return entries.filter((name) => {
-    if (EXCLUDE.has(name)) return false;
+    if (SPECIAL_CASED.has(name)) return false;
+    if (TEST_FILE_RE.test(name)) return false;
     return (
       name.endsWith(".ts") || name.endsWith(".tsx") || name === "styles.module.css"
     );
