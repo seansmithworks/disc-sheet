@@ -5,6 +5,7 @@ import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
 import { SlotContext, useDiscSheetInternal } from "./context";
+import { readVarPx } from "./readVarPx";
 import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
 import type { DiscProps } from "./types";
 import styles from "./styles.module.css";
@@ -112,28 +113,36 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     y.jump(restingTop(anchor, window.innerHeight, discSize));
   }, [anchor, discSize, sheetRect, x, y]);
 
-  // Release the border-radius binding's last painted value when the morph is
-  // over. Motion writes the bound radius as an INLINE style (scale-corrected
-  // percentages while the projection runs, then one final px keyframe when it
-  // settles) and neither Motion nor React clears an inline value when the key
-  // leaves the `style` prop below — so whatever the close ended on outlived
-  // the morph and beat the CSS module's own
-  // `border-radius: var(--disc-sheet-disc-radius, 9999px)` at rest, forever.
-  // Measured before this fix, on every close path of both example pages
-  // (simple, interrupted-then-reopened, rapid toggle, resize-mid-close,
-  // swipe-dismiss): `border-radius: 32px` (36px on the flagship) left on a
-  // 128px disc — a paper squircle around a circular child.
+  // The disc's RESTING shape, as a number Motion can mix from.
   //
-  // useCollapseRadius now ends the curve on min(discRadius, discSize / 2), so
-  // the value left behind is at least circular for the box it was written
-  // against; this effect is what keeps it correct AFTERWARD. Without it, a
-  // resize across the disc-size ramp's breakpoints re-squircles the disc:
-  // measured 64px held on a 144px disc after closing at 1280px and resizing
-  // to 1700px.
+  // Motion's shared-layout border-radius handling only sees a radius it
+  // manages as an inline value — a CSS rule is invisible to it (the note on
+  // the disc surface's style binding below). The morph binding used to be
+  // scoped to `sheetRect !== null`, i.e. only while a sheet exists, which
+  // left the disc carrying NO parseable radius at rest. So on every open,
+  // Motion mixed the shape from 0 instead of from the circle: measured on
+  // both example pages, the first painted frame of an open was the disc's
+  // box (128x128, unmoved) painted with `border-radius: 0%` — a perfect
+  // circle becoming a perfect square in one frame, before any growth was
+  // visible, then rounding back up over the next ~300ms (roundness 1.00 ->
+  // 0.00 -> 0.14 at +130ms). That pop was the single largest discontinuity
+  // in the morph.
+  //
+  // Publishing the resting shape as a live numeric MotionValue fixes it at
+  // the source and keeps every other resting guarantee: it equals
+  // min(--disc-sheet-disc-radius, discSize / 2), which is a perfect circle
+  // for the default 9999px token, honours a consumer's smaller override, and
+  // re-derives on the disc-size ramp's own breakpoints (discSize is kept live
+  // across resizes by useDiscSize). It is also exactly the value
+  // useCollapseRadius's curve now ends a close on, so the handoff between the
+  // two bound values is continuous — no frame where they disagree.
+  const discRestRadius = useMotionValue(9999);
   useEffect(() => {
-    if (sheetRect !== null) return;
-    surfaceRef.current?.style.removeProperty("border-radius");
-  }, [sheetRect]);
+    const el = surfaceRef.current;
+    if (!el) return;
+    const token = readVarPx(el, "--disc-sheet-disc-radius", 9999);
+    discRestRadius.set(Math.min(token, discSize / 2));
+  }, [discSize, discRestRadius, sheetRect, open]);
 
   // Report the disc's live rect for the escape hatch (usePKG().discRect) and
   // for Sheet's shadow-mask morph. Also writes --disc-sheet-disc-x/-y —
@@ -371,9 +380,10 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // and the CSS module's own resting default
             // (`var(--disc-sheet-disc-radius, 9999px)`, styles.module.css)
             // takes over — correct immediately, no 1.4s lag.
-            style={
-              sheetRect !== null ? { borderRadius: collapseRadius } : undefined
-            }
+            style={{
+              borderRadius:
+                sheetRect !== null ? collapseRadius : discRestRadius,
+            }}
           />
         )}
         {!open && (

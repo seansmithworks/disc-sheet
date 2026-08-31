@@ -37,7 +37,20 @@ export function Content({ children, className }: ContentProps) {
           transition: {
             delay: OPEN_CONTENT_REVEAL_DELAY_SEC,
             duration: 0.26,
-            when: "beforeChildren" as const,
+            // delayChildren, NOT `when: "beforeChildren"`. beforeChildren
+            // serialised two ramps that should overlap: the container's own
+            // 260ms fade ran to completion BEFORE the first <Item> was
+            // allowed to start, and since every Item sits at opacity 0 until
+            // its own turn, that container ramp was invisible — 260ms of
+            // nothing on screen. Measured on both example pages: the box was
+            // 99% settled at +381ms, the first item did not begin to appear
+            // until +465ms, and the last landed past +697ms. A dead beat,
+            // then a cascade, on a morph whose box had already stopped.
+            // delayChildren holds the same guarantee that delay was there for
+            // (no text painted while the box is still visibly scaling) while
+            // letting the stagger run under the container's fade, so the
+            // reveal finishes with the morph instead of after it.
+            delayChildren: OPEN_CONTENT_REVEAL_DELAY_SEC,
             staggerChildren: ITEM_STAGGER_INTERVAL_SEC,
           },
         },
