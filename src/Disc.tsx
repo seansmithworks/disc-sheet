@@ -46,6 +46,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
   const draggedRef = useRef(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
   const mountedRef = useRef(false);
   const lastRectRef = useRef<{ cx: number; cy: number; radius: number } | null>(
     null,
@@ -110,6 +111,29 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     x.jump(restingLeft(anchor, window.innerWidth, discSize));
     y.jump(restingTop(anchor, window.innerHeight, discSize));
   }, [anchor, discSize, sheetRect, x, y]);
+
+  // Release the border-radius binding's last painted value when the morph is
+  // over. Motion writes the bound radius as an INLINE style (scale-corrected
+  // percentages while the projection runs, then one final px keyframe when it
+  // settles) and neither Motion nor React clears an inline value when the key
+  // leaves the `style` prop below — so whatever the close ended on outlived
+  // the morph and beat the CSS module's own
+  // `border-radius: var(--disc-sheet-disc-radius, 9999px)` at rest, forever.
+  // Measured before this fix, on every close path of both example pages
+  // (simple, interrupted-then-reopened, rapid toggle, resize-mid-close,
+  // swipe-dismiss): `border-radius: 32px` (36px on the flagship) left on a
+  // 128px disc — a paper squircle around a circular child.
+  //
+  // useCollapseRadius now ends the curve on min(discRadius, discSize / 2), so
+  // the value left behind is at least circular for the box it was written
+  // against; this effect is what keeps it correct AFTERWARD. Without it, a
+  // resize across the disc-size ramp's breakpoints re-squircles the disc:
+  // measured 64px held on a 144px disc after closing at 1280px and resizing
+  // to 1700px.
+  useEffect(() => {
+    if (sheetRect !== null) return;
+    surfaceRef.current?.style.removeProperty("border-radius");
+  }, [sheetRect]);
 
   // Report the disc's live rect for the escape hatch (usePKG().discRect) and
   // for Sheet's shadow-mask morph. Also writes --disc-sheet-disc-x/-y —
@@ -276,6 +300,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       >
         {!open && (
           <motion.div
+            ref={surfaceRef}
             layoutId={reduceMotion ? undefined : `${ctx.idBase}-surface`}
             className={styles.discSurface}
             // This disc surface is the ENTERING element on close (it is

@@ -2,9 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
-import { useMotionValue, useTransform } from "motion/react";
+import { useTransform } from "motion/react";
 import type { MotionValue } from "motion/react";
-import { RADIUS_CLOSE_DELAY_SEC, RADIUS_HOLD_FRACTION } from "./motion";
+import { RADIUS_HOLD_FRACTION } from "./motion";
 import { readVarPx } from "./readVarPx";
 
 /**
@@ -27,12 +27,12 @@ import { readVarPx } from "./readVarPx";
 export function useCollapseRadius({
   collapseProgress,
   open,
-  reduceMotion,
+  discSize,
   varsElRef,
 }: {
   collapseProgress: MotionValue<number>;
   open: boolean;
-  reduceMotion: boolean;
+  discSize: number;
   varsElRef: MutableRefObject<HTMLElement | null>;
 }): MotionValue<number> {
   // Read via a ref (not React state) so the useTransform closure below always
@@ -60,27 +60,43 @@ export function useCollapseRadius({
     };
   }, [open, varsElRef]);
 
-  // Time-gate: on close, hold the sheet radius for RADIUS_CLOSE_DELAY_SEC
-  // before the progress-based hold/interpolation below is allowed to round it
-  // — prevents the oval reading too early in a long close.
-  const radiusGate = useMotionValue(1);
-  useEffect(() => {
-    if (open || reduceMotion) {
-      radiusGate.set(1);
-      return;
-    }
-    radiusGate.set(0);
-    const id = window.setTimeout(() => {
-      radiusGate.set(1);
-    }, RADIUS_CLOSE_DELAY_SEC * 1000);
-    return () => window.clearTimeout(id);
-  }, [open, reduceMotion, radiusGate]);
-
-  return useTransform([collapseProgress, radiusGate], ([p, gate]: number[]) => {
+  // A pure function of collapseProgress — no wall-clock gate. There used to
+  // be a second, TIME-based hold on top of the progress hold below
+  // (RADIUS_CLOSE_DELAY_SEC: freeze at sheetRadius for 1.5s from the moment
+  // `open` flips false). Two things were wrong with it, both measured on
+  // every close path of both example pages:
+  //
+  //   * 1.5s is longer than a close takes (~1.15s including
+  //     SURFACE_CLOSE_LEAD_DELAY_MS), so the gate never opened while a close
+  //     was running and the progress hold below never executed at all on the
+  //     close direction. The disc surface painted the SHEET's corner radius
+  //     for the entire collapse, down to and including the final
+  //     disc-sized frame.
+  //   * That made the value bound to Disc.tsx's `.discSurface` equal
+  //     sheetRadius at the instant Motion's layout animation finished and
+  //     wrote its final keyframe — an inline `border-radius: 32px` (36px on
+  //     the flagship) on a 128px box, i.e. a squircle, which then outlived
+  //     the morph (see Disc.tsx) and was still there at rest.
+  //
+  // The progress hold is the mechanism that was always doing the real work:
+  // it is tied to how far the BOX has actually contracted, so it cannot round
+  // early regardless of how long a consumer's close spring runs.
+  return useTransform(collapseProgress, (p: number) => {
     const { sheetRadius, discRadius } = radiusVarsRef.current;
-    if (gate < 1) return sheetRadius;
     if (p <= RADIUS_HOLD_FRACTION) return sheetRadius;
-    const t = (p - RADIUS_HOLD_FRACTION) / (1 - RADIUS_HOLD_FRACTION);
-    return sheetRadius + (discRadius - sheetRadius) * t;
+    // --disc-sheet-disc-radius is a "fully round" sentinel by default
+    // (9999px). Interpolating toward the raw token would clear min(w,h)/2
+    // within one frame of leaving the hold and paint the M1 ellipse on a
+    // still-sheet-sized box (a 212x178 box at p=0.76 would take a ~800px
+    // radius). Half the disc's own box is the largest radius that means
+    // anything on the shape this morph ends at, and for the default token it
+    // lands on a perfect circle exactly at p=1 — so the curve is continuous
+    // into the resting shape instead of popping at exit-complete.
+    const discTarget = Math.min(discRadius, discSize / 2);
+    const t = Math.min(
+      1,
+      (p - RADIUS_HOLD_FRACTION) / (1 - RADIUS_HOLD_FRACTION),
+    );
+    return sheetRadius + (discTarget - sheetRadius) * t;
   });
 }

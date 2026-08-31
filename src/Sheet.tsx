@@ -185,7 +185,7 @@ export function Sheet({
   const sheetBorderRadius = useCollapseRadius({
     collapseProgress,
     open,
-    reduceMotion,
+    discSize,
     varsElRef: sheetRef,
   });
 

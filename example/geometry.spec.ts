@@ -336,6 +336,106 @@ for (const viewport of VIEWPORTS) {
         expect(hitPart).not.toBe("backdrop");
       });
 
+      // Review finding #8, resurrected as a real gate — and it caught a
+      // shipped defect immediately. The disc's RESTING shape is CSS
+      // (`border-radius: var(--disc-sheet-disc-radius, 9999px)`), but the
+      // close morph binds a numeric MotionValue over it (M1) and Motion
+      // writes that inline: scale-corrected percentages while the projection
+      // runs, then one final px keyframe when it settles. So "the disc is a
+      // circle at rest" is only true if the morph BOTH ends on a circular
+      // value AND releases the inline write afterward. Neither held. Measured
+      // before the fix, on every close path of both example pages, the disc
+      // rested at `border-radius: 32px` (36px on the flagship) on a 128px box
+      // — a paper squircle around a circular child, from the first close
+      // until reload. Runs in BOTH motion modes: reduced motion drops the
+      // layoutId but not the binding.
+      //
+      // The 1.6s settle per variant outlasts the 1.5s wall-clock radius hold
+      // that used to gate the curve, so what this reads is the real resting
+      // shape and not a frame of the hold.
+      test("(o) the disc surface rests as a circle after every close path (#8)", async ({
+        page,
+      }) => {
+        await gotoExample(page, reduced);
+        const disc = page.getByRole("button", { name: DISC_LABEL });
+
+        const expectRestingCircle = async (variant: string) => {
+          await page.waitForTimeout(1600);
+          const r = await page.evaluate(() => {
+            const el = document.querySelector(
+              '[data-disc-sheet-part="disc-surface"]',
+            ) as HTMLElement | null;
+            if (!el) return null;
+            const box = el.getBoundingClientRect();
+            return {
+              inline: (el.style.borderRadius || "").trim(),
+              computed: getComputedStyle(el).borderTopLeftRadius,
+              width: box.width,
+              height: box.height,
+            };
+          });
+          expect(
+            r,
+            `${variant}: the disc surface must be mounted and measurable at rest`,
+          ).not.toBeNull();
+          const half = Math.min(r!.width, r!.height) / 2;
+          // A percentage radius is circular at >= 50%; a px radius at >= half
+          // the box's shorter side. 0.5px of slack for sub-pixel box sizes.
+          const isCircular = (value: string) =>
+            value.trim().endsWith("%")
+              ? parseFloat(value) >= 50
+              : parseFloat(value) >= half - 0.5;
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} ${mode} ${variant}: ` +
+              `resting disc radius computed=${r!.computed} ` +
+              `inline=${r!.inline || "(none)"} ` +
+              `box=${r!.width.toFixed(0)}x${r!.height.toFixed(0)} (half=${half})`,
+          );
+          expect(
+            isCircular(r!.computed),
+            `${variant}: computed border-radius ${r!.computed} does not render a circle on a ${r!.width}x${r!.height} disc`,
+          ).toBe(true);
+          expect(
+            r!.inline === "" || isCircular(r!.inline),
+            `${variant}: a stale inline border-radius (${r!.inline}) survived the morph and beats the --disc-sheet-disc-radius token`,
+          ).toBe(true);
+        };
+
+        await disc.click();
+        await page.waitForTimeout(900);
+        await page.keyboard.press("Escape");
+        await expectRestingCircle("simple close");
+
+        // The reported repro: reopen while the close is still running (M11
+        // made the disc tappable from frame one of a close), then close again.
+        await disc.click();
+        await page.waitForTimeout(900);
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(300);
+        await disc.click();
+        await page.waitForTimeout(900);
+        await page.keyboard.press("Escape");
+        await expectRestingCircle("close interrupted by a reopen");
+
+        for (let i = 0; i < 3; i++) {
+          await disc.click();
+          await page.waitForTimeout(180);
+          await page.keyboard.press("Escape");
+          await page.waitForTimeout(180);
+        }
+        await expectRestingCircle("rapid open/close toggle");
+
+        await disc.click();
+        await page.waitForTimeout(900);
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(90);
+        await page.setViewportSize({
+          width: viewport.width,
+          height: Math.round(viewport.height * 0.63),
+        });
+        await expectRestingCircle("resize mid-close");
+      });
+
       // Reduced motion drops layoutId entirely on both sides (§6) and
       // cross-fades in 200ms flat — there is no mid-morph FLIP to sample,
       // and reduced-motion's own correctness is covered by a11y.spec.ts and

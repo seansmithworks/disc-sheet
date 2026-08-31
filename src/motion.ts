@@ -32,13 +32,12 @@ export const SNAP_SPRING: Spring = { stiffness: 700, damping: 52, mass: 1 };
 
 /** Fraction of the close progress spent holding sheetRadius before the shape
  * starts rounding toward the disc. Prevents an over-rounded rectangle from
- * appearing before the box has actually contracted. */
+ * appearing before the box has actually contracted. Progress-based, not
+ * time-based, so it holds correctly however long a consumer's close spring
+ * runs — the wall-clock RADIUS_CLOSE_DELAY_SEC that used to sit on top of it
+ * was longer than a close takes, which suppressed this hold entirely and left
+ * the disc resting on the sheet's radius (see useCollapseRadius.ts). */
 export const RADIUS_HOLD_FRACTION = 0.74;
-
-/** Seconds to hold the previous radius state before a close begins rounding —
- * matched to a ~480px sheet; see docs/PACKAGE-DESIGN.md §7C for the known
- * soft spot on very different sheet sizes. */
-export const RADIUS_CLOSE_DELAY_SEC = 1.5;
 
 /** Delay (ms) before the surface box begins its close FLIP, so the shared
  * element visibly leads the shrink instead of scaling in lockstep. */

@@ -261,7 +261,7 @@ Throws outside `<DiscSheet.Root>`. This hook is the escape hatch for §3 and the
 | --- | --- |
 | `dragElastic`, `dragMomentum`, `dragConstraints`, drag threshold (5px) | Drag feel is one dialed system. Exposing pieces of it lets a consumer produce an off-screen excursion or a tap that registers as a drag. |
 | Snap spring (`stiffness 700, damping 52, mass 1`) | Deliberately overdamped so the disc never overshoots past a viewport edge. A softer value is a bug, not a preference. |
-| `radiusHoldFraction`, `radiusCloseDelaySec`, `surfaceCloseLeadDelayMs`, `openContentRevealDelaySec`, `contentFadeOutMs`, `contentFadeOutDelayMs` | The close choreography. Every one of these exists to suppress a specific artifact. See §3. |
+| `radiusHoldFraction`, `surfaceCloseLeadDelayMs`, `openContentRevealDelaySec`, `contentFadeOutMs`, `contentFadeOutDelayMs` | The close choreography. Every one of these exists to suppress a specific artifact. See §3. |
 | The trailing-paper mask envelope constants (`FADE_START/PEAK/END`, `MAX_FADE`, `BAND`) | Internal to one artifact fix. See §8, where this is a cut. |
 | The 2x3 anchor region map thresholds | Changing them makes "nearest anchor" not mean nearest. |
 | Swipe-to-close thresholds (96px offset, 400px/s velocity) | Platform convention values. |
@@ -367,8 +367,7 @@ Not props, not variables, not documented as tunable:
 
 | Constant | Value | What it prevents |
 | --- | --- | --- |
-| `radiusHoldFraction` | 0.74 | The disc shape appearing before the box has contracted (an over-rounded rectangle) |
-| `radiusCloseDelaySec` | 1.5 | The oval reading too early in a long close |
+| `radiusHoldFraction` | 0.74 | The disc shape appearing before the box has contracted (an over-rounded rectangle). Progress-based, so it holds correctly however long a close runs. A second, wall-clock hold (`radiusCloseDelaySec: 1.5`) used to sit on top of it and was removed: 1.5s is longer than a close takes, so it suppressed this hold entirely on the close direction and left the disc resting on the SHEET's radius — a squircle — after every close. |
 | `surfaceCloseLeadDelayMs` | 100 | The shared element and the surface shrinking in lockstep, which reads as a scale rather than a re-home |
 | `openContentRevealDelaySec` | 0.2 | Text visibly stretching during the bloom |
 | `contentFadeOutMs` / `DelayMs` | 80 / 0 | Content still painted while the box collapses under it |
@@ -588,7 +587,7 @@ Do not carry over:
 
 **Cost.** Someone who wants a materially different close choreography has to fork. Accepted. That is a fork worth forcing, because the alternative is a package that ships twenty ways to look wrong.
 
-**Uncertainty: medium, on two specific values.** `radiusCloseDelaySec: 1.5` is a long hold and it is tuned to a 480px-wide, roughly 600px-tall sheet. A consumer with a 900px sheet will find it wrong, and they will be right. The fix without opening the floodgate is to scale the delay by measured sheet height internally rather than expose it as a number. Flagged as a v0.2 refinement, not a v0.1 blocker. The other soft spot is that `sheetMaxWidth` is a prop while `--disc-sheet-sheet-max-width` is also a CSS variable; those two must not disagree, and the package should let the prop win and write the variable.
+**Uncertainty: medium.** This section used to flag `radiusCloseDelaySec: 1.5` as tuned to a 480px-wide, roughly 600px-tall sheet and wrong for a 900px one. It was worse than that — being wall-clock rather than progress-based, it was longer than a close takes at ANY sheet size, so it never let the radius round at all on the close direction and left the disc resting as a squircle. It is gone; `radiusHoldFraction` alone carries the hold, and the rounding phase targets half the disc's own box so it lands on the resting shape continuously. The remaining soft spot is that `sheetMaxWidth` is a prop while `--disc-sheet-sheet-max-width` is also a CSS variable; those two must not disagree, and the package should let the prop win and write the variable.
 
 ---
 
