@@ -4,38 +4,76 @@
   "type": "module",
   "description": "Draggable disc that morphs into a modal sheet. Generic React primitive, compound-component API.",
   "license": "MIT",
-  "exports": {
-    ".": "./src/index.ts"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seansmithworks/disc-sheet.git"
   },
-  "types": "./src/index.ts",
+  "homepage": "https://github.com/seansmithworks/disc-sheet#readme",
+  "bugs": {
+    "url": "https://github.com/seansmithworks/disc-sheet/issues"
+  },
+  "keywords": [
+    "react",
+    "sheet",
+    "modal",
+    "disc",
+    "fab",
+    "motion",
+    "framer-motion",
+    "dialog",
+    "morph"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./dist/index.css",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
   "files": [
+    "dist",
     "src",
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "peerDependencies": {
+    "motion": ">=12",
     "react": ">=19",
-    "react-dom": ">=19",
-    "motion": ">=12"
+    "react-dom": ">=19"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",
     "@types/node": "^22.10.0",
-    "@vitejs/plugin-react": "^4.3.4",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "motion": "^12.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "motion": "^12.0.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
+    "vite-plugin-dts": "^5.0.3",
+    "vite-plugin-lib-inject-css": "^2.2.2",
     "vitest": "^2.1.8"
   },
   "scripts": {
     "dev": "vite example",
-    "build": "vite build example",
+    "build:example": "vite build example",
+    "build:lib": "vite build -c vite.lib.config.ts",
     "test": "vitest run",
     "test:geometry": "playwright test -c example/playwright.config.ts",
-    "audit:vars": "node scripts/audit-css-vars.mjs"
+    "audit:vars": "node scripts/audit-css-vars.mjs",
+    "prepublishOnly": "npm test && npm run audit:vars && npm run build:lib"
   }
 }

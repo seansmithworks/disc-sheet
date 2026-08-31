@@ -19,14 +19,25 @@ reaching for an existing term.
 
 ## Install
 
-Not published to npm. Install as a git dependency:
-
 ```bash
-npm install @seansmithworks/disc-sheet@github:seansmithworks/disc-sheet
+npm install @seansmithworks/disc-sheet
 ```
 
-The package ships TypeScript source with no build step. A Next.js consumer
-needs to add it to `transpilePackages` in `next.config.ts`:
+`dist/` ships compiled ESM + `.d.ts` declarations, so the default import
+needs no build-step config on the consumer's side — no `transpilePackages`,
+no extra `tsc` target. CSS is bundled and auto-imported by the package's own
+entry point; you don't need a separate stylesheet `<link>` or `import` for
+the component to render styled. A manual stylesheet path,
+`@seansmithworks/disc-sheet/styles.css`, also exists if you need to import
+the CSS on its own (e.g. to inline it above the fold, or reference it from a
+non-JS build step) — most consumers never need it.
+
+### Installing from source
+
+For a git-dependency install (e.g. testing an unreleased branch), the
+package still ships raw TypeScript source in `src/`, but a source install
+needs a build step on your side. Point Next.js at it via
+`transpilePackages` in `next.config.ts`:
 
 ```ts
 const nextConfig = {
@@ -34,15 +45,16 @@ const nextConfig = {
 };
 ```
 
-This mirrors how `@seansmithworks/device-frame` is consumed.
+```bash
+npm install @seansmithworks/disc-sheet@github:seansmithworks/disc-sheet
+```
 
-### Vite
-
-Works with no config. Because the package ships TypeScript source rather than
-compiled output, a Vite consumer's own `tsc -b` typechecks our `src/`
-directly as part of `npm run build` — so an unusually strict or
-`types`-restricted consumer `tsconfig.json` typechecks our source too, not
-just yours.
+This mirrors how `@seansmithworks/device-frame` is consumed. Vite consumers
+work with no config, but because a source install's `src/` isn't
+precompiled, your own `tsc -b` typechecks it directly as part of `npm run
+build` — so an unusually strict or `types`-restricted consumer
+`tsconfig.json` typechecks our source too, not just yours. None of this
+applies to the default npm install above, which ships compiled output.
 
 ## Peer dependencies
 

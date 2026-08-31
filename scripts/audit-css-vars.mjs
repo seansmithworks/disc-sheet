@@ -84,6 +84,20 @@ const tableRowRe = /^\|\s*`(--disc-sheet-[a-zA-Z0-9-]+)`\s*\|/gm;
 const tableDocumentedVars = new Set();
 for (const m of readme.matchAll(tableRowRe)) tableDocumentedVars.add(m[1]);
 
+// Guard: a README table reformat (e.g. wrapped var names, extra whitespace)
+// could silently stop tableRowRe from matching any row at all, which would
+// make this audit vacuously PASS — every var looks "documented" via the
+// broader `documentedVars` regex above, but the table-specific inverse check
+// below never runs. Fail loudly instead of passing quietly on zero rows.
+if (tableDocumentedVars.size < 10) {
+  console.error(
+    `FAIL — only ${tableDocumentedVars.size} theming-table rows matched in README.md; ` +
+      "expected at least 10. The table row regex may no longer match the README's " +
+      "format (a reformat would otherwise silently disarm this audit).",
+  );
+  process.exit(1);
+}
+
 const orphans = [...readVars].filter(
   (v) => !writtenVars.has(v) && !documentedVars.has(v),
 );
