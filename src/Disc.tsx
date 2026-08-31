@@ -37,6 +37,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     transition,
     triggerElRef,
     sheetRect,
+    collapseRadius,
   } = ctx;
 
   const x = useMotionValue(0);
@@ -289,9 +290,66 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // it can't see the CSS module's border-radius rule. Without this,
             // the crossfade handoff from <Sheet>'s animated borderRadius
             // writes an inline `border-radius: 0` here once the FLIP settles,
-            // leaving the disc square. Mirrors Sheet.tsx's own inline
-            // `style={{ borderRadius }}`.
-            style={{ borderRadius: "var(--disc-sheet-disc-radius, 9999px)" }}
+            // leaving the disc square.
+            //
+            // audit M1: this used to be a `var()` STRING, which Motion can't
+            // parse or scale-correct, so it painted the literal 9999px
+            // fallback on a sheet-sized box for the whole close regardless of
+            // what RADIUS_HOLD_FRACTION/RADIUS_CLOSE_DELAY_SEC intended. The
+            // fix is `ctx.collapseRadius`, a numeric MotionValue Sheet.tsx
+            // relays its own hold/interpolation curve into (context.ts,
+            // useCollapseRadius.ts) — bound here through Motion's `style`
+            // prop specifically, not written imperatively via a ref+effect.
+            // Disc re-renders on every context change (Root's context value
+            // isn't memoized), and React's own reconciler re-applies a plain
+            // `style` prop's string value on each such render, clobbering any
+            // manual `el.style.borderRadius` write between "change" events —
+            // an earlier version of this fix did exactly that and silently
+            // regressed the close back to painting ~9999px most frames
+            // (caught by geometry.spec.ts's own test (k), added for this
+            // fix). Binding it as a MotionValue keeps Motion itself
+            // responsible for every write, bypassing React's render diff.
+            //
+            // KNOWN COST, measured: this is the ONE change of the several
+            // tried for M1 that reproduces a real (not location-dependent)
+            // regression in geometry.spec.ts's shadow-vs-surface CLOSE
+            // tracking gate, test (e) — isolated by bisecting every other
+            // variable (where collapseRadius is computed, whether it's
+            // relayed or shared directly, imperative vs. `style`-prop
+            // writes): with this line reverted to the pre-fix string, close
+            // passes cleanly; with it live, worst |Δtop| measures 6.1-7.4px
+            // against CLOSE_THRESHOLD_PX's 6px bound, on the two largest
+            // viewports, every run. The cost appears intrinsic to a SECOND
+            // layoutId-tracked node carrying a live numeric border-radius
+            // during the same window Sheet.tsx's `.sheet` already does —
+            // apparently Motion's own per-frame shared-layout correction
+            // work, which activates whenever a `layoutId` element's declared
+            // border-radius is a parseable number, doubles for the duration
+            // both crossfade participants are mounted. Left as-is: the
+            // audit's own words are explicit that both crossfade participants
+            // must carry the same parseable radius, and this is THE fix for
+            // the ellipse defect audit flags as top priority; the resulting
+            // ~1-1.4px overage on an already tight, unrelated gate is
+            // reported, not silently patched around.
+            //
+            // Scoped to `sheetRect !== null` (mirrors the same signal
+            // Disc.tsx's own pendingResizeRef logic above already uses for
+            // "Sheet is mounted — open, or closing but not yet exit-
+            // complete") rather than bound unconditionally: collapseRadius's
+            // hold/gate mechanism (RADIUS_CLOSE_DELAY_SEC, motion.ts) is
+            // TIME-based, not tied to when a close visually finishes, so for
+            // up to ~1.4s after a normal-speed close settles (and on first
+            // page load, before any open has ever happened) it still reads
+            // the SHEET's rounded-rect radius, not the disc's circular one —
+            // caught visually (a squared-off disc at rest) before this
+            // guard existed. Once Sheet's onExitComplete nulls sheetRect
+            // (the morph is provably over), this falls back to `undefined`
+            // and the CSS module's own resting default
+            // (`var(--disc-sheet-disc-radius, 9999px)`, styles.module.css)
+            // takes over — correct immediately, no 1.4s lag.
+            style={
+              sheetRect !== null ? { borderRadius: collapseRadius } : undefined
+            }
           />
         )}
         {!open && (

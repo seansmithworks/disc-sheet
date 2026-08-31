@@ -167,6 +167,31 @@ export function Root({
       // both the surface FLIP and this collapseProgress clock together, or
       // the shadow desyncs from the surface for exactly the delay window
       // (the same class of bug 686bf58 fixed for the untouched-delay case).
+      //
+      // Audit M2 ("ghost card on open") prescribes deferring this call into
+      // a double requestAnimationFrame, reasoning that Motion's layout
+      // projection for the newly mounted shared layoutId doesn't start
+      // until ~2 rendered frames after this commit, so starting
+      // collapseProgress immediately lets the shadow lead the real surface
+      // by that window. DEVIATION, measured not assumed: on this
+      // environment/Motion version that diagnosis doesn't hold. Baseline
+      // (this synchronous call, unchanged) measures the shadow leading the
+      // flagship's surface by ~47-52px (close to the audit's reported
+      // 63.8px) and the generic example's by ~9-12px, both decaying to
+      // single digits by ~250ms — consistent with the audit. But adding
+      // EITHER a single or a double rAF delay here doesn't shrink that gap
+      // — it overshoots it and flips the sign: the flagship's ~50px LEAD
+      // becomes an ~90-95px TRAIL (worse in magnitude, wrong direction) and
+      // the generic example's ~10px lead becomes a ~44-47px trail, blowing
+      // through geometry.spec.ts's own OPEN_THRESHOLD_PX (30) on every
+      // viewport (`npm run test:geometry`). Sampled via an in-page rAF probe
+      // identical in method to sampleShadowSurfaceDelta, both with and
+      // without the delay, on both pages, repeatably. Given a confidently-
+      // wrong "fix" here would both regress the protected geometry suite AND
+      // make the flagship's actual open worse by the audit's own metric,
+      // left as a synchronous call (unchanged from pre-fix) rather than
+      // landing the rAF delay. Root cause still open — see
+      // docs/PACKAGE-DESIGN.md or a follow-up task; M1 and M11 are landed.
       animate(collapseProgress, 0, {
         ...openTransition,
         velocity: 0,
@@ -197,6 +222,16 @@ export function Root({
 
   const triggerElRef = useRef<HTMLButtonElement | null>(null);
   const contentScrollElRef = useRef<HTMLDivElement | null>(null);
+
+  // The single numeric-px border-radius MotionValue both crossfade
+  // participants of the shared layoutId (audit M1) read — Sheet.tsx still
+  // computes the actual hold/interpolation curve itself (unchanged from
+  // pre-fix), then relays every tick into this stable container so
+  // Disc.tsx's disc-surface can bind to the exact same painted values on
+  // close. Owned here (not created fresh inside Sheet) purely so it's a
+  // stable instance context can hand to both components regardless of
+  // either one's mount lifecycle.
+  const collapseRadius = useMotionValue(32);
 
   const closeRegisteredRef = useRef(0);
   const registerClose = useCallback(() => {
@@ -230,6 +265,7 @@ export function Root({
     triggerId,
     sheetId,
     collapseProgress,
+    collapseRadius,
     discRect,
     setDiscRect,
     sheetRect,

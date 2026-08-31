@@ -28,6 +28,13 @@ export interface DiscSheetContextValue extends DiscSheetState {
   };
   setDiscRect: (rect: Rect | null) => void;
   setSheetRect: (rect: SheetRect | null) => void;
+  /** A stable numeric-px border-radius MotionValue, owned by Root, that
+   * Sheet.tsx relays its own useCollapseRadius() output into every tick so
+   * Disc.tsx's `.discSurface` can bind to the same painted values through a
+   * close (audit M1) — see the note on useCollapseRadius.ts for why this is
+   * a relay rather than a directly-shared instance. Sheet.tsx's own `.sheet`
+   * binds to its local computation directly, not to this. */
+  collapseRadius: MotionValue<number>;
   /** Live drag-y offset (px) of the sheet's `drag="y"` gesture, 0 at rest.
    * Sheet.tsx binds this as its motion `y` style so drag writes into it
    * directly; Shadow.tsx reads it to keep the silhouette locked to the

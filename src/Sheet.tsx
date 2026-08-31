@@ -1,21 +1,11 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
-import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useTransform,
-} from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { sheetPlacement } from "./anchors";
 import { SlotContext, useDiscSheetInternal } from "./context";
-import {
-  RADIUS_CLOSE_DELAY_SEC,
-  RADIUS_HOLD_FRACTION,
-  SWIPE_OFFSET_PX,
-  SWIPE_VELOCITY_PX_S,
-} from "./motion";
-import { readVarPx } from "./readVarPx";
+import { SWIPE_OFFSET_PX, SWIPE_VELOCITY_PX_S } from "./motion";
+import { useCollapseRadius } from "./useCollapseRadius";
 import { useDialogBehavior } from "./useDialogBehavior";
 import type { SheetProps } from "./types";
 import styles from "./styles.module.css";
@@ -57,31 +47,16 @@ export function Sheet({
     triggerElRef,
     contentScrollElRef,
     hasRegisteredClose,
+    collapseRadius,
   } = ctx;
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
-  // Read via a ref (not React state) so the useTransform closure below always
-  // reads the latest values without needing a "tick" motion value to force
-  // recomputation — Motion's array-form useTransform only recomputes when one
-  // of the listed MotionValues changes, not on ordinary re-render.
-  const radiusVarsRef = useRef({ sheetRadius: 32, discRadius: 9999 });
 
   useDialogBehavior({
     isOpen: open,
     panelRef: sheetRef,
     onClose: () => setOpen(false),
   });
-
-  // Read the shape tokens once per open — a designer's CSS override on
-  // --disc-sheet-sheet-radius / --disc-sheet-disc-radius is honored without
-  // becoming a JS prop (docs/PACKAGE-DESIGN.md §3).
-  useEffect(() => {
-    if (!open) return;
-    radiusVarsRef.current = {
-      sheetRadius: readVarPx(sheetRef.current, "--disc-sheet-sheet-radius", 32),
-      discRadius: readVarPx(sheetRef.current, "--disc-sheet-disc-radius", 9999),
-    };
-  }, [open]);
 
   // Reset the drag offset on every open — a value left over from the
   // previous open's drag (or its dismiss) must not leak into a fresh mount;
@@ -150,32 +125,29 @@ export function Sheet({
     };
   }, [setSheetRect]);
 
-  // Time-gate: on close, hold the sheet radius for RADIUS_CLOSE_DELAY_SEC
-  // before the progress-based hold/interpolation below is allowed to round it
-  // — prevents the oval reading too early in a long close.
-  const radiusGate = useMotionValue(1);
-  useEffect(() => {
-    if (open || reduceMotion) {
-      radiusGate.set(1);
-      return;
-    }
-    radiusGate.set(0);
-    const id = window.setTimeout(() => {
-      radiusGate.set(1);
-    }, RADIUS_CLOSE_DELAY_SEC * 1000);
-    return () => window.clearTimeout(id);
-  }, [open, reduceMotion, radiusGate]);
+  // Extracted (audit M1) so the exact same hold/interpolation curve is
+  // available to Disc.tsx's disc-surface too — see useCollapseRadius.ts.
+  // Called from HERE (not hoisted to Root) deliberately: same component,
+  // same hook position, same effect-commit ordering relative to Sheet's
+  // other effects (sheetRect measurement, the resize listener) as before
+  // this fix existed. Moving the CALL SITE to Root while keeping the hook's
+  // logic identical measurably cost geometry.spec.ts's close-tracking gate
+  // ~3-4px — apparently from the ordering shift itself, not from anything
+  // about the computation. The effect below relays every tick into
+  // ctx.collapseRadius (a stable container Root owns) so Disc.tsx can bind
+  // to the exact same painted values on close without needing this hook
+  // called from its own position in the tree.
+  const sheetBorderRadius = useCollapseRadius({
+    collapseProgress,
+    open,
+    reduceMotion,
+    varsElRef: sheetRef,
+  });
 
-  const borderRadius = useTransform(
-    [collapseProgress, radiusGate],
-    ([p, gate]: number[]) => {
-      const { sheetRadius, discRadius } = radiusVarsRef.current;
-      if (gate < 1) return sheetRadius;
-      if (p <= RADIUS_HOLD_FRACTION) return sheetRadius;
-      const t = (p - RADIUS_HOLD_FRACTION) / (1 - RADIUS_HOLD_FRACTION);
-      return sheetRadius + (discRadius - sheetRadius) * t;
-    },
-  );
+  useEffect(() => {
+    collapseRadius.set(sheetBorderRadius.get());
+    return sheetBorderRadius.on("change", (v) => collapseRadius.set(v));
+  }, [sheetBorderRadius, collapseRadius]);
 
   const placement =
     typeof window !== "undefined"
@@ -228,28 +200,36 @@ export function Sheet({
   }
 
   return (
-    <AnimatePresence
-      onExitComplete={() => {
-        triggerElRef.current?.focus();
-        // Exit-complete is when the close morph is actually done — the
-        // correct moment to drop sheetRect (see the measure effect above).
-        setSheetRect(null);
-      }}
-    >
-      {open && (
-        <>
-          {/* Invisible click-catcher for outside-click dismissal — not a
-              visible scrim. <DiscSheet.Backdrop> (a visual dim layer) is cut
-              from v0.1 (docs/PACKAGE-DESIGN.md §8); dismiss-on-outside-click
-              is Root/Sheet behavior and costs nothing visually by default. */}
-          {dismissOnBackdrop && (
-            <div
-              aria-hidden="true"
-              data-disc-sheet-part="backdrop"
-              style={{ position: "fixed", inset: 0, zIndex: zIndex + 101 }}
-              onClick={() => setOpen(false)}
-            />
-          )}
+    <>
+      {/* Invisible click-catcher for outside-click dismissal — not a
+          visible scrim. <DiscSheet.Backdrop> (a visual dim layer) is cut
+          from v0.1 (docs/PACKAGE-DESIGN.md §8); dismiss-on-outside-click is
+          Root/Sheet behavior and costs nothing visually by default.
+          Deliberately a SIBLING of <AnimatePresence>, gated on `open` alone
+          (audit M11) — the previous shape rendered this inside
+          AnimatePresence's `{open && ...}` child, so it survived the whole
+          exit animation at zIndex + 101 (above the disc's zIndex 100),
+          eating every click/tap over the disc for the ~400-1000ms the close
+          spring/hold takes to settle. Gating on `open` alone means the
+          backdrop unmounts the instant the close STARTS, so the disc is
+          tappable — and the close interruptible — from frame one. */}
+      {open && dismissOnBackdrop && (
+        <div
+          aria-hidden="true"
+          data-disc-sheet-part="backdrop"
+          style={{ position: "fixed", inset: 0, zIndex: zIndex + 101 }}
+          onClick={() => setOpen(false)}
+        />
+      )}
+      <AnimatePresence
+        onExitComplete={() => {
+          triggerElRef.current?.focus();
+          // Exit-complete is when the close morph is actually done — the
+          // correct moment to drop sheetRect (see the measure effect above).
+          setSheetRect(null);
+        }}
+      >
+        {open && (
           <motion.div
             ref={sheetRef}
             id={sheetId}
@@ -281,7 +261,10 @@ export function Sheet({
                   // separated on open.
                   transition: transition.open,
                   style: {
-                    borderRadius,
+                    // Bound directly to the locally-computed value (not the
+                    // relayed ctx.collapseRadius container Disc.tsx reads) —
+                    // zero extra hop for this element's own paint.
+                    borderRadius: sheetBorderRadius,
                     zIndex: zIndex + 102,
                     // Bound as our own MotionValue (not left for Motion's
                     // drag gesture to create internally) so Shadow.tsx can
@@ -300,8 +283,8 @@ export function Sheet({
               {children}
             </SlotContext.Provider>
           </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

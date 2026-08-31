@@ -293,6 +293,49 @@ for (const viewport of VIEWPORTS) {
         expect(sheetWidth).toBeCloseTo(expectedWidth, 0);
       });
 
+      // Audit M11: the backdrop used to survive the whole close (rendered
+      // inside AnimatePresence's `{open && ...}` child, so it stayed mounted
+      // at zIndex + 101 — above the disc's zIndex 100 — for the entire exit
+      // animation), eating every click over the disc's resting position for
+      // as long as the close took to settle. Both motion modes render a
+      // close (reduced motion just skips the FLIP, not the backdrop's own
+      // mount lifecycle), so this gate isn't scoped to `!reduced` like the
+      // FLIP-sampling gates below it.
+      test("(l) a click over the disc's resting position reaches the disc, not the backdrop, 300ms into a close (M11)", async ({
+        page,
+      }) => {
+        await gotoExample(page, reduced);
+        const disc = page.getByRole("button", { name: DISC_LABEL });
+        const discBox = (await disc.boundingBox())!;
+        const cx = discBox.x + discBox.width / 2;
+        const cy = discBox.y + discBox.height / 2;
+
+        await disc.click();
+        const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+        await sheet.waitFor();
+        await waitForStableWidth(page, sheet);
+
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(300);
+
+        const hitPart = await page.evaluate(
+          ([x, y]) => {
+            const el = document.elementFromPoint(x, y);
+            return (
+              el
+                ?.closest("[data-disc-sheet-part]")
+                ?.getAttribute("data-disc-sheet-part") ?? null
+            );
+          },
+          [cx, cy],
+        );
+        console.log(
+          `[geometry] ${viewport.width}x${viewport.height} ${mode}: ` +
+            `300ms-into-close elementFromPoint(disc resting position) part=${hitPart}`,
+        );
+        expect(hitPart).not.toBe("backdrop");
+      });
+
       // Reduced motion drops layoutId entirely on both sides (§6) and
       // cross-fades in 200ms flat — there is no mid-morph FLIP to sample,
       // and reduced-motion's own correctness is covered by a11y.spec.ts and
@@ -621,6 +664,71 @@ for (const viewport of VIEWPORTS) {
           // breaks exactly this invariant while leaving Δtop/Δheight inside
           // their normal bound.
           expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
+        // Audit M1: the close-morph ellipse. Disc.tsx's disc-surface used to
+        // bind border-radius to a CSS `var()` STRING, which Motion can't
+        // parse or scale-correct for a shared-layoutId crossfade — so the
+        // computed border-radius on whichever element currently carries the
+        // layoutId snapped to the literal 9999px fallback from frame one of
+        // every close, painting a full ellipse on a sheet-sized box for the
+        // whole collapse. Both crossfade participants (Sheet.tsx's `.sheet`
+        // on open, Disc.tsx's `.discSurface` on close) now bind to the SAME
+        // numeric collapseRadius MotionValue (useCollapseRadius.ts), so this
+        // asserts the invariant a healthy close must never break: while the
+        // box is still sheet-sized (width > 200px — comfortably above the
+        // disc's own resting diameter, which is under 150px at every ramp
+        // breakpoint), its border-radius can never exceed a plain rounded
+        // rectangle's max (min(width, height) / 2) the way an ellipse does.
+        test("(k) close-morph border-radius never balloons into an ellipse while the box is still sheet-sized (M1)", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+          await openSheet(page);
+          await page.keyboard.press("Escape");
+
+          const result = await page.evaluate((duration) => {
+            return new Promise<{ worstExcessPx: number; samples: number }>(
+              (resolve) => {
+                let worstExcessPx = 0;
+                let samples = 0;
+                const start = performance.now();
+                function tick() {
+                  const el = document.querySelector(
+                    '[data-disc-sheet-part="sheet"], [data-disc-sheet-part="disc-surface"]',
+                  );
+                  if (el) {
+                    const rect = el.getBoundingClientRect();
+                    if (rect.width > 200) {
+                      const radius = Number.parseFloat(
+                        getComputedStyle(el).borderTopLeftRadius || "0",
+                      );
+                      const maxAllowed = Math.min(rect.width, rect.height) / 2;
+                      samples += 1;
+                      worstExcessPx = Math.max(
+                        worstExcessPx,
+                        radius - maxAllowed,
+                      );
+                    }
+                  }
+                  if (performance.now() - start < duration) {
+                    requestAnimationFrame(tick);
+                  } else {
+                    resolve({ worstExcessPx, samples });
+                  }
+                }
+                requestAnimationFrame(tick);
+              },
+            );
+          }, 1200);
+
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} close border-radius: ` +
+              `worst excess over min(w,h)/2 = ${result.worstExcessPx.toFixed(1)}px ` +
+              `across ${result.samples} samples with width>200px`,
+          );
+          expect(result.samples).toBeGreaterThan(0);
+          expect(result.worstExcessPx).toBeLessThanOrEqual(0.5);
         });
       }
     });
