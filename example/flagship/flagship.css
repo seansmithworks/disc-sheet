@@ -1,0 +1,201 @@
+/*
+ * flagship.css — the flagship's own theming + content styling. All colors,
+ * type, and disc-at-rest treatment come from the fact sheet extracted from
+ * seansmithdesign.com (docs/PACKAGE-DESIGN.md scope: consumer re-skins the
+ * primitive with EXACTLY the 13 documented --disc-sheet-* tokens; nothing
+ * beyond that surface is touched).
+ */
+
+.flagship-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: #e8e2d2;
+}
+
+/* The 13 consumer tokens, set to the site's light palette (flagship-facts.md). */
+.flagship-theme {
+  --disc-sheet-surface: #f3eee3;
+  --disc-sheet-surface-elevated: #ede6d3;
+  --disc-sheet-surface-border: #ebe4d4;
+  --disc-sheet-text: #1a1610;
+  --disc-sheet-accent: #a4441f;
+  --disc-sheet-sheet-max-width: 480px;
+  --disc-sheet-sheet-radius: 36px;
+  --disc-sheet-disc-radius: 9999px;
+  --disc-sheet-sheet-padding: 24px;
+  --disc-sheet-shadow:
+    0 1px 4px rgba(26, 22, 16, 0.14), 0 6px 24px rgba(0, 0, 0, 0.15);
+  --disc-sheet-sheet-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.12);
+  --disc-sheet-z: 100;
+}
+
+/* Disc at rest: paper fill, 2px paper-edge ring, dither-bloom dot grid.
+ * Recreated in plain CSS per the floor — no surface-fx import, no WebGL. */
+.flagship-portrait {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  background: var(--disc-sheet-surface);
+  border: 2px solid var(--disc-sheet-surface-border);
+}
+
+.flagship-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+.flagship-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background-image: radial-gradient(
+    circle,
+    var(--disc-sheet-text) 0.6px,
+    transparent 1px
+  );
+  background-size: 3px 3px;
+  opacity: 0.1;
+  transition: opacity 0.2s ease;
+}
+
+[data-disc-sheet-part="disc"]:hover .flagship-portrait::after {
+  opacity: 0.16;
+}
+
+/* Sheet content */
+[data-disc-sheet-part="content"] {
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+}
+
+/* Close.tsx ships unpositioned by design (consumer decides) — the sheet
+ * itself (position: fixed) is the close button's nearest positioned
+ * ancestor, so this places it top-right without touching Content's layout. */
+[data-disc-sheet-part="close"] {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.flagship-eyebrow {
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--disc-sheet-accent);
+  margin: 0 0 8px;
+}
+
+@media (min-width: 768px) {
+  .flagship-eyebrow {
+    font-size: 16px;
+  }
+}
+
+.flagship-title {
+  font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  color: var(--disc-sheet-text);
+  margin: 0 0 12px;
+  line-height: 1.3;
+}
+
+@media (min-width: 768px) {
+  .flagship-title {
+    font-size: 26px;
+  }
+}
+
+.flagship-tagline {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--disc-sheet-text);
+  opacity: 0.75;
+  margin: 0;
+}
+
+.flagship-actions {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--disc-sheet-surface-border);
+}
+
+.flagship-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  padding: 0 24px;
+  margin: 0 -24px;
+  font-size: 13px;
+  color: var(--disc-sheet-text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--disc-sheet-surface-border);
+}
+
+.flagship-action:hover {
+  background: var(--disc-sheet-surface-elevated);
+}
+
+.flagship-action-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: var(--disc-sheet-accent);
+}
+
+.flagship-action-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.flagship-action-label {
+  font-weight: 500;
+}
+
+.flagship-action-handle {
+  margin-left: auto;
+  opacity: 0.6;
+  font-size: 12px;
+}
+
+.flagship-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 20px;
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--disc-sheet-accent);
+  text-decoration: none;
+  border: 1px solid var(--disc-sheet-accent);
+  border-radius: 9999px;
+  padding: 10px 18px;
+}
+
+.flagship-cta:hover {
+  background: var(--disc-sheet-accent);
+  color: var(--disc-sheet-surface);
+}
