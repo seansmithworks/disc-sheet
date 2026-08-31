@@ -1,0 +1,108 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+
+const SRC_DIR = new URL("../src/", import.meta.url);
+const EXCLUDE = new Set(["anchors.test.ts", "css-modules.d.ts"]);
+
+function usage() {
+  console.log(`disc-sheet — a draggable disc that morphs into a modal sheet
+
+Usage:
+  npx @seansmithworks/disc-sheet add [targetDir] [--force]
+
+  Copies the component source into your project (default target:
+  ./src/disc-sheet) so you own and can edit the files directly.
+
+Peer dependencies (install these yourself): react, react-dom, motion
+`);
+}
+
+function readSrcFiles() {
+  const dirPath = SRC_DIR;
+  const entries = fs.readdirSync(dirPath);
+  return entries.filter((name) => {
+    if (EXCLUDE.has(name)) return false;
+    return (
+      name.endsWith(".ts") || name.endsWith(".tsx") || name === "styles.module.css"
+    );
+  });
+}
+
+function hasAmbientCssModuleDecl(cwd) {
+  return fs.existsSync(path.join(cwd, "next-env.d.ts"));
+}
+
+function cmdAdd(args) {
+  const force = args.includes("--force");
+  const positional = args.filter((a) => a !== "--force");
+  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/disc-sheet");
+
+  const files = readSrcFiles();
+
+  const skipCssShim = hasAmbientCssModuleDecl(process.cwd());
+  if (!skipCssShim) {
+    files.push("css-modules.d.ts");
+  }
+
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  const conflicts = [];
+  if (!force) {
+    for (const file of files) {
+      const dest = path.join(targetDir, file);
+      if (fs.existsSync(dest)) conflicts.push(dest);
+    }
+    if (conflicts.length > 0) {
+      console.error(
+        `disc-sheet: refusing to overwrite existing files (use --force to overwrite):`
+      );
+      for (const c of conflicts) console.error(`  ${c}`);
+      process.exit(1);
+    }
+  }
+
+  let copied = 0;
+  for (const file of files) {
+    const srcPath = new URL(file, SRC_DIR);
+    const dest = path.join(targetDir, file);
+    fs.copyFileSync(srcPath, dest);
+    copied += 1;
+  }
+
+  const relTarget = path.relative(process.cwd(), targetDir) || ".";
+
+  console.log(`disc-sheet: copied ${copied} files to ${relTarget}`);
+  if (skipCssShim) {
+    console.log(
+      `disc-sheet: detected next-env.d.ts, skipping css-modules.d.ts (Next already declares *.module.css)`
+    );
+  }
+  console.log(`\nInstall peer dependencies:`);
+  console.log(`  npm install react react-dom motion`);
+  console.log(`\nImport it:`);
+  console.log(`  import { DiscSheet } from "./${relTarget}";`);
+}
+
+function main() {
+  const [, , command, ...rest] = process.argv;
+
+  if (!command || command === "help" || command === "--help") {
+    usage();
+    return;
+  }
+
+  if (command === "add") {
+    cmdAdd(rest);
+    return;
+  }
+
+  console.error(`disc-sheet: unknown command "${command}"\n`);
+  usage();
+  process.exit(1);
+}
+
+main();

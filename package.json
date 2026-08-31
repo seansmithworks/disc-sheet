@@ -38,9 +38,13 @@
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",
+  "bin": {
+    "disc-sheet": "./bin/disc-sheet.mjs"
+  },
   "files": [
     "dist",
     "src",
+    "bin",
     "README.md",
     "LICENSE"
   ],

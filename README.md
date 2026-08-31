@@ -56,6 +56,32 @@ build` — so an unusually strict or `types`-restricted consumer
 `tsconfig.json` typechecks our source too, not just yours. None of this
 applies to the default npm install above, which ships compiled output.
 
+### npx copy-in
+
+If you'd rather own the files outright — no package dependency, no
+`node_modules` indirection — copy the component source directly into your
+project:
+
+```bash
+npx @seansmithworks/disc-sheet add
+```
+
+This drops all of `src/`'s components, hooks, and `styles.module.css` into
+`./src/disc-sheet` (pass a different path as the first argument to change
+the target). It skips the test file and, if your project already has a
+`next-env.d.ts`, skips the `*.module.css` ambient type shim too (Next
+already declares it — a duplicate `declare module` block is a TS error). It
+refuses to overwrite existing files unless you pass `--force`.
+
+The tradeoff: you own the copy from that point on. There's no update
+channel — to pick up changes, re-run with `--force` (which overwrites
+everything) or diff your copy against a fresh `add` in a scratch directory.
+Peer dependencies aren't copied and still need installing:
+
+```bash
+npm install react react-dom motion
+```
+
 ## Peer dependencies
 
 - `react` >=19
