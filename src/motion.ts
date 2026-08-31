@@ -13,10 +13,27 @@ export const DEFAULT_OPEN_SPRING: Spring = {
   mass: 1.75,
 };
 
+/**
+ * Retuned 2026-08-31 for the close-duration target (was 240 / 34 / 1.75).
+ *
+ * The damping RATIO is deliberately preserved — 0.830 before, 0.826 after —
+ * so the character of the close is unchanged and only its rate moves. What
+ * changed is the natural frequency: mass 1.75 -> 1.0 with stiffness
+ * 240 -> 375 takes wn from 11.71 to 19.36 rad/s, which is the whole of the
+ * speed-up. Measured settle to within 0.2px of the resting disc went from
+ * 893ms to 471ms on the prod consumer app.
+ *
+ * Still underdamped, so the box still overshoots its target by ~0.94% of
+ * travel (3.3px) on the way in. That overshoot lands on a 128px disc rather
+ * than the 480px sheet, which is why it reads as a brief ellipse at the end
+ * of a close and does not read as anything on the open. Making the close
+ * critically damped would remove it; that was explicitly NOT part of this
+ * change and is recorded as a recommendation instead.
+ */
 export const DEFAULT_CLOSE_SPRING: Spring = {
-  stiffness: 240,
-  damping: 34,
-  mass: 1.75,
+  stiffness: 375,
+  damping: 32,
+  mass: 1,
 };
 
 export const DEFAULT_SHARED_SPRING: Spring = {
