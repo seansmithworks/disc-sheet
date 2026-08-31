@@ -583,6 +583,55 @@ for (const viewport of VIEWPORTS) {
           expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
         });
 
+        // Review finding #1: collapseProgress.set(1) used to fire
+        // unconditionally on every isOpening transition, including a tap
+        // that reopens the disc while a PREVIOUS close is still animating —
+        // reachable since M11 moved the backdrop out of the way from frame
+        // one of a close (see test (l) above). That forced the shadow/
+        // radius clock to snap to fully-closed (collapseProgress: 1) right
+        // before re-arming toward 0, while Motion's own layout-projection
+        // spring for the surface box has no equivalent reset and resumes
+        // smoothly from wherever it currently is — producing a large,
+        // immediate shadow/surface desync for the whole reopen, which
+        // sampleShadowSurfaceDelta (already used above to catch the D3
+        // stale-snapshot defect) is equally able to catch here: a snap
+        // shows up as the same class of spike in worst |Δtop|/|Δbottom| in
+        // the reopen window, not a small, converging spread.
+        test("(n) shadow does not snap when the disc reopens a still-closing sheet", async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced);
+          const disc = page.getByRole("button", { name: DISC_LABEL });
+          await disc.click();
+          const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+          await sheet.waitFor();
+          await waitForStableWidth(page, sheet);
+
+          await page.keyboard.press("Escape");
+          // Mid-close — well before the close spring/hold settles (~240-
+          // 440ms depending on viewport), and after the backdrop has
+          // already unmounted (M11), so the disc is genuinely tappable
+          // here.
+          await page.waitForTimeout(150);
+          await disc.click();
+
+          const result = await sampleShadowSurfaceDelta(page, 1200);
+          console.log(
+            `[geometry] ${viewport.width}x${viewport.height} reopen-mid-close: ` +
+              `worst |Δtop|=${result.worstTop.toFixed(1)}px, ` +
+              `worst |Δheight|=${result.worstHeight.toFixed(1)}px, ` +
+              `worst |Δbottom|=${result.worstBottom.toFixed(1)}px`,
+          );
+          // Same bound as a genuine reversal (g) — a fixed, converging
+          // desync from the two clocks' differing spring constants, not the
+          // unbounded snap the bug produces (which the pre-fix comment on
+          // (g) measured at 26-37px for a SIMPLER reversal; a snap straight
+          // to collapseProgress=1 mid-flight is at least as large).
+          expect(result.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+          expect(result.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+          expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+        });
+
         test("(h) shadow tracks a rapid open/close toggle (3 cycles)", async ({
           page,
         }) => {

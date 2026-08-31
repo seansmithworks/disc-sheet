@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useCallback,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   LayoutGroup,
   animate,
@@ -261,7 +255,21 @@ export function Root({
       return;
     }
 
-    if (isOpening) {
+    // Only force collapseProgress to 1 when it isn't already mid-animation.
+    // isOpening covers a cold open (collapseProgress already 1 by default)
+    // and a settled close reopening (already at 1 from the prior close), so
+    // the set(1) below is a no-op in both — but it ALSO fires when a tap
+    // reopens the disc while a previous close is still animating (M11 made
+    // that reachable: the backdrop no longer blocks the disc for the whole
+    // close). In that case collapseProgress is mid-flight (e.g. 0.3, not 1),
+    // and forcing it to 1 snaps the shadow/radius to fully-closed right
+    // before startMorphClock re-arms an animation from that forced value,
+    // producing a visible desync from the surface box (which Motion resumes
+    // smoothly, with no equivalent reset). Skip the reset whenever an
+    // animation is already running — the current in-flight value is the
+    // correct starting point for the reversal, exactly like isClosing
+    // already treats it with no reset at all.
+    if (isOpening && !collapseProgress.isAnimating()) {
       collapseProgress.set(1);
     }
     morphRef.current = {
@@ -282,6 +290,17 @@ export function Root({
       morphFallbackRafRef.current = null;
       if (!morphRef.current?.started) startMorphClock(fallbackFrom);
     });
+
+    // If Root unmounts between this commit and the next paint (e.g. a
+    // consumer's route change removes it right after a toggle), the
+    // scheduled rAF above would otherwise fire after unmount and call
+    // animate() on a dead tree — cancel it on cleanup.
+    return () => {
+      if (morphFallbackRafRef.current !== null) {
+        cancelAnimationFrame(morphFallbackRafRef.current);
+        morphFallbackRafRef.current = null;
+      }
+    };
   }, [
     open,
     collapseProgress,

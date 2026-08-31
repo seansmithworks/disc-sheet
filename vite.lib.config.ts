@@ -45,6 +45,16 @@ export default defineConfig({
         "motion",
         "motion/react",
       ],
+      // Rollup drops module-level directives when bundling (every src/
+      // entry point declares "use client" — Rollup 4 discards them with a
+      // "Module level directives cause errors when bundled" warning). The
+      // bundle is a single entry whose every export is a client component,
+      // so a file-level banner is the correct replacement: it re-adds the
+      // RSC client boundary the built dist/index.js otherwise ships without,
+      // which breaks the default Next.js App Router import (review #2).
+      output: {
+        banner: '"use client";',
+      },
     },
     outDir: "dist",
     emptyOutDir: true,
