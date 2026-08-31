@@ -94,6 +94,8 @@ them.
 ## Usage
 
 ```tsx
+"use client";
+
 import { DiscSheet } from "@seansmithworks/disc-sheet";
 
 function ContactDisc() {
@@ -103,13 +105,27 @@ function ContactDisc() {
 
       <DiscSheet.Disc aria-label="Open contact">
         <DiscSheet.Shared>
-          <Avatar />
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "100%",
+              background: "#b4512e",
+            }}
+          />
         </DiscSheet.Shared>
       </DiscSheet.Disc>
 
       <DiscSheet.Sheet aria-labelledby="sheet-title">
         <DiscSheet.Shared>
-          <Avatar />
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "100%",
+              background: "#b4512e",
+            }}
+          />
         </DiscSheet.Shared>
 
         <DiscSheet.Content>
@@ -117,7 +133,9 @@ function ContactDisc() {
           <DiscSheet.Item>
             <h2 id="sheet-title">Sean Smith</h2>
           </DiscSheet.Item>
-          <DiscSheet.Item>{/* links, etc. */}</DiscSheet.Item>
+          <DiscSheet.Item>
+            <p>Links, etc.</p>
+          </DiscSheet.Item>
         </DiscSheet.Content>
       </DiscSheet.Sheet>
     </DiscSheet.Root>
@@ -125,14 +143,19 @@ function ContactDisc() {
 }
 ```
 
+Pasted as-is, this renders a solid-colored disc at the bottom-center viewport
+anchor: drag it to re-anchor at any of the six anchors, tap it to morph it
+into the sheet shown above.
+
 Nine exports total: eight components (`Root`, `Disc`, `Sheet`, `Shared`,
 `Content`, `Item`, `Close`, `Shadow`) plus the `useDiscSheet()` hook. That is
 the whole surface area.
 
-In a Next.js App Router app, add `"use client"` at the top of the file where
-you mount `DiscSheet` (as above). Server components can't resolve a property
-access like `DiscSheet.Root` on a client-reference namespace — this is the
-same constraint as Radix, MUI, and `motion/react` itself.
+In a Next.js App Router app, `"use client"` has to be the first line of the
+file where you mount `DiscSheet`, as it is in the snippet above. Server
+components can't resolve a property access like `DiscSheet.Root` on a
+client-reference namespace — this is the same constraint as Radix, MUI, and
+`motion/react` itself.
 
 ### The escape hatch
 
@@ -210,6 +233,10 @@ to find the live element from outside the package via `useDiscSheet()` + a
 `"sheet"`, so consumer CSS (or the package's own
 `.shared[data-disc-sheet-slot=…]` rules) can target either instance without
 relying on className precedence.
+
+`disc-root` additionally carries `data-disc-sheet-closing` (empty string),
+present only while a close is in flight (removed once the sheet has fully
+closed).
 
 ## Motion
 
