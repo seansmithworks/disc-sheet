@@ -7,6 +7,15 @@
  * never package defects (review finding E2).
  */
 
+/* M13: Close.tsx ships unpositioned by design (consumer decides) — without
+ * this, it rendered as a 430x44 bar floating between the circle and the
+ * heading, the first thing a first-time visitor to this page sees open. */
+[data-disc-sheet-part="close"] {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
 [data-disc-sheet-part="item"] {
   padding-top: 16px;
 }

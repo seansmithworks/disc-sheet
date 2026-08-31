@@ -43,9 +43,13 @@ const actions = [
     label: "X",
     handle: "@seansmithworks",
     href: "https://x.com/seansmithworks",
+    // T4: a bare ✕ here read as a second close button — the same mark
+    // src/Close.tsx draws for "dismiss this", one 480px surface away. The
+    // actual X wordmark reads as "go to a social profile" instead. Solid
+    // glyph, not an outline stroke like the other four icons.
     icon: (
-      <svg viewBox="0 0 24 24">
-        <path d="m4 4 16 16M20 4 4 20" />
+      <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
       </svg>
     ),
   },
@@ -61,7 +65,9 @@ const actions = [
   },
   {
     label: "Resume",
-    handle: "PDF",
+    // T2: "PDF" broke the pattern (every other row shows a handle) and was
+    // inaccurate — the href below is a web page, not a PDF download.
+    handle: "/resume",
     href: "https://seansmithdesign.com/resume",
     icon: (
       <svg viewBox="0 0 24 24">
@@ -75,6 +81,12 @@ const actions = [
 function App() {
   return (
     <div className="flagship-page">
+      {/* T1: the page at rest was an empty paper field with an unnamed
+          face on it — no hover (M4), no press (M12), and Sean's name never
+          appeared anywhere in the piece. Doubles as the page's <h1>. */}
+      <h1 className="flagship-whisper">
+        Sean Smith — tap the disc. Drag it anywhere.
+      </h1>
       <DiscSheet.Root className="flagship-theme">
         <DiscSheet.Shadow />
 

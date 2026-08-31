@@ -7,12 +7,29 @@
  */
 
 .flagship-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 24px;
   background: #e8e2d2;
+}
+
+/* T1: the page at rest was an empty paper field with an unnamed face on it
+ * — no hover, no press, and Sean's name never appeared anywhere in the
+ * piece. Doubles as the page's <h1> (there were zero headings/landmarks). */
+.flagship-whisper {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  margin: 0;
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(26, 22, 16, 0.45);
 }
 
 /* The 13 consumer tokens, set to the site's light palette (flagship-facts.md). */
@@ -43,6 +60,15 @@
   overflow: hidden;
   background: var(--disc-sheet-surface);
   border: 2px solid var(--disc-sheet-surface-border);
+  /* M12: press feedback — the disc had none, and the native tap highlight
+   * is deleted (src/styles.module.css:39). Scoped to THIS element only,
+   * never the FLIP-projected surface or its transform ancestors (see the
+   * note at src/Disc.tsx:52-60). */
+  transition: transform 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+[data-disc-sheet-part="disc-trigger"]:active .flagship-portrait {
+  transform: scale(0.94);
 }
 
 .flagship-portrait img {
@@ -69,8 +95,8 @@
   transition: opacity 0.2s ease;
 }
 
-[data-disc-sheet-part="disc"]:hover .flagship-portrait::after {
-  opacity: 0.16;
+[data-disc-sheet-part="disc-root"]:hover .flagship-portrait::after {
+  opacity: 0.22;
 }
 
 /* Sheet content */
@@ -94,7 +120,11 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--disc-sheet-accent);
-  margin: 0 0 8px;
+  /* M8: the portrait and the first line of copy touched — zero separation
+   * against 24px margins everywhere else. Kept in the flagship's own
+   * selector, not on [data-disc-sheet-part="content"] (ties on specificity
+   * with the package's CSS-module rule, per the package's own comments). */
+  margin: 20px 0 8px;
 }
 
 @media (min-width: 768px) {
@@ -106,7 +136,10 @@
 .flagship-title {
   font-family: "Libre Baskerville", Georgia, "Times New Roman", serif;
   font-weight: 500;
-  font-size: 16px;
+  /* T3: 16px only read 2px larger than the 14px tagline inside a 358px
+   * modal — the tagline optically outweighed it. 20px below 768px, holding
+   * 26px above (deliberate; the ramp was tuned for a full-page title). */
+  font-size: 20px;
   letter-spacing: -0.01em;
   color: var(--disc-sheet-text);
   margin: 0 0 12px;
@@ -130,7 +163,14 @@
 .flagship-actions {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid var(--disc-sheet-surface-border);
+}
+
+/* M6: the first divider was 48px shorter than the other four — nav's
+ * border-top was inset by Content's padding, the rows' full-bleed
+ * border-bottoms weren't. first-child's own border-top full-bleeds exactly
+ * like the others instead. */
+.flagship-action:first-child {
+  border-top: 1px solid rgba(26, 22, 16, 0.1);
 }
 
 .flagship-action {
@@ -143,11 +183,26 @@
   font-size: 13px;
   color: var(--disc-sheet-text);
   text-decoration: none;
-  border-bottom: 1px solid var(--disc-sheet-surface-border);
+  /* M5: #ebe4d4 on #ede6d3 (the elevated sheet) was 1.02:1 — invisible. */
+  border-bottom: 1px solid rgba(26, 22, 16, 0.1);
+  /* M3: hover background matched the sheet's own background exactly —
+   * zero pixels changed. */
+  transition: background-color 120ms ease-out;
 }
 
 .flagship-action:hover {
-  background: var(--disc-sheet-surface-elevated);
+  background: rgba(26, 22, 16, 0.045);
+}
+
+.flagship-action:active {
+  background: rgba(26, 22, 16, 0.075);
+}
+
+/* M10: every link used Chrome's default blue focus ring, spanning the full
+ * bleed width of each row. */
+.flagship-action:focus-visible {
+  outline: 2px solid var(--disc-sheet-accent);
+  outline-offset: -2px;
 }
 
 .flagship-action-icon {
@@ -174,7 +229,8 @@
 
 .flagship-action-handle {
   margin-left: auto;
-  opacity: 0.6;
+  /* M7: 0.6 blended to 4.38:1 on #ede6d3 at 12px — under AA's 4.5:1. */
+  opacity: 0.65;
   font-size: 12px;
 }
 
@@ -192,10 +248,18 @@
   text-decoration: none;
   border: 1px solid var(--disc-sheet-accent);
   border-radius: 9999px;
-  padding: 10px 18px;
+  /* M9: 144.3x37 — under the 44px touch-target minimum, and it's the
+   * sheet's primary conversion action. */
+  min-height: 44px;
+  padding: 0 20px;
 }
 
 .flagship-cta:hover {
   background: var(--disc-sheet-accent);
   color: var(--disc-sheet-surface);
+}
+
+.flagship-cta:focus-visible {
+  outline: 2px solid var(--disc-sheet-accent);
+  outline-offset: 3px;
 }
