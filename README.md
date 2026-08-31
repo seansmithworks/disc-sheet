@@ -129,6 +129,11 @@ Nine exports total: eight components (`Root`, `Disc`, `Sheet`, `Shared`,
 `Content`, `Item`, `Close`, `Shadow`) plus the `useDiscSheet()` hook. That is
 the whole surface area.
 
+In a Next.js App Router app, add `"use client"` at the top of the file where
+you mount `DiscSheet` (as above). Server components can't resolve a property
+access like `DiscSheet.Root` on a client-reference namespace — this is the
+same constraint as Radix, MUI, and `motion/react` itself.
+
 ### The escape hatch
 
 `useDiscSheet().collapseProgress` is the raw `MotionValue<number>` the
