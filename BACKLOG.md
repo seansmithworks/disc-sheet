@@ -35,3 +35,10 @@ Plan gate CLOSED: /adversarial-plan ran (Opus refuter, 14 findings, verdict revi
 
 - example/ `evidence/` dir + untracked test-results/ hygiene beyond gitignore
 - Site-side cutover (seansmithdesign.com consuming the package) — wave 5's other half, separate run
+
+## v0.2 candidates (Sean, 2026-08-31 morning review)
+
+- **Shape presets** — circle / squircle / square as first-class out-of-the-box options. The dial exists (`--disc-sheet-disc-radius`), but the SHARED CONTENT must mask to the same shape or it reads broken (the accidental squircle looked wrong only because the portrait stayed circular). Needs: child radius inheritance that tracks the ANIMATED radius mid-morph, not just the static token, plus docs + an example variant per shape.
+- **In-flow origins** — generalize the morph beyond the floating disc: thumbnail-to-lightbox, popout-from-body-content. (Also in tease-capture.)
+- **Morph smoothness pass** — profile the disc-to-sheet transition frame-by-frame (suspects: content reveal pop at ~96% settle, crossfade handoff); refine, don't rebuild. Staged behind the squircle fix, same T1 motion agent.
+
