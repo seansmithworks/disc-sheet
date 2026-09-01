@@ -271,7 +271,7 @@ Throws outside `<DiscSheet.Root>`. This hook is the escape hatch for §3 and the
 | --- | --- |
 | `dragElastic`, `dragMomentum`, `dragConstraints`, drag threshold (5px) | Drag feel is one dialed system. Exposing pieces of it lets a consumer produce an off-screen excursion or a tap that registers as a drag. |
 | Snap spring (`stiffness 700, damping 52, mass 1`) | Deliberately overdamped so the disc never overshoots past a viewport edge. A softer value is a bug, not a preference. |
-| `radiusHoldFraction`, `surfaceCloseLeadDelayMs`, `openContentRevealDelaySec`, `contentFadeOutMs`, `contentFadeOutDelayMs` | The close choreography. Every one of these exists to suppress a specific artifact. See §3. |
+| `radiusHoldFraction`, `openContentRevealDelaySec`, `contentFadeOutMs`, `contentFadeOutDelayMs` | The close choreography. Every one of these exists to suppress a specific artifact. See §3. (`surfaceCloseLeadDelayMs` was promoted OUT of this row and into §3's props table — it is a duration, not a suppressed artifact.) |
 | The trailing-paper mask envelope constants (`FADE_START/PEAK/END`, `MAX_FADE`, `BAND`) | Internal to one artifact fix. See §8, where this is a cut. |
 | The 2x3 anchor region map thresholds | Changing them makes "nearest anchor" not mean nearest. |
 | Swipe-to-close thresholds (96px offset, 400px/s velocity) | Platform convention values. |
@@ -360,9 +360,10 @@ The morph is hand-dialed. The design rule is: **springs are props, shape tokens 
 | Key | Default | Provenance |
 | --- | --- | --- |
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` | `surfaceCloseSpring` scaled by k=1.25 (stiffness by k², damping by k), which preserves the damping ratio and shortens settle ~20% |
-| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` | retuned 2026-08-31 from 240/34/1.75; damping ratio preserved (0.830 -> 0.826), wn 11.71 -> 19.36 |
+| `close` | `{ stiffness: 317.4, damping: 29.44, mass: 1 }` | 375/32/1 (itself retuned 2026-08-31 from 240/34/1.75) frequency-scaled by k=0.92 per Sean's "timed well, maybe a bit fast"; damping ratio preserved at 0.826 throughout |
 | `shared.open` | `{ stiffness: 500, damping: 45 }` | stiff and near-critically damped so the shared element clears the growing sheet without overshoot |
-| `shared.close` | `{ stiffness: 305, damping: 28.9, mass: 1 }` | derived from `close` by the same k-scaling as `open`, with k = Ts/(Ts+D) = 0.902 — the shared element starts D≈36ms earlier than the surface (`surfaceCloseLeadDelayMs` plus the projection-start frame), so it must take D longer to settle. Measured arrival gap: 175ms -> 25ms |
+| `shared.close` | `{ stiffness: 220.3625, damping: 24.565, mass: 1 }` | derived from `close` by the same k-scaling as `open`, with k = Ts/(Ts+D) = 0.902 (the shared element starts D≈36ms earlier than the surface — `surfaceCloseLeadDelayMs` plus the projection-start frame — so it must take D longer to settle), then scaled AGAIN by k=0.85 per Sean's "slow the avatar move down a little bit". That second scaling deliberately breaks the arrive-together derivation: 0.85 against the shell's 0.92 makes the avatar visibly slower than the shell, which spends its lead. Damping ratio preserved at 0.827 |
+| `surfaceCloseLeadDelayMs` | `35` | ms the surface box waits before starting its close FLIP, so the shared element leads the shrink instead of scaling in lockstep. At 100 the shared element was 53% of the way home before the sheet started collapsing and the close ran 573ms; at 35 it is 17% home and the close runs 507ms, four frames shorter, with the detachment still legible. `shared.close` is derived from this value and must be re-derived alongside it |
 
 `shared` is **direction-aware** because the two directions have different
 jobs. On the open the shared element only has to clear the growing sheet; on
@@ -374,6 +375,18 @@ before the disc stopped moving, and the 2px border relationship
 (`.shared[data-disc-sheet-slot="disc"]`, `inset: 2px`) arrived a sixth of a
 second early. The close default is derived from `close` rather than dialed,
 so the two stay coupled if `close` is ever retuned again.
+
+`surfaceCloseLeadDelayMs` is the one internal choreography constant that has
+been promoted to a prop, and the reason is the rule below rather than an
+exception to it. The rule says a constant stays internal when exposing it
+turns "we solved this" into "you can un-solve this". This one is different in
+kind: it is not a suppressed artifact, it is a *duration*, and it is the
+single biggest lever on how long a close feels — the one number that has to
+move when the close reads too long or too short. Everything else in the
+internal table has a right answer; this one has a taste answer, and taste
+answers belong to whoever is looking at it. It stays coupled to
+`shared.close` through the derivation above, documented on both constants, in
+the README, and here.
 
 Each accepts a full Motion `Transition` as well as the `Spring` shorthand, so "I need a tween, not a spring" is never a reason to fork. When the package needs to compose its own `delay` onto the close transition, it applies it **only if the consumer did not specify one**.
 
@@ -390,7 +403,6 @@ Not props, not variables, not documented as tunable:
 | Constant | Value | What it prevents |
 | --- | --- | --- |
 | `radiusHoldFraction` | 0.74 | The disc shape appearing before the box has contracted (an over-rounded rectangle). Progress-based, so it holds correctly however long a close runs. A second, wall-clock hold (`radiusCloseDelaySec: 1.5`) used to sit on top of it and was removed: 1.5s is longer than a close takes, so it suppressed this hold entirely on the close direction and left the disc resting on the SHEET's radius — a squircle — after every close. |
-| `surfaceCloseLeadDelayMs` | 35 (was 100) | The shared element and the surface shrinking in lockstep, which reads as a scale rather than a re-home. At 100 the shared element was 53% of the way home before the sheet started collapsing and the close ran 573ms; at 35 it is 17% home and the close runs 507ms, four frames shorter, with the detachment still legible. `DEFAULT_SHARED_CLOSE_SPRING` is derived from this value and must be re-derived alongside it |
 | `openContentRevealDelaySec` | 0.2 | Text visibly stretching during the bloom |
 | `contentFadeOutMs` / `DelayMs` | 80 / 0 | Content still painted while the box collapses under it |
 | stagger interval | 0.04 | |

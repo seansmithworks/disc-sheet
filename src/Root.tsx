@@ -48,6 +48,7 @@ export function Root({
   discSize: discSizeProp,
   sheetMaxWidth = 480,
   transition,
+  surfaceCloseLeadDelayMs = SURFACE_CLOSE_LEAD_DELAY_MS,
   reduceMotion: reduceMotionProp,
   id,
   zIndex = 100,
@@ -133,12 +134,12 @@ export function Root({
   const closeTransition = mergeTransition(
     transition?.close,
     DEFAULT_CLOSE_SPRING,
-    reduceMotion ? undefined : SURFACE_CLOSE_LEAD_DELAY_MS / 1000,
+    reduceMotion ? undefined : surfaceCloseLeadDelayMs / 1000,
   );
   // The shared element's transition is DIRECTION-AWARE. On the open it only
   // has to clear the growing sheet; on the close it has to arrive home
   // together with the collapsing disc, which it cannot do on the same spring
-  // because the surface's close FLIP starts SURFACE_CLOSE_LEAD_DELAY_MS later
+  // because the surface's close FLIP starts surfaceCloseLeadDelayMs later
   // than it does. `open` is the direction: it is already true when the open
   // morph's layout animation is created and already false when the close
   // morph's is, so reading it here picks the right spring by construction.

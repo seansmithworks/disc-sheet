@@ -14,6 +14,18 @@ export const DEFAULT_OPEN_SPRING: Spring = {
 };
 
 /**
+ * STRAWMAN 2026-08-31 (was 375 / 32 / 1) — Sean, on the coupled close: "the
+ * sheet/disc shell is timed well, maybe a bit fast for my personal
+ * preference." Frequency-scaled by k = 0.92 (stiffness by k^2, damping by k),
+ * so the damping ratio is untouched at 0.826 and only the rate moves: the
+ * shell settles ~9% slower and nothing about its character changes.
+ *
+ * A STARTING POSITION, not a dialled value. The consumer app's /tune route
+ * drives this spring, DEFAULT_SHARED_CLOSE_SPRING and
+ * surfaceCloseLeadDelayMs off a dialkit panel; whatever Sean lands on there
+ * replaces these three numbers.
+ *
+ * ── history ──
  * Retuned 2026-08-31 for the close-duration target (was 240 / 34 / 1.75).
  *
  * The damping RATIO is deliberately preserved — 0.830 before, 0.826 after —
@@ -31,8 +43,8 @@ export const DEFAULT_OPEN_SPRING: Spring = {
  * change and is recorded as a recommendation instead.
  */
 export const DEFAULT_CLOSE_SPRING: Spring = {
-  stiffness: 375,
-  damping: 32,
+  stiffness: 317.4,
+  damping: 29.44,
   mass: 1,
 };
 
@@ -84,10 +96,26 @@ export const DEFAULT_SHARED_SPRING: Spring = {
  * head start the shared element is well ahead of the box through the middle of
  * the close (which is what SURFACE_CLOSE_LEAD_DELAY_MS buys — the close reads
  * as a re-home, not a scale). It just no longer finishes early.
+ *
+ * STRAWMAN 2026-08-31 (was 305 / 28.9 / 1) — Sean, on the coupled close: "I
+ * wonder if we slow the avatar move down a little bit." Frequency-scaled by
+ * k = 0.85 on the derived value above, damping ratio again untouched (0.827),
+ * so the avatar settles ~18% slower.
+ *
+ * It deliberately BREAKS the k = Ts/(Ts+D) derivation documented above: 0.85
+ * against the shell's 0.92 is not the value that makes the two arrive
+ * together, it is the value that makes the avatar visibly slower than the
+ * shell, which is what Sean asked for. The cost is spelled out in the
+ * derivation comment — the shared element gives back its lead and moves
+ * toward TRAILING the box, and a trailing avatar spills past the disc's 2px
+ * border. The /tune route reads out both numbers (arrival gap and minimum
+ * avatar inset) live for exactly this reason. If Sean dials the avatar back
+ * to arriving with the shell, the derived pair is k = 0.902 applied to
+ * whatever `close` ends up being.
  */
 export const DEFAULT_SHARED_CLOSE_SPRING: Spring = {
-  stiffness: 305,
-  damping: 28.9,
+  stiffness: 220.3625,
+  damping: 24.565,
   mass: 1,
 };
 

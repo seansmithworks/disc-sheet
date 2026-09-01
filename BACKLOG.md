@@ -88,9 +88,23 @@ Plan gate CLOSED: /adversarial-plan ran (Opus refuter, 14 findings, verdict revi
 
 Sean's verdict on the coupled close: "really close." Two directional notes + one tool ask.
 
-- [ ] Expose `surfaceCloseLeadDelayMs` as a Root prop (internal constant today; the dial cannot reach it otherwise)
-- [ ] Tuner panel on a NEW `/tune` route in the prod consumer — `/` stays the verbatim README snippet
-- [ ] Live sliders: surface close spring, shared close spring, lead delay. CLOSE PATH ONLY (the open stays off-limits by construction)
-- [ ] Live readout: avatar-vs-box arrival gap AND min avatar inset (spill guard — slowing the avatar pushes it toward trailing, which spills past the disc edge)
-- [ ] Copy-config button so Sean's dialed values return exactly
-- [ ] Strawman starting position: shell ~9% slower, avatar ~18% slower (his stated direction), reported with resulting gap + spill
+- [x] Expose `surfaceCloseLeadDelayMs` as a Root prop. README + PACKAGE-DESIGN §3 updated: the row moved OUT of §3's internal table and out of the "deliberately NOT exposed" table into the props table, with the reason (it is a duration with a taste answer, not a suppressed artifact).
+- [x] Tuner on a NEW `/tune` route in the prod consumer, built on **dialkit 1.4.3** (`DialRoot mode="inline" productionEnabled`, `useDialKitController`, two `SpringControl`s + one `Slider`, its own PresetManager + Copy). `/` untouched.
+- [x] Close path only, structurally: `transition.open` is never passed, so no dial can reach the open.
+- [x] Live readout (hand-built — dialkit is inputs only): arrival gap ms + min avatar inset px, median of the runs since the last dial change. Rest-state sanity verified at exactly [2,2,2,2] px.
+- [x] Persistence + copy are dialkit's: `persist: true`, `id: "disc-sheet-close"` → localStorage key **`dialkit:disc-sheet-close`**. Preset dropdown holds "Version 1" (= shipped defaults) and a seeded **"Phase 4 (77f6d9b)"** for the A/B.
+- [x] Strawman applied to the shipped defaults: `DEFAULT_CLOSE_SPRING` 375/32/1 → **317.4/29.44/1** (k=0.92), `DEFAULT_SHARED_CLOSE_SPRING` 305/28.9/1 → **220.3625/24.565/1** (k=0.85). Damping ratios preserved (0.826 / 0.827).
+
+### Measured on the prod consumer at 1280x800, median of 7 closes each, one instrument
+
+| | arrival gap | min inset | total close | box arrives | avatar arrives |
+| --- | --- | --- | --- | --- | --- |
+| Phase 4 (77f6d9b) | **+8.4ms** | **−1.24px** | 497ms | 489ms | 497ms |
+| Strawman (0.92 / 0.85) | **+58.3ms** | **−1.16px** | 586ms | 530ms | 586ms |
+
+- The strawman does **not** spill worse: −1.16px vs −1.24px, i.e. 0.08px BETTER. The spill is set by the shell's overshoot pulling the box narrower than the avatar's resting 124px, not by the avatar's timing — both figures were stable to ±0.01px across 7 runs. The parked critically-damped-close item remains the root fix.
+- It does cost **+50ms of avatar trail and +89ms of total close** (586ms), which is LONGER than the 573ms that motivated dropping the lead delay 100 → 35. The close is now paced by the avatar, not the shell.
+- Found while verifying the dials: **lead delay 90 takes the strawman's gap to 0.0ms at no cost in total close** (581ms either way), because it delays the shell into the slowed avatar rather than slowing anything further. That is the cheapest way to re-couple the pair if Sean keeps the slower avatar.
+- Sign convention: this instrument reads Phase 4 at **+8.4ms** (avatar trailing). PACKAGE-DESIGN §3 recorded "+25ms" and this BACKLOG recorded "−33.2ms" for the same commit — the two prior records disagree in sign and the scratchpad that would settle it is gone. All numbers above come from ONE instrument, so the deltas are sound even though the absolute Phase-4 figure does not match the −33.2ms line.
+
+- [ ] **Sean's call — the tuner is live at http://localhost:3000/tune** (prod build, detached server). Dial it, then hand back either the panel's Copy JSON or just say "read the key" and the dialed values come out of `dialkit:disc-sheet-close`.

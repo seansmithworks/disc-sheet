@@ -242,10 +242,10 @@ closed).
 
 Three springs are props (`transition.open` / `.close` / `.shared`), each
 accepting the `{ stiffness, damping, mass? }` shorthand or a full Motion
-`Transition`. Everything else, hold fractions, delay gates, stagger
-intervals, swipe thresholds, drag feel, is internal. These are fixes for
-specific artifacts, not knobs; see `docs/PACKAGE-DESIGN.md` §3 and §7C in the
-source repo for why.
+`Transition`, plus one number: `surfaceCloseLeadDelayMs`. Everything else,
+hold fractions, stagger intervals, swipe thresholds, drag feel, is internal.
+These are fixes for specific artifacts, not knobs; see
+`docs/PACKAGE-DESIGN.md` §3 and §7C in the source repo for why.
 
 `transition.shared` is additionally **direction-aware**. The shared element
 has a different job in each direction — on the open it only has to clear the
@@ -257,10 +257,10 @@ independently:
 ```tsx
 <DiscSheet.Root
   transition={{
-    close: { stiffness: 375, damping: 32, mass: 1 },
+    close: { stiffness: 317.4, damping: 29.44, mass: 1 },
     shared: {
       open: { stiffness: 500, damping: 45 },
-      close: { stiffness: 305, damping: 28.9, mass: 1 },
+      close: { stiffness: 220.3625, damping: 24.565, mass: 1 },
     },
   }}
 >
@@ -269,16 +269,33 @@ independently:
 | Key | Default |
 | --- | --- |
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` |
-| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` |
+| `close` | `{ stiffness: 317.4, damping: 29.44, mass: 1 }` |
 | `shared.open` | `{ stiffness: 500, damping: 45 }` |
-| `shared.close` | `{ stiffness: 305, damping: 28.9, mass: 1 }` |
+| `shared.close` | `{ stiffness: 220.3625, damping: 24.565, mass: 1 }` |
 
-The `shared.close` default is derived from `close`, not dialed
-independently: it is `close` frequency-scaled by `k = 0.902` (stiffness by
-`k²`, damping by `k`), which preserves the damping ratio and stretches the
-settle by exactly the head start the shared element gets. Override `close`
-with something much faster or slower and you will want to override
-`shared.close` alongside it.
+### `surfaceCloseLeadDelayMs`
+
+```tsx
+<DiscSheet.Root surfaceCloseLeadDelayMs={35}>
+```
+
+Milliseconds the surface box waits before starting its close FLIP, so the
+shared element visibly leads the shrink instead of scaling in lockstep — the
+close reads as a re-home rather than a scale. Default `35`. Ignored under
+reduced motion. It is the single biggest lever on how long a close feels: at
+`100` the box sits frozen for 143ms after the click and the shared element is
+53% of the way home before the sheet moves; at `0` there is no detachment to
+read at all.
+
+The three close values are coupled. `shared.close` is derived from `close`
+by the same frequency-scaling the package uses everywhere (stiffness by
+`k²`, damping by `k`, which preserves the damping ratio and moves only the
+rate), with `k = Ts / (Ts + D)` — the shared element starts `D` earlier than
+the surface, so it has to take `D` longer to settle. Change `close` or
+`surfaceCloseLeadDelayMs` and re-derive `shared.close` alongside it, or the
+shared element stops arriving with the box: too fast and it parks early, too
+slow and it trails, and a trailing shared element spills past the disc's 2px
+border.
 
 ## Accessibility
 

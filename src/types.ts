@@ -20,7 +20,7 @@ export interface SharedTransitionByDirection {
 export interface MorphTransition {
   /** Disc to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
   open?: Spring | Transition;
-  /** Sheet to disc. Default: { stiffness: 375, damping: 32, mass: 1 } */
+  /** Sheet to disc. Default: { stiffness: 317.4, damping: 29.44, mass: 1 } */
   close?: Spring | Transition;
   /**
    * The <DiscSheet.Shared> element's own morph. Direction-aware, because the
@@ -32,7 +32,7 @@ export interface MorphTransition {
    * `{ open, close }` to set them independently.
    *
    * Defaults: open { stiffness: 500, damping: 45 },
-   *           close { stiffness: 237, damping: 25.4 } (derived from `close`).
+   *           close { stiffness: 220.3625, damping: 24.565, mass: 1 }.
    */
   shared?: Spring | Transition | SharedTransitionByDirection;
 }
@@ -72,6 +72,17 @@ export interface RootProps {
 
   // Motion
   transition?: MorphTransition;
+  /**
+   * Delay (ms) before the surface box begins its close FLIP, so the shared
+   * element visibly leads the shrink instead of scaling in lockstep. Default
+   * 35. Ignored under reduced motion.
+   *
+   * `transition.shared.close`'s default is derived from this value — slow the
+   * surface's start without slowing the shared element to match and the
+   * shared element starts trailing the box, which spills it past the disc's
+   * 2px border.
+   */
+  surfaceCloseLeadDelayMs?: number;
   /** Force reduced-motion behavior. Default: the media query. */
   reduceMotion?: boolean;
 
