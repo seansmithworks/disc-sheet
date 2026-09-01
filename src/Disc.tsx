@@ -287,7 +287,8 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       //
       // That cap put a hole in the middle of every close. The two layoutId
       // pairs crossfade on DIFFERENT springs: `-shared` runs on
-      // transition.shared (500/45), `-surface` on transition.close plus
+      // transition.shared (500/45 on open, DEFAULT_SHARED_CLOSE_SPRING on
+      // close), `-surface` on transition.close plus
       // SURFACE_CLOSE_LEAD_DELAY_MS. Measured per frame on both example
       // pages, the sheet-side <Shared> had faded to opacity 0 by 229ms while
       // the sheet element it sits on was STILL at opacity 1 until 246ms —

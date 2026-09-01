@@ -84,7 +84,7 @@ interface MorphTransition {
    * The <DiscSheet.Shared> element's own morph. Direction-aware: a single
    * value applies to both directions, { open, close } sets them apart.
    * Defaults: open { stiffness: 500, damping: 45 },
-   *           close { stiffness: 237, damping: 25.4, mass: 1 }
+   *           close { stiffness: 305, damping: 28.9, mass: 1 }
    */
   shared?: Spring | Transition | SharedTransitionByDirection;
 }
@@ -362,7 +362,7 @@ The morph is hand-dialed. The design rule is: **springs are props, shape tokens 
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` | `surfaceCloseSpring` scaled by k=1.25 (stiffness by k², damping by k), which preserves the damping ratio and shortens settle ~20% |
 | `close` | `{ stiffness: 375, damping: 32, mass: 1 }` | retuned 2026-08-31 from 240/34/1.75; damping ratio preserved (0.830 -> 0.826), wn 11.71 -> 19.36 |
 | `shared.open` | `{ stiffness: 500, damping: 45 }` | stiff and near-critically damped so the shared element clears the growing sheet without overshoot |
-| `shared.close` | `{ stiffness: 237, damping: 25.4, mass: 1 }` | derived from `close` by the same k-scaling as `open`, with k = Ts/(Ts+D) = 0.795 — the shared element starts D≈112ms earlier than the surface (`surfaceCloseLeadDelayMs` plus the projection-start frame), so it must take D longer to settle. Measured arrival gap: 175ms -> 32ms |
+| `shared.close` | `{ stiffness: 305, damping: 28.9, mass: 1 }` | derived from `close` by the same k-scaling as `open`, with k = Ts/(Ts+D) = 0.902 — the shared element starts D≈36ms earlier than the surface (`surfaceCloseLeadDelayMs` plus the projection-start frame), so it must take D longer to settle. Measured arrival gap: 175ms -> 25ms |
 
 `shared` is **direction-aware** because the two directions have different
 jobs. On the open the shared element only has to clear the growing sheet; on
@@ -390,7 +390,7 @@ Not props, not variables, not documented as tunable:
 | Constant | Value | What it prevents |
 | --- | --- | --- |
 | `radiusHoldFraction` | 0.74 | The disc shape appearing before the box has contracted (an over-rounded rectangle). Progress-based, so it holds correctly however long a close runs. A second, wall-clock hold (`radiusCloseDelaySec: 1.5`) used to sit on top of it and was removed: 1.5s is longer than a close takes, so it suppressed this hold entirely on the close direction and left the disc resting on the SHEET's radius — a squircle — after every close. |
-| `surfaceCloseLeadDelayMs` | 100 | The shared element and the surface shrinking in lockstep, which reads as a scale rather than a re-home |
+| `surfaceCloseLeadDelayMs` | 35 (was 100) | The shared element and the surface shrinking in lockstep, which reads as a scale rather than a re-home. At 100 the shared element was 53% of the way home before the sheet started collapsing and the close ran 573ms; at 35 it is 17% home and the close runs 507ms, four frames shorter, with the detachment still legible. `DEFAULT_SHARED_CLOSE_SPRING` is derived from this value and must be re-derived alongside it |
 | `openContentRevealDelaySec` | 0.2 | Text visibly stretching during the bloom |
 | `contentFadeOutMs` / `DelayMs` | 80 / 0 | Content still painted while the box collapses under it |
 | stagger interval | 0.04 | |

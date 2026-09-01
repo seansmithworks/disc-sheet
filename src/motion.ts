@@ -65,10 +65,15 @@ export const DEFAULT_SHARED_SPRING: Spring = {
  * leaves the damping RATIO untouched and moves only the natural frequency, so
  * the character of the motion is unchanged and only its rate moves. Here
  * k = Ts / (Ts + D): the shared element starts D earlier than the surface, so
- * it must take D longer to settle. With Ts ~= 435ms of surface travel and
- * D ~= 112ms of head start, k = 0.795.
+ * it must take D longer to settle. With Ts ~= 431ms of surface travel and
+ * D ~= 36ms of head start (SURFACE_CLOSE_LEAD_DELAY_MS plus the
+ * click-to-projection-start frame), k = 0.902.
  *
- *   stiffness 375 * 0.795^2 = 237      damping 32 * 0.795 = 25.4      mass 1
+ *   stiffness 375 * 0.902^2 = 305      damping 32 * 0.902 = 28.9      mass 1
+ *
+ * THIS CONSTANT IS DERIVED FROM SURFACE_CLOSE_LEAD_DELAY_MS. Change that and
+ * this has to be re-derived, or the shared element starts trailing the box
+ * and spills out past the disc's edge.
  *
  * Damping ratio 0.826 before and after, matched to the close spring's, so the
  * shared element rings in sympathy with the box rather than against it — that
@@ -81,8 +86,8 @@ export const DEFAULT_SHARED_SPRING: Spring = {
  * as a re-home, not a scale). It just no longer finishes early.
  */
 export const DEFAULT_SHARED_CLOSE_SPRING: Spring = {
-  stiffness: 237,
-  damping: 25.4,
+  stiffness: 305,
+  damping: 28.9,
   mass: 1,
 };
 
@@ -101,9 +106,29 @@ export const SNAP_SPRING: Spring = { stiffness: 700, damping: 52, mass: 1 };
  * the disc resting on the sheet's radius (see useCollapseRadius.ts). */
 export const RADIUS_HOLD_FRACTION = 0.74;
 
-/** Delay (ms) before the surface box begins its close FLIP, so the shared
- * element visibly leads the shrink instead of scaling in lockstep. */
-export const SURFACE_CLOSE_LEAD_DELAY_MS = 100;
+/**
+ * Delay (ms) before the surface box begins its close FLIP, so the shared
+ * element visibly leads the shrink instead of scaling in lockstep.
+ *
+ * STRAWMAN 2026-08-31, was 100 — Sean's call, one line to revert (and see
+ * the warning on DEFAULT_SHARED_CLOSE_SPRING, which is derived from this).
+ * It is the single biggest lever on close duration, and at 100 it bought
+ * more re-home read than the close could afford. Measured on a prod build
+ * at 1280x800, medians of 3:
+ *
+ *   100ms: box frozen 143ms (8.6 frames) after the Close click, shared
+ *          element gets a 100ms (6.0 frame) head start and is 53% of the way
+ *          home before the sheet starts collapsing. Total close 573ms.
+ *    35ms: box frozen 76ms (4.6 frames), head start 36ms (2.1 frames),
+ *          shared element 17% of the way home. Total close 507ms.
+ *     0ms: box frozen 43ms (2.5 frames), no head start at all, shared
+ *          element 1% home — the lockstep scale this constant exists to
+ *          prevent. Total close 476ms.
+ *
+ * So 35 keeps the detachment legible (the avatar still visibly leaves first)
+ * and returns 66ms — four frames — of close duration.
+ */
+export const SURFACE_CLOSE_LEAD_DELAY_MS = 35;
 
 /** Delay (s) before sheet content starts revealing after the open bloom. */
 export const OPEN_CONTENT_REVEAL_DELAY_SEC = 0.2;

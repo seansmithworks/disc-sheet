@@ -260,7 +260,7 @@ independently:
     close: { stiffness: 375, damping: 32, mass: 1 },
     shared: {
       open: { stiffness: 500, damping: 45 },
-      close: { stiffness: 237, damping: 25.4, mass: 1 },
+      close: { stiffness: 305, damping: 28.9, mass: 1 },
     },
   }}
 >
@@ -271,10 +271,10 @@ independently:
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` |
 | `close` | `{ stiffness: 375, damping: 32, mass: 1 }` |
 | `shared.open` | `{ stiffness: 500, damping: 45 }` |
-| `shared.close` | `{ stiffness: 237, damping: 25.4, mass: 1 }` |
+| `shared.close` | `{ stiffness: 305, damping: 28.9, mass: 1 }` |
 
 The `shared.close` default is derived from `close`, not dialed
-independently: it is `close` frequency-scaled by `k = 0.795` (stiffness by
+independently: it is `close` frequency-scaled by `k = 0.902` (stiffness by
 `k²`, damping by `k`), which preserves the damping ratio and stretches the
 settle by exactly the head start the shared element gets. Override `close`
 with something much faster or slower and you will want to override
