@@ -1,5 +1,5 @@
 import type { Transition } from "motion/react";
-import type { Spring } from "./types";
+import type { Spring, SharedTransitionByDirection } from "./types";
 
 /**
  * Default springs, verified against the source site's dialed values
@@ -36,9 +36,54 @@ export const DEFAULT_CLOSE_SPRING: Spring = {
   mass: 1,
 };
 
+/**
+ * OPEN-direction shared spring. Stiff and near-critically damped (wn 22.4,
+ * damping ratio 1.006) so the shared element clears the growing sheet without
+ * overshoot.
+ */
 export const DEFAULT_SHARED_SPRING: Spring = {
   stiffness: 500,
   damping: 45,
+};
+
+/**
+ * CLOSE-direction shared spring — DERIVED from DEFAULT_CLOSE_SPRING so the
+ * shared element and the surface box land together ("one clock").
+ *
+ * The problem it fixes: the shared element runs its own layoutId animation
+ * with no delay, while the surface's close FLIP is deliberately handicapped by
+ * SURFACE_CLOSE_LEAD_DELAY_MS. Two independent clocks, one of them started
+ * ~112ms later (the delay plus the click-to-projection-start frame), so the
+ * shared element parked at its resting box while the disc was still
+ * contracting and ringing underneath it. Measured on the prod consumer app at
+ * 1280x800: box arrived 575ms after the Close click, shared element 400ms —
+ * a 175ms gap, i.e. the avatar finished a sixth of a second early and then sat
+ * there while the disc breathed around it.
+ *
+ * The derivation is the same frequency-scaling trick DEFAULT_OPEN_SPRING uses
+ * (docs/PACKAGE-DESIGN.md §3): scale stiffness by k^2 and damping by k, which
+ * leaves the damping RATIO untouched and moves only the natural frequency, so
+ * the character of the motion is unchanged and only its rate moves. Here
+ * k = Ts / (Ts + D): the shared element starts D earlier than the surface, so
+ * it must take D longer to settle. With Ts ~= 435ms of surface travel and
+ * D ~= 112ms of head start, k = 0.795.
+ *
+ *   stiffness 375 * 0.795^2 = 237      damping 32 * 0.795 = 25.4      mass 1
+ *
+ * Damping ratio 0.826 before and after, matched to the close spring's, so the
+ * shared element rings in sympathy with the box rather than against it — that
+ * is what keeps the 2px border relationship intact through the surface
+ * spring's overshoot tail instead of pinching to ~0 and re-opening.
+ *
+ * It still LEADS: a spring covers most of its travel early, so with a 112ms
+ * head start the shared element is well ahead of the box through the middle of
+ * the close (which is what SURFACE_CLOSE_LEAD_DELAY_MS buys — the close reads
+ * as a re-home, not a scale). It just no longer finishes early.
+ */
+export const DEFAULT_SHARED_CLOSE_SPRING: Spring = {
+  stiffness: 237,
+  damping: 25.4,
+  mass: 1,
 };
 
 /** Overdamped snap spring for the disc's drag-end anchor snap. Not a prop. */
@@ -98,6 +143,22 @@ export function mergeTransition(
   return "delay" in base && base.delay !== undefined
     ? base
     : { ...base, delay };
+}
+
+/**
+ * Narrow `transition.shared` to its per-direction `{ open, close }` form. A
+ * directional object carries one of those keys and none of a Transition's or a
+ * Spring shorthand's own discriminators.
+ */
+export function isSharedByDirection(
+  value: Spring | Transition | SharedTransitionByDirection,
+): value is SharedTransitionByDirection {
+  return (
+    !("type" in value) &&
+    !("stiffness" in value) &&
+    !("duration" in value) &&
+    ("open" in value || "close" in value)
+  );
 }
 
 function isSpringShorthand(value: Spring | Transition): value is Spring {

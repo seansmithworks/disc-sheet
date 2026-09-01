@@ -51,6 +51,7 @@ export type {
   Rect,
   RootProps,
   SharedProps,
+  SharedTransitionByDirection,
   SheetProps,
   SheetRect,
   ShadowProps,

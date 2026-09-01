@@ -10,13 +10,31 @@ export interface Spring {
   mass?: number;
 }
 
+/** Per-direction override for <DiscSheet.Shared>. Either key may be omitted;
+ * the package default for that direction is used instead. */
+export interface SharedTransitionByDirection {
+  open?: Spring | Transition;
+  close?: Spring | Transition;
+}
+
 export interface MorphTransition {
   /** Disc to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
   open?: Spring | Transition;
-  /** Sheet to disc. Default: { stiffness: 240, damping: 34, mass: 1.75 } */
+  /** Sheet to disc. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
-  /** The <DiscSheet.Shared> element's own morph. Default: { stiffness: 500, damping: 45 } */
-  shared?: Spring | Transition;
+  /**
+   * The <DiscSheet.Shared> element's own morph. Direction-aware, because the
+   * two directions have different jobs: on the open the shared element only
+   * has to clear the growing sheet, on the close it has to arrive home
+   * together with the collapsing disc.
+   *
+   * A single Spring/Transition applies to BOTH directions. Pass
+   * `{ open, close }` to set them independently.
+   *
+   * Defaults: open { stiffness: 500, damping: 45 },
+   *           close { stiffness: 237, damping: 25.4 } (derived from `close`).
+   */
+  shared?: Spring | Transition | SharedTransitionByDirection;
 }
 
 export interface RootProps {

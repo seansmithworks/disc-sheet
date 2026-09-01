@@ -12,12 +12,14 @@ import { DiscSheetContext, type DiscSheetContextValue } from "./context";
 import {
   DEFAULT_CLOSE_SPRING,
   DEFAULT_OPEN_SPRING,
+  DEFAULT_SHARED_CLOSE_SPRING,
   DEFAULT_SHARED_SPRING,
   mergeTransition,
   SURFACE_CLOSE_LEAD_DELAY_MS,
+  isSharedByDirection,
 } from "./motion";
 import type { Transition } from "motion/react";
-import type { Rect, RootProps, SheetRect } from "./types";
+import type { Rect, RootProps, SheetRect, Spring } from "./types";
 import {
   MD_BREAKPOINT,
   resolveDiscSize,
@@ -133,9 +135,24 @@ export function Root({
     DEFAULT_CLOSE_SPRING,
     reduceMotion ? undefined : SURFACE_CLOSE_LEAD_DELAY_MS / 1000,
   );
+  // The shared element's transition is DIRECTION-AWARE. On the open it only
+  // has to clear the growing sheet; on the close it has to arrive home
+  // together with the collapsing disc, which it cannot do on the same spring
+  // because the surface's close FLIP starts SURFACE_CLOSE_LEAD_DELAY_MS later
+  // than it does. `open` is the direction: it is already true when the open
+  // morph's layout animation is created and already false when the close
+  // morph's is, so reading it here picks the right spring by construction.
+  // See DEFAULT_SHARED_CLOSE_SPRING for the derivation of the close default.
+  const sharedProvided = transition?.shared;
+  const sharedForDirection =
+    sharedProvided && isSharedByDirection(sharedProvided)
+      ? open
+        ? sharedProvided.open
+        : sharedProvided.close
+      : (sharedProvided as Spring | Transition | undefined);
   const sharedTransition = mergeTransition(
-    transition?.shared,
-    DEFAULT_SHARED_SPRING,
+    sharedForDirection,
+    open ? DEFAULT_SHARED_SPRING : DEFAULT_SHARED_CLOSE_SPRING,
   );
 
   // ── Clock coupling (audit M2: "a ghost card leads the sheet on open") ─────

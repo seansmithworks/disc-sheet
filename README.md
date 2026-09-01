@@ -247,6 +247,39 @@ intervals, swipe thresholds, drag feel, is internal. These are fixes for
 specific artifacts, not knobs; see `docs/PACKAGE-DESIGN.md` §3 and §7C in the
 source repo for why.
 
+`transition.shared` is additionally **direction-aware**. The shared element
+has a different job in each direction — on the open it only has to clear the
+growing sheet, on the close it has to arrive home together with the
+collapsing disc, whose own FLIP starts deliberately later than its own. A
+single value still applies to both directions; `{ open, close }` sets them
+independently:
+
+```tsx
+<DiscSheet.Root
+  transition={{
+    close: { stiffness: 375, damping: 32, mass: 1 },
+    shared: {
+      open: { stiffness: 500, damping: 45 },
+      close: { stiffness: 237, damping: 25.4, mass: 1 },
+    },
+  }}
+>
+```
+
+| Key | Default |
+| --- | --- |
+| `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` |
+| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` |
+| `shared.open` | `{ stiffness: 500, damping: 45 }` |
+| `shared.close` | `{ stiffness: 237, damping: 25.4, mass: 1 }` |
+
+The `shared.close` default is derived from `close`, not dialed
+independently: it is `close` frequency-scaled by `k = 0.795` (stiffness by
+`k²`, damping by `k`), which preserves the damping ratio and stretches the
+settle by exactly the head start the shared element gets. Override `close`
+with something much faster or slower and you will want to override
+`shared.close` alongside it.
+
 ## Accessibility
 
 - Real `<button type="button">` trigger, `aria-haspopup="dialog"`,

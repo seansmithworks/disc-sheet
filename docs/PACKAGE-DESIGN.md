@@ -70,13 +70,23 @@ type AnchorId =
 
 type Spring = { stiffness: number; damping: number; mass?: number };
 
+interface SharedTransitionByDirection {
+  open?: Spring | Transition;
+  close?: Spring | Transition;
+}
+
 interface MorphTransition {
   /** Disc to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
   open?: Spring | Transition;
-  /** Sheet to disc. Default: { stiffness: 240, damping: 34, mass: 1.75 } */
+  /** Sheet to disc. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
-  /** The <DiscSheet.Shared> element's own morph. Default: { stiffness: 500, damping: 45 } */
-  shared?: Spring | Transition;
+  /**
+   * The <DiscSheet.Shared> element's own morph. Direction-aware: a single
+   * value applies to both directions, { open, close } sets them apart.
+   * Defaults: open { stiffness: 500, damping: 45 },
+   *           close { stiffness: 237, damping: 25.4, mass: 1 }
+   */
+  shared?: Spring | Transition | SharedTransitionByDirection;
 }
 
 interface RootProps {
@@ -350,8 +360,20 @@ The morph is hand-dialed. The design rule is: **springs are props, shape tokens 
 | Key | Default | Provenance |
 | --- | --- | --- |
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` | `surfaceCloseSpring` scaled by k=1.25 (stiffness by k², damping by k), which preserves the damping ratio and shortens settle ~20% |
-| `close` | `{ stiffness: 240, damping: 34, mass: 1.75 }` | dialed by Sean 2026-06-19 |
-| `shared` | `{ stiffness: 500, damping: 45 }` | stiff and near-critically damped so the shared element clears the shrinking sheet without overshoot |
+| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` | retuned 2026-08-31 from 240/34/1.75; damping ratio preserved (0.830 -> 0.826), wn 11.71 -> 19.36 |
+| `shared.open` | `{ stiffness: 500, damping: 45 }` | stiff and near-critically damped so the shared element clears the growing sheet without overshoot |
+| `shared.close` | `{ stiffness: 237, damping: 25.4, mass: 1 }` | derived from `close` by the same k-scaling as `open`, with k = Ts/(Ts+D) = 0.795 — the shared element starts D≈112ms earlier than the surface (`surfaceCloseLeadDelayMs` plus the projection-start frame), so it must take D longer to settle. Measured arrival gap: 175ms -> 32ms |
+
+`shared` is **direction-aware** because the two directions have different
+jobs. On the open the shared element only has to clear the growing sheet; on
+the close it has to arrive home together with the collapsing disc — and it
+cannot do that on the open's spring, because the surface's close FLIP is
+deliberately started `surfaceCloseLeadDelayMs` after the shared element's.
+Left on one fixed spring, the shared element parked at its resting box 175ms
+before the disc stopped moving, and the 2px border relationship
+(`.shared[data-disc-sheet-slot="disc"]`, `inset: 2px`) arrived a sixth of a
+second early. The close default is derived from `close` rather than dialed,
+so the two stay coupled if `close` is ever retuned again.
 
 Each accepts a full Motion `Transition` as well as the `Spring` shorthand, so "I need a tween, not a spring" is never a reason to fork. When the package needs to compose its own `delay` onto the close transition, it applies it **only if the consumer did not specify one**.
 
