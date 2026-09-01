@@ -108,3 +108,16 @@ Sean's verdict on the coupled close: "really close." Two directional notes + one
 - Sign convention: this instrument reads Phase 4 at **+8.4ms** (avatar trailing). PACKAGE-DESIGN §3 recorded "+25ms" and this BACKLOG recorded "−33.2ms" for the same commit — the two prior records disagree in sign and the scratchpad that would settle it is gone. All numbers above come from ONE instrument, so the deltas are sound even though the absolute Phase-4 figure does not match the −33.2ms line.
 
 - [ ] **Sean's call — the tuner is live at http://localhost:3000/tune** (prod build, detached server). Dial it, then hand back either the panel's Copy JSON or just say "read the key" and the dialed values come out of `dialkit:disc-sheet-close`.
+
+## Tuner productization (Sean, 2026-08-31 — from the /tune session)
+
+- [ ] **Ship the tuner via `npx disc-sheet add tuner`, NOT as a package dependency.** Scaffolds a `/tune` route + dialkit as a devDependency into the consumer's app, reusing Phase 2's tested copy-in machinery. Rationale for not depending on it: the package has zero runtime deps today (motion is a peer); dialkit's stylesheet @imports Geist Mono from Google Fonts, which would put an external request in every consumer app forever; and a tuning panel reachable from a production bundle is a footgun.
+- [ ] **Shadow dials — do these first.** `DiscSheet.Shadow` is already a component with tokens; offset/blur/opacity dials are cheap and carry no correctness risk.
+- [ ] **Shape dials (circle/squircle/square) — GATED behind child-radius masking.** Adding the dial before the masking ships a control whose every non-circle setting looks broken: the shared CONTENT must mask to the same shape, tracking the ANIMATED radius, or it reproduces the accidental-squircle bug (disc surface squircle, portrait still circular). A true iOS squircle is a superellipse; border-radius approximates it, exact needs clip-path, which does NOT interpolate through the FLIP the way the radius MotionValue does. See the v0.2 "Shape presets" item above — same constraint.
+- [ ] **Dither / other visual treatments** — new surface, not a dial on something existing. Separate and larger.
+
+## Tuning snapshots (2026-08-31)
+
+`docs/tuning/dialkit-disc-sheet-close.json` (34dc0ab) is a byte-exact snapshot of Sean's `dialkit:disc-sheet-close` localStorage. Holds V1/base, Phase 4 (77f6d9b), V3, V4. Restore by writing it back to that key. The consumer app at ~/Code/_experiments/disc-sheet-consumer has NO git, so this repo is the only durable home for dialled values.
+
+- [ ] **V4 is Sean's pick and it reverses the strawman's direction.** V4: shell 375/32/1, avatar 340/30/1, lead 35, fill 0.45. The avatar is FASTER than both Phase 4 (305/28.9) and the shipped strawman (220.36/24.565) — wn 18.4 vs 17.5 vs 14.9. The shipped default is currently the slowest avatar, i.e. the one he likes least. Decide whether to bake V4 into motion.ts as the new default.
