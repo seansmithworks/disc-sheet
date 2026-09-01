@@ -257,10 +257,10 @@ independently:
 ```tsx
 <DiscSheet.Root
   transition={{
-    close: { stiffness: 317.4, damping: 29.44, mass: 1 },
+    close: { stiffness: 375, damping: 32, mass: 1 },
     shared: {
       open: { stiffness: 500, damping: 45 },
-      close: { stiffness: 220.3625, damping: 24.565, mass: 1 },
+      close: { stiffness: 340, damping: 30, mass: 1 },
     },
   }}
 >
@@ -269,9 +269,9 @@ independently:
 | Key | Default |
 | --- | --- |
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` |
-| `close` | `{ stiffness: 317.4, damping: 29.44, mass: 1 }` |
+| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` |
 | `shared.open` | `{ stiffness: 500, damping: 45 }` |
-| `shared.close` | `{ stiffness: 220.3625, damping: 24.565, mass: 1 }` |
+| `shared.close` | `{ stiffness: 340, damping: 30, mass: 1 }` |
 
 ### `surfaceCloseLeadDelayMs`
 

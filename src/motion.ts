@@ -14,16 +14,11 @@ export const DEFAULT_OPEN_SPRING: Spring = {
 };
 
 /**
- * STRAWMAN 2026-08-31 (was 375 / 32 / 1) — Sean, on the coupled close: "the
- * sheet/disc shell is timed well, maybe a bit fast for my personal
- * preference." Frequency-scaled by k = 0.92 (stiffness by k^2, damping by k),
- * so the damping ratio is untouched at 0.826 and only the rate moves: the
- * shell settles ~9% slower and nothing about its character changes.
- *
- * A STARTING POSITION, not a dialled value. The consumer app's /tune route
- * drives this spring, DEFAULT_SHARED_CLOSE_SPRING and
- * surfaceCloseLeadDelayMs off a dialkit panel; whatever Sean lands on there
- * replaces these three numbers.
+ * DIALLED 2026-08-31 by Sean on the /tune dialkit panel, saved as "Version 4"
+ * (docs/tuning/dialkit-disc-sheet-close.json). This is a judged value, not a
+ * derived one — it supersedes the k = 0.92 "slow the shell down" strawman
+ * (317.4 / 29.44 / 1), which he tried and rejected by dialling the shell back
+ * to exactly where Phase 4 had it.
  *
  * ── history ──
  * Retuned 2026-08-31 for the close-duration target (was 240 / 34 / 1.75).
@@ -43,8 +38,8 @@ export const DEFAULT_OPEN_SPRING: Spring = {
  * change and is recorded as a recommendation instead.
  */
 export const DEFAULT_CLOSE_SPRING: Spring = {
-  stiffness: 317.4,
-  damping: 29.44,
+  stiffness: 375,
+  damping: 32,
   mass: 1,
 };
 
@@ -97,25 +92,26 @@ export const DEFAULT_SHARED_SPRING: Spring = {
  * the close (which is what SURFACE_CLOSE_LEAD_DELAY_MS buys — the close reads
  * as a re-home, not a scale). It just no longer finishes early.
  *
- * STRAWMAN 2026-08-31 (was 305 / 28.9 / 1) — Sean, on the coupled close: "I
- * wonder if we slow the avatar move down a little bit." Frequency-scaled by
- * k = 0.85 on the derived value above, damping ratio again untouched (0.827),
- * so the avatar settles ~18% slower.
+ * DIALLED 2026-08-31 by Sean on the /tune dialkit panel, saved as "Version 4"
+ * (docs/tuning/dialkit-disc-sheet-close.json). A judged value: he asked for a
+ * SLOWER avatar, was given the k = 0.85 strawman (220.3625 / 24.565 / 1), and
+ * dialled back past the derived pair to something FASTER than either — wn
+ * 18.44 rad/s here, against 17.46 for the k = 0.902 derived value and 14.85
+ * for the strawman he rejected.
  *
- * It deliberately BREAKS the k = Ts/(Ts+D) derivation documented above: 0.85
- * against the shell's 0.92 is not the value that makes the two arrive
- * together, it is the value that makes the avatar visibly slower than the
- * shell, which is what Sean asked for. The cost is spelled out in the
- * derivation comment — the shared element gives back its lead and moves
- * toward TRAILING the box, and a trailing avatar spills past the disc's 2px
- * border. The /tune route reads out both numbers (arrival gap and minimum
- * avatar inset) live for exactly this reason. If Sean dials the avatar back
- * to arriving with the shell, the derived pair is k = 0.902 applied to
- * whatever `close` ends up being.
+ * NOT derived, and the k = Ts/(Ts+D) relation documented above no longer
+ * holds for this pair. Deriving from the shell would give 340 -> damping
+ * 30.47; the shipped 30 is where the panel's step-1 damping slider left it.
+ * The damping ratio therefore drifts slightly off the shell's: 0.814 here vs
+ * 0.826. Do not "correct" either number back onto the derivation — that would
+ * be re-deriving a value Sean chose by eye. If the shell is ever retuned,
+ * re-dial this on /tune rather than recomputing it, and watch the two live
+ * readouts (arrival gap, minimum avatar inset) while you do: a trailing
+ * avatar spills past the disc's 2px border.
  */
 export const DEFAULT_SHARED_CLOSE_SPRING: Spring = {
-  stiffness: 220.3625,
-  damping: 24.565,
+  stiffness: 340,
+  damping: 30,
   mass: 1,
 };
 

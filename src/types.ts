@@ -20,7 +20,7 @@ export interface SharedTransitionByDirection {
 export interface MorphTransition {
   /** Disc to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
   open?: Spring | Transition;
-  /** Sheet to disc. Default: { stiffness: 317.4, damping: 29.44, mass: 1 } */
+  /** Sheet to disc. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
   /**
    * The <DiscSheet.Shared> element's own morph. Direction-aware, because the
@@ -32,7 +32,7 @@ export interface MorphTransition {
    * `{ open, close }` to set them independently.
    *
    * Defaults: open { stiffness: 500, damping: 45 },
-   *           close { stiffness: 220.3625, damping: 24.565, mass: 1 }.
+   *           close { stiffness: 340, damping: 30, mass: 1 }.
    */
   shared?: Spring | Transition | SharedTransitionByDirection;
 }
