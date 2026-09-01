@@ -83,3 +83,14 @@ Plan gate CLOSED: /adversarial-plan ran (Opus refuter, 14 findings, verdict revi
 - **The prod consumer app resolves `motion@13.1.1`; the geometry suite runs v12.** Every number in this pass was measured on v13 in the consumer and gated on v12 in the suite. Already parked above; recording that the split is now load-bearing for the motion evidence.
 - **`npm pack` still does not run `build:lib`** (the parked `prepack` item). Every build/pack/install cycle in this pass had to run `build:lib` by hand first and grep the installed `dist/` to prove the change shipped.
 - **`~/Code/_experiments/disc-sheet-consumer/package.json` now points at `file:../../disc-sheet/seansmithworks-disc-sheet-0.1.0.tgz`** — npm rewrote it when installed by path. It resolves to the repo's own tarball, so a `npm install` there without a prior `npm run build:lib` + `npm pack` silently reuses whatever was last built.
+
+## Phase 5 — close-choreography tuner (dispatched 2026-08-31, Sean's ask)
+
+Sean's verdict on the coupled close: "really close." Two directional notes + one tool ask.
+
+- [ ] Expose `surfaceCloseLeadDelayMs` as a Root prop (internal constant today; the dial cannot reach it otherwise)
+- [ ] Tuner panel on a NEW `/tune` route in the prod consumer — `/` stays the verbatim README snippet
+- [ ] Live sliders: surface close spring, shared close spring, lead delay. CLOSE PATH ONLY (the open stays off-limits by construction)
+- [ ] Live readout: avatar-vs-box arrival gap AND min avatar inset (spill guard — slowing the avatar pushes it toward trailing, which spills past the disc edge)
+- [ ] Copy-config button so Sean's dialed values return exactly
+- [ ] Strawman starting position: shell ~9% slower, avatar ~18% slower (his stated direction), reported with resulting gap + spill
