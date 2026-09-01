@@ -121,3 +121,20 @@ Sean's verdict on the coupled close: "really close." Two directional notes + one
 `docs/tuning/dialkit-disc-sheet-close.json` (34dc0ab) is a byte-exact snapshot of Sean's `dialkit:disc-sheet-close` localStorage. Holds V1/base, Phase 4 (77f6d9b), V3, V4. Restore by writing it back to that key. The consumer app at ~/Code/_experiments/disc-sheet-consumer has NO git, so this repo is the only durable home for dialled values.
 
 - [ ] **V4 is Sean's pick and it reverses the strawman's direction.** V4: shell 375/32/1, avatar 340/30/1, lead 35, fill 0.45. The avatar is FASTER than both Phase 4 (305/28.9) and the shipped strawman (220.36/24.565) — wn 18.4 vs 17.5 vs 14.9. The shipped default is currently the slowest avatar, i.e. the one he likes least. Decide whether to bake V4 into motion.ts as the new default.
+
+## Checkpoint — 2026-09-01 (wrap-continue)
+
+**Closed this session:** Phase 4 coupling (bf48b0a) · lead-delay strawman 100→35 (77f6d9b) · /tune dialkit tuner (987e2ff) · V4 baked as shipped defaults (23c3c49) · preset snapshot to disk (34dc0ab). Gates 20/75 verified by the orchestrator, not just claimed, at every step.
+
+**Carried (on-objective):**
+- [ ] **Sean's hands-on verdict on the production build at :3000.** The only remaining gate before publish. V4 is now the shipped default, so what he judges is what ships. *carried 2× since 2026-08-31.*
+- [ ] `npm login` && `npm publish --access public`, then merge feat/customization-parity → main. His 3 commands; token was 401 as of 2026-08-31.
+
+**Parked (off-objective, do not carry into the next thread):**
+- [ ] Consumer app has no version control — `git init` at ~/Code/_experiments/disc-sheet-consumer offered, not done. /tune exists only on disk.
+- [ ] 4 orphaned next-server processes on ports 3921-3924 (dead session scratchpad `.../d4c0a3bb-.../consumer-next`). Offered to reap, Sean did not answer.
+- [ ] Arrival-gap SIGN CONVENTION is unresolved: 77f6d9b reads −33.2ms (BACKLOG), +25ms (PACKAGE-DESIGN §3) and +8.4ms (the /tune rig) for the same commit. Deltas from any one instrument are sound; the absolute figure is not citable. Settle it or delete two of the three records.
+- [ ] `tsc --noEmit` fails pre-existing on `example/flagship/main.tsx:5` (missing `./portrait.jpg` module). No suite runs bare tsc.
+- [ ] Consumer resolves motion@13.1.1 while the geometry suite gates on v12. Untested combination.
+- [ ] `npm pack` still does not run `build:lib` (the prepack item). Every ship cycle this session needed a manual build + dist grep to prove the change shipped.
+- [ ] dialkit's stylesheet @imports Geist Mono from Google Fonts — external request on /tune.
