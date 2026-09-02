@@ -29,7 +29,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--morph-sheet-surface-elevated);
+  background: color-mix(
+    in srgb,
+    var(--morph-sheet-accent) 14%,
+    var(--morph-sheet-surface-elevated)
+  );
 }
 
 .list-icon svg {
