@@ -6,6 +6,11 @@ import type {
   SharedTransitionByDirection,
 } from "./types";
 
+// `process` is not declared in a Vite consumer's tsconfig (`types` is an
+// allowlist, so @types/node never loads). Declare it locally rather than
+// depending on the consumer's ambient globals — same pattern as Sheet.tsx.
+declare const process: { env: { NODE_ENV?: string } };
+
 /**
  * Default springs, verified against the source site's dialed values
  * (docs/PACKAGE-DESIGN.md §3). Each is exposed as a prop (transition.open /
@@ -195,6 +200,29 @@ export function mergeTransition(
   fallback: Spring,
   delay?: number,
 ): Transition {
+  // The `Spring | Transition` PROP TYPE cannot reject this at compile time:
+  // Motion's own `Transition` structurally permits `mass` alongside
+  // `visualDuration`/`bounce`, so `{visualDuration, bounce, mass}` typechecks
+  // even though `DurationSpring` alone excludes `mass` (see its comment).
+  // Dev-only runtime check for the footgun the type system can't catch —
+  // NODE_ENV define-passthrough, same pattern as Sheet.tsx's warning (see
+  // vite.lib.config.ts) — so production builds pay no cost and ship no extra
+  // diagnostic string.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    provided &&
+    "visualDuration" in provided &&
+    "mass" in provided
+  ) {
+    console.warn(
+      "[morph-sheet] A transition combines `visualDuration`/`bounce` with " +
+        "`mass`. Motion resolves stiffness/damping/mass before it ever " +
+        "looks at visualDuration/bounce, so `mass` silently discards both " +
+        "and the spring falls back to Motion's defaults (measured: a " +
+        "660ms settle becomes 2080ms). Remove `mass`, or switch to " +
+        "`{ stiffness, damping, mass }` instead of the duration shorthand.",
+    );
+  }
   const base: Transition = provided
     ? isSpringShorthand(provided)
       ? { type: "spring", ...provided }

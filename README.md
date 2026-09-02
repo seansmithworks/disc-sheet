@@ -120,12 +120,15 @@ them.
 
 ## Usage
 
+Paste this into `app/page.tsx` (or wherever you mount it) in a Next.js App
+Router app:
+
 ```tsx
 "use client";
 
 import { MorphSheet } from "@seansmithworks/morph-sheet";
 
-function ContactTrigger() {
+export default function ContactTrigger() {
   return (
     <MorphSheet.Root>
       <MorphSheet.Shadow />
@@ -178,11 +181,27 @@ Nine exports total: eight components (`Root`, `Trigger`, `Sheet`, `Shared`,
 `Content`, `Item`, `Close`, `Shadow`) plus the `useMorphSheet()` hook. That is
 the whole surface area.
 
-In a Next.js App Router app, `"use client"` has to be the first line of the
-file where you mount `MorphSheet`, as it is in the snippet above. Server
-components can't resolve a property access like `MorphSheet.Root` on a
-client-reference namespace — this is the same constraint as Radix, MUI, and
-`motion/react` itself.
+**In a Next.js App Router app, `"use client"` has to be the first line of
+the file where you mount `MorphSheet`**, as it is in the snippet above.
+Server Components can't resolve a property access like `MorphSheet.Root` on
+a client-reference namespace — this is the same constraint as Radix, MUI,
+and `motion/react` itself.
+
+Forgetting it does **not** produce an error naming this package or
+`"use client"` — the failure happens inside React/Next before any of this
+package's own code runs, so there is nothing here to catch it and warn you.
+What you'll see instead is React's generic, misleading message:
+
+```
+Element type is invalid: expected a string (for built-in components) or a
+class/function (for composite components) but got: undefined. You likely
+forgot to export your component from the file it's defined in, or you
+might have mixed up default and named imports.
+```
+
+Nothing is missing an export. If you see this message after adding
+`<MorphSheet.Root>` to a file, the fix is to add `"use client"` as the very
+first line of that file.
 
 ### The escape hatch
 
@@ -379,8 +398,16 @@ package's shorthand detection treats anything with a `duration` key as a
 plain tween and silently drops `bounce`. And do not add `mass` to this
 shorthand: Motion resolves `stiffness`/`damping`/`mass` before it ever looks
 at `visualDuration`/`bounce`, so a `mass` key here discards both and the
-spring falls back to Motion's own defaults — this package's `DurationSpring`
-type has no `mass` field specifically to prevent that.
+spring falls back to Motion's own defaults — measured, a 660ms settle
+becomes 2080ms with no error and no warning from Motion itself.
+
+This package's own `DurationSpring` type has no `mass` field, but the prop
+type is `DurationSpring | Transition`, and Motion's own `Transition` type
+structurally permits `mass` — so TypeScript will **not** catch
+`{ visualDuration: 0.4, bounce: 0.2, mass: 1.75 }` at the prop. There is a
+dev-only runtime warning for it instead (logged wherever the transition is
+resolved); it does not run in production builds. Read this paragraph, not
+the type checker, as the guard.
 
 ## Accessibility
 
