@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>morph-sheet delivery plan</title>
+    <link rel="stylesheet" href="http://localhost:4849/assets/plan.css" />
+  </head>
+  <body>
+    <h1>Getting morph-sheet into someone else's hands</h1>
+    <p class="doc-meta">
+      @seansmithworks/morph-sheet · feat/customization-parity @ b656c36 ·
+      unpublished · 2026-09-01
+    </p>
+
+    <blockquote class="callout" data-anchor-id="thecut">
+      <p>
+        <strong
+          >Five things stand between today and a stranger using this.</strong
+        >
+        None are big. In order: presets so nobody types
+        <code>stiffness: 375</code>, the tuner moved into this repo, one example
+        that answers "why would I want this", a loud failure for the
+        <code>"use client"</code> trap, and a peer range that matches what's
+        actually tested. Then publish, then the site page.
+      </p>
+      <p>
+        <strong>Cut from the first release:</strong> shape variants. They need
+        animated child-radius masking first, and getting it wrong regresses the
+        close you already signed off.
+      </p>
+    </blockquote>
+
+    <h2 data-anchor-id="cuttable">The cut</h2>
+
+    <p><strong>Overall: 11% of the packaging work.</strong> The component itself is finished and approved. Everything below is what turns it from "works on your machine" into "a stranger can use it." Percentages are what exists on disk, verified this session, not estimates of remaining effort.</p>
+
+    <div style="background:linear-gradient(to right,#4a6741 0%,#4a6741 11%,#e6dfd2 11%,#e6dfd2 100%);height:10px;border-radius:5px;margin:1rem 0 1.5rem"></div>
+
+    <table data-anchor-id="maintable">
+      <thead>
+        <tr><th>Item</th><th>Done</th><th>What exists today</th><th>Effort</th><th>Risk</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>1. Motion presets</strong></td><td><strong>20%</strong></td><td>Values dialled and shipped as defaults &mdash; the hard taste work. But <em>zero API</em>: no <code>presets</code> export, no <code>preset</code> prop, no <code>{visualDuration, bounce}</code>. Only the <code>Spring</code> type is exported.</td><td>M</td><td>M</td></tr>
+        <tr><td><strong>2. Tuner into this repo</strong></td><td><strong>45%</strong></td><td>Fully built and working &mdash; 14K <code>page.tsx</code> + CSS &mdash; but living in an app with no git. A JSON snapshot of your dialled values is the only thing committed here.</td><td>M</td><td>L</td></tr>
+        <tr><td><strong>3. The "why" example</strong></td><td><strong>0%</strong></td><td>Nothing. <code>example/</code> holds only the flagship demo, which proves it works rather than why you'd want it.</td><td>M</td><td>L</td></tr>
+        <tr><td><strong>4. <code>"use client"</code> guard</strong></td><td><strong>5%</strong></td><td>A README sentence. No runtime check anywhere in <code>src/</code>.</td><td>S</td><td>L</td></tr>
+        <tr><td><strong>5. Pin the motion peer</strong></td><td><strong>0%</strong></td><td>Peer still says <code>motion: ">=12"</code>. The suite has never run against v13, which your own consumer resolves.</td><td>S</td><td>M</td></tr>
+        <tr><td>6. Publish</td><td><strong>0%</strong></td><td>Verified 404 on npm. Nothing reserved.</td><td>S</td><td>L</td></tr>
+        <tr><td>7. Site page</td><td><strong>0%</strong></td><td>Not started.</td><td>L</td><td>L</td></tr>
+      </tbody>
+    </table>
+
+    <blockquote class="callout" data-anchor-id="presetnote">
+      <p><strong>On presets specifically:</strong> it is easy to read this as done, because the motion <em>is</em> done. V4 is dialled, baked, and shipping as the default. What does not exist is the way someone else selects it. Today the only route to a different feel is typing <code>stiffness</code>, <code>damping</code> and <code>mass</code> by hand, which is the single thing most likely to make a stranger close the tab.</p>
+    </blockquote>
+
+    <h2 data-anchor-id="fiveminutes">
+      The acceptance test: a stranger's first five minutes
+    </h2>
+
+    <p>
+      This is what "easy enough for others" means concretely. If any step
+      stalls, that step is the bug.
+    </p>
+
+    <table data-anchor-id="minutestable">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>What happens</th>
+          <th>Works today?</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>0:00</td>
+          <td>
+            Lands on your page, sees it move, understands it in one glance
+          </td>
+          <td>needs 3 + 7</td>
+        </tr>
+        <tr>
+          <td>0:30</td>
+          <td><code>npm i @seansmithworks/morph-sheet motion</code></td>
+          <td>needs 6</td>
+        </tr>
+        <tr>
+          <td>1:00</td>
+          <td>Pastes the snippet into a page. It renders and morphs.</td>
+          <td>✅ yes — README snippet is verbatim-tested</td>
+        </tr>
+        <tr>
+          <td>2:30</td>
+          <td>
+            Hits the RSC error because they forgot <code>"use client"</code>,
+            and the error tells them so
+          </td>
+          <td>needs 4</td>
+        </tr>
+        <tr>
+          <td>3:00</td>
+          <td>
+            Wants it faster. Writes <code>preset={presets.snappy}</code>. One
+            line, no physics.
+          </td>
+          <td>needs 1</td>
+        </tr>
+        <tr>
+          <td>4:00</td>
+          <td>
+            Wants it to feel like <em>theirs</em>. Runs
+            <code>npx morph-sheet add tuner</code>, opens localhost, drags
+            sliders, copies the config out.
+          </td>
+          <td>needs 2</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <blockquote class="callout" data-anchor-id="keyinsight">
+      <p>
+        Step 4:00 is the one that makes this feel like a real library rather
+        than a demo. It is also the step you already built — it just lives in
+        the wrong repo.
+      </p>
+    </blockquote>
+
+    <h2 data-anchor-id="decisions">Decisions that are yours</h2>
+
+    <table data-anchor-id="decisiontable">
+      <thead>
+        <tr>
+          <th>Decision</th>
+          <th>Recommended</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Preset names, and how many</td>
+          <td>
+            <code>default</code>, <code>snappy</code>, <code>gentle</code>.
+            Three. <code>default</code> is byte-identical to what you dialled.
+          </td>
+        </tr>
+        <tr>
+          <td>Which content examples ship first</td>
+          <td>
+            Two: the app-promo/media card (it doubles as the site hero) and a
+            simple list. Video and image can follow.
+          </td>
+        </tr>
+        <tr>
+          <td>Publish before or after the site page</td>
+          <td>
+            Before. npm is cheap and reversible-ish; the site can follow at its
+            own pace. Waiting couples two unrelated schedules.
+          </td>
+        </tr>
+        <tr>
+          <td>Does the tuner ship to consumers, or stay yours?</td>
+          <td>
+            Ships. It is the difference between "a component" and "a component
+            you can make your own."
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <hr />
+
+    <h2 data-anchor-id="detail">Detail</h2>
+
+    <details data-anchor-id="d1">
+      <summary>
+        <strong>1. Motion presets</strong> — the shape, and why the obvious
+        version fails
+      </summary>
+      <p>
+        A preset is an
+        <strong>object passed to a new <code>preset</code> prop on Root</strong
+        >, not a string:
+      </p>
+      <pre><code>import { MorphSheet, presets } from "@seansmithworks/morph-sheet";
+
+&lt;MorphSheet.Root preset={presets.snappy}&gt;</code></pre>
+      <p>
+        The obvious version — exporting spring objects for the existing
+        <code>transition</code> prop — cannot work. Your tuner exports four
+        fields (<code>discShell</code>, <code>avatar</code>,
+        <code>leadDelay</code>, <code>avatarFill</code>) and
+        <code>MorphTransition</code> has exactly three keys. It would round-trip
+        half a preset. A <code>preset</code> object carrying
+        <code>{transition, surfaceCloseLeadDelayMs, sharedSize}</code> reaches
+        all four.
+      </p>
+      <p>
+        A <code>preset="snappy"</code> string union is also wrong: zero of
+        Radix, Base UI, Vaul, Ark and Headless ship named presets, and a string
+        union makes every name a permanent compatibility promise with a lookup
+        table behind it. Exported objects are tree-shakeable, spreadable, and
+        deletable.
+      </p>
+      <p>
+        <strong>Also in this item:</strong> accept Motion's
+        <code>{visualDuration, bounce}</code> as a
+        <code>Spring</code> alternative to
+        <code>{stiffness, damping, mass}</code>. Two numbers that mean what a
+        designer thinks they mean. Your tuner's own
+        <code>baseValues</code> already store springs this way.
+      </p>
+      <p>
+        <strong>Risk is M because it touches the transition merge path.</strong>
+        The mitigation is that <code>default</code> must produce byte-identical
+        output to today, and the 75-test geometry gate proves it.
+      </p>
+    </details>
+
+    <details data-anchor-id="d2">
+      <summary><strong>2. Tuner into this repo</strong> — two halves</summary>
+      <p>
+        <strong>(a) Versioned copy for you.</strong> Move <code>/tune</code> out
+        of <code>~/Code/_experiments/disc-sheet-consumer</code> (which has no
+        git) into <code>example/</code>, runnable from an npm script. Today the
+        only durable record of it is a JSON snapshot of its localStorage.
+      </p>
+      <p>
+        <strong>(b) Copy-in for consumers.</strong>
+        <code>npx morph-sheet add tuner</code>, reusing the tested
+        <code>add</code> machinery in <code>bin/morph-sheet.mjs</code>. Already
+        the decided delivery path, for good reasons: dialkit pulls Geist Mono
+        from Google Fonts, so as a dependency it would put an external font
+        request in every consumer app forever, and a tuning panel reachable from
+        a production bundle is a footgun.
+      </p>
+    </details>
+
+    <details data-anchor-id="d3">
+      <summary><strong>3. The "why would I want this" example</strong></summary>
+      <p>
+        An app icon that morphs into an App Store-style preview card with real
+        media in it. This is your own idea from the backlog and it is the right
+        one: it shows a use nobody would derive from a contact card, and it
+        doubles as the site page's hero and the launch post's demo.
+      </p>
+      <p>Depends on nothing else in this list. Could run in parallel.</p>
+    </details>
+
+    <details data-anchor-id="d4">
+      <summary><strong>4 &amp; 5. The two traps</strong></summary>
+      <p>
+        <strong><code>"use client"</code>:</strong> the namespace-property
+        access is unresolvable server-side and the resulting error does not say
+        so. A dev-only runtime check that throws with the actual fix in the
+        message costs almost nothing and removes the most likely first-run
+        failure.
+      </p>
+      <p>
+        <strong>motion peer:</strong> run the geometry suite against v13. Either
+        it passes and you widen the peer honestly, or it fails and you have
+        found a real bug before a stranger did. Right now the peer range claims
+        support for a version nothing has tested.
+      </p>
+    </details>
+
+    <details data-anchor-id="dcut">
+      <summary><strong>Why shape variants are cut</strong></summary>
+      <p>
+        A shape dial without child-radius masking ships a control whose every
+        non-circle setting looks broken: the trigger surface goes squircle while
+        the shared content stays round. That is a bug you already hit once by
+        accident.
+      </p>
+      <p>
+        Doing it properly means the shared content masks to the
+        <em>animated</em> radius mid-morph, not the static token. A true iOS
+        squircle is a superellipse; <code>border-radius</code> only approximates
+        it, and <code>clip-path</code> does not interpolate through the FLIP the
+        way the radius MotionValue does.
+      </p>
+      <p>
+        It is the largest item you named and the only one that can regress
+        motion you have already approved. It is a good 0.2.
+      </p>
+    </details>
+
+    <details data-anchor-id="ddone">
+      <summary><strong>Already done, for the record</strong></summary>
+      <ul>
+        <li>Motion dialled and approved. V4 shipped as the default.</li>
+        <li>
+          Renamed to <code>morph-sheet</code>, <code>Disc</code> part to
+          <code>Trigger</code> (40c0b8c, b656c36).
+        </li>
+        <li>
+          A false JSDoc claim removed from five sites, one of which shipped into
+          every consumer's autocomplete (6eec3ff).
+        </li>
+        <li>
+          Focus trap that did not trap, missing background
+          <code>aria-hidden</code>, and a scroll lock that shifted the page 15px
+          — all fixed (2413a6b).
+        </li>
+        <li>
+          Gates green throughout: 20 vitest, 75 Playwright, CSS var audit PASS.
+        </li>
+      </ul>
+    </details>
+  </body>
+</html>
