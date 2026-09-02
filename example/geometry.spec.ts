@@ -5,16 +5,16 @@ import { test, expect, type Page } from "@playwright/test";
  * rendered geometry, at real viewports, in both motion modes. Each assertion
  * below maps directly to a REVIEW-FINDINGS.md blocker/major:
  *
- *   (a) disc-side vs sheet-side <Shared> box size  — B1
+ *   (a) trigger-side vs sheet-side <Shared> box size  — B1
  *   (b) sheet border-radius > 0 in both motion modes — B3
  *   (c) content sits inside the sheet's padding box — M4
- *   (d) --disc-sheet-z / --disc-sheet-sheet-max-width respond to props — M1/M2
+ *   (d) --morph-sheet-z / --morph-sheet-sheet-max-width respond to props — M1/M2
  *
  * FIXED — Defect 3 (stale first-open shared-layoutId snapshot). Tests (e),
  * (j), and (k) are green. FIVE candidate fixes were tried and rejected
  * first (see git history for the full writeup that used to live here); all
  * five tried to make Motion RE-snapshot the box AFTER JS promoted
- * `discSize` from its SSR-safe base value: gating `layoutId` on a "settled"
+ * `triggerSize` from its SSR-safe base value: gating `layoutId` on a "settled"
  * flag, remounting via `key`, a synthetic `resize` event, `flushSync`-ing
  * the promotion, and moving promotion to `useLayoutEffect`. All five were
  * on the wrong axis — Motion snapshots the element's real DOM box at first
@@ -26,28 +26,28 @@ import { test, expect, type Page } from "@playwright/test";
  * promotion delta (128−96=32, 144−96=48), and |Δtop| stayed 0.0 throughout
  * (the two boxes share a pinned bottom edge; see
  * reference_pinned-bottoms-collapse-dtop-and-dheight-into-one-
- * assertion). That means the disc-side shared element was being PAINTED at
+ * assertion). That means the trigger-side shared element was being PAINTED at
  * the base size on the real (non-base) viewport, not just measured wrong.
  *
  * The fix: make the first-paint box CORRECT instead of chasing a
- * re-snapshot. `useDiscSize`'s JS value still resolves at vpW=0 on first
+ * re-snapshot. `useTriggerSize`'s JS value still resolves at vpW=0 on first
  * render (still needed for hydration-safe position math in anchors.ts), but
  * it no longer sizes any FLIP-tracked element. Root.tsx now renders a
  * scoped `<style>` block with real `@media` rules for
- * `--disc-sheet-disc-size`, derived from `resolveDiscSize` (the ramp's one
+ * `--morph-sheet-trigger-size`, derived from `resolveTriggerSize` (the ramp's one
  * source of truth) at the ramp's own breakpoints. A real `@media` query
  * resolves correctly in the browser before any script runs, so there is
  * never a stale value for Motion to snapshot in the first place. Neither
- * Root.tsx's wrapper nor Disc.tsx's drag wrapper write
- * `--disc-sheet-disc-size` inline anymore — an inline write on either would
+ * Root.tsx's wrapper nor Trigger.tsx's drag wrapper write
+ * `--morph-sheet-trigger-size` inline anymore — an inline write on either would
  * have kept beating the `<style>` block's `@media` rules regardless of
- * viewport, which is why Disc.tsx's drag wrapper (an ANCESTOR of the
- * disc-side `.shared`) needed the same change as Root.tsx, not just one of
+ * viewport, which is why Trigger.tsx's drag wrapper (an ANCESTOR of the
+ * trigger-side `.shared`) needed the same change as Root.tsx, not just one of
  * the two.
  *
  * (g) is a SEPARATE, still-unfixed defect (reversed morph — Escape fired
  * mid-open) and stays red on purpose: it fails at all three viewports,
- * including 375px where no disc-size promotion ever happens, so it cannot
+ * including 375px where no trigger-size promotion ever happens, so it cannot
  * be D3. Leave it red; do not "helpfully" chase it here.
  */
 
@@ -59,7 +59,7 @@ const VIEWPORTS = [
 
 const MOTION_MODES = ["normal", "reduced-motion"] as const;
 
-const DISC_LABEL = "Open example sheet";
+const TRIGGER_LABEL = "Open example sheet";
 
 async function gotoExample(
   page: Page,
@@ -71,12 +71,12 @@ async function gotoExample(
   }
   const qs = query ? `?${new URLSearchParams(query).toString()}` : "";
   await page.goto(`/${qs}`);
-  await page.waitForSelector('[data-disc-sheet-part="disc-trigger"]');
+  await page.waitForSelector('[data-morph-sheet-part="trigger"]');
 }
 
 /** Poll a locator's boundingBox().width until it stops changing between two
  * reads, rather than a fixed delay long enough for the slowest case (a
- * spring settle, or useDiscSize's post-mount resize promotion — see M6)
+ * spring settle, or useTriggerSize's post-mount resize promotion — see M6)
  * but wastefully long for every faster one. */
 async function waitForStableWidth(
   page: Page,
@@ -92,8 +92,8 @@ async function waitForStableWidth(
 }
 
 async function openSheet(page: Page) {
-  await page.getByRole("button", { name: DISC_LABEL }).click();
-  const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+  await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+  const sheet = page.locator('[data-morph-sheet-part="sheet"]');
   await sheet.waitFor();
   // Let the FLIP/cross-fade fully settle so offsetWidth/Height reflect the
   // resting geometry, not a mid-spring frame.
@@ -101,8 +101,8 @@ async function openSheet(page: Page) {
 }
 
 /**
- * Frame-samples `[data-disc-sheet-part="shadow"]` against whichever surface
- * node currently shares its layoutId (`sheet` while opening, `disc-surface`
+ * Frame-samples `[data-morph-sheet-part="shadow"]` against whichever surface
+ * node currently shares its layoutId (`sheet` while opening, `trigger-surface`
  * while closing — both project to the same box during the FLIP, so either
  * selector matching is sufficient) for `durationMs`, via an in-page rAF loop
  * so sampling isn't gated by Playwright's own polling cadence. Returns the
@@ -135,10 +135,10 @@ async function sampleShadowSurfaceDelta(page: Page, durationMs: number) {
       const start = performance.now();
       function tick() {
         const surface = document.querySelector(
-          '[data-disc-sheet-part="sheet"], [data-disc-sheet-part="disc-surface"]',
+          '[data-morph-sheet-part="sheet"], [data-morph-sheet-part="trigger-surface"]',
         );
         const shadow = document.querySelector(
-          '[data-disc-sheet-part="shadow"]',
+          '[data-morph-sheet-part="shadow"]',
         );
         if (surface && shadow) {
           const s = surface.getBoundingClientRect();
@@ -165,29 +165,29 @@ for (const viewport of VIEWPORTS) {
     test.describe(`${viewport.width}x${viewport.height} — ${mode}`, () => {
       test.use({ viewport });
 
-      test("(a) disc-side and sheet-side Shared boxes are equal", async ({
+      test("(a) trigger-side and sheet-side Shared boxes are equal", async ({
         page,
       }) => {
         await gotoExample(page, reduced);
 
-        const discShared = page.locator(
-          '[data-disc-sheet-part="shared"][data-disc-sheet-slot="disc"]',
+        const triggerShared = page.locator(
+          '[data-morph-sheet-part="shared"][data-morph-sheet-slot="trigger"]',
         );
-        // useDiscSize's SSR-safe initializer (M6) always resolves at the
+        // useTriggerSize's SSR-safe initializer (M6) always resolves at the
         // ramp's base size first, then promotes to the real size in a
         // post-mount effect — wait for that promotion to land before
         // measuring, or a fast read here catches the pre-promotion value.
-        await waitForStableWidth(page, discShared);
-        const discBox = await discShared.boundingBox();
+        await waitForStableWidth(page, triggerShared);
+        const triggerBox = await triggerShared.boundingBox();
         expect(
-          discBox,
-          "disc-side Shared must be measurable before open",
+          triggerBox,
+          "trigger-side Shared must be measurable before open",
         ).not.toBeNull();
 
         await openSheet(page);
 
         const sheetShared = page.locator(
-          '[data-disc-sheet-part="shared"][data-disc-sheet-slot="sheet"]',
+          '[data-morph-sheet-part="shared"][data-morph-sheet-slot="sheet"]',
         );
         const sheetBox = await sheetShared.boundingBox();
         expect(
@@ -197,19 +197,19 @@ for (const viewport of VIEWPORTS) {
 
         console.log(
           `[geometry] ${viewport.width}x${viewport.height} ${mode}: ` +
-            `disc-side Shared ${discBox!.width.toFixed(1)}x${discBox!.height.toFixed(1)}, ` +
+            `trigger-side Shared ${triggerBox!.width.toFixed(1)}x${triggerBox!.height.toFixed(1)}, ` +
             `sheet-side Shared ${sheetBox!.width.toFixed(1)}x${sheetBox!.height.toFixed(1)}`,
         );
 
-        expect(sheetBox!.width).toBeCloseTo(discBox!.width, 0);
-        expect(sheetBox!.height).toBeCloseTo(discBox!.height, 0);
+        expect(sheetBox!.width).toBeCloseTo(triggerBox!.width, 0);
+        expect(sheetBox!.height).toBeCloseTo(triggerBox!.height, 0);
       });
 
       test("(b) sheet border-radius is greater than 0", async ({ page }) => {
         await gotoExample(page, reduced);
         await openSheet(page);
 
-        const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
         const radius = await sheet.evaluate((el) => {
           const cs = getComputedStyle(el);
           // borderRadius is the shorthand; read one corner explicitly.
@@ -228,8 +228,8 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
         await openSheet(page);
 
-        const sheet = page.locator('[data-disc-sheet-part="sheet"]');
-        const content = page.locator('[data-disc-sheet-part="content"]');
+        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+        const content = page.locator('[data-morph-sheet-part="content"]');
 
         const sheetBox = (await sheet.boundingBox())!;
         const contentBox = (await content.boundingBox())!;
@@ -255,7 +255,7 @@ for (const viewport of VIEWPORTS) {
         );
       });
 
-      test("(d) --disc-sheet-z and --disc-sheet-sheet-max-width respond to props", async ({
+      test("(d) --morph-sheet-z and --morph-sheet-sheet-max-width respond to props", async ({
         page,
       }) => {
         await gotoExample(page, reduced, {
@@ -263,29 +263,29 @@ for (const viewport of VIEWPORTS) {
           sheetMaxWidth: "600",
         });
 
-        const rootEl = page.locator("[data-disc-sheet-root]");
+        const rootEl = page.locator("[data-morph-sheet-root]");
         const z = await rootEl.evaluate((el) =>
-          getComputedStyle(el).getPropertyValue("--disc-sheet-z").trim(),
+          getComputedStyle(el).getPropertyValue("--morph-sheet-z").trim(),
         );
         const maxWidth = await rootEl.evaluate((el) =>
           getComputedStyle(el)
-            .getPropertyValue("--disc-sheet-sheet-max-width")
+            .getPropertyValue("--morph-sheet-sheet-max-width")
             .trim(),
         );
         expect(z).toBe("500");
         expect(maxWidth).toBe("600px");
 
         // And it must actually reach the rendered layers, not just the var.
-        const discRoot = page.locator('[data-disc-sheet-part="disc-root"]');
-        const discZ = await discRoot.evaluate(
+        const triggerRoot = page.locator('[data-morph-sheet-part="trigger-root"]');
+        const triggerZ = await triggerRoot.evaluate(
           (el) => getComputedStyle(el).zIndex,
         );
-        expect(discZ).toBe("500");
+        expect(triggerZ).toBe("500");
 
         await openSheet(page);
-        const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
         const sheetWidth = (await sheet.boundingBox())!.width;
-        // .sheet's CSS width is min(--disc-sheet-sheet-max-width, 100vw -
+        // .sheet's CSS width is min(--morph-sheet-sheet-max-width, 100vw -
         // 32px) — at our narrowest viewport (375) the viewport clamp wins,
         // not the 600px max-width, so the expectation has to account for
         // that clamp rather than assume 600 always renders.
@@ -295,23 +295,23 @@ for (const viewport of VIEWPORTS) {
 
       // Audit M11: the backdrop used to survive the whole close (rendered
       // inside AnimatePresence's `{open && ...}` child, so it stayed mounted
-      // at zIndex + 101 — above the disc's zIndex 100 — for the entire exit
-      // animation), eating every click over the disc's resting position for
+      // at zIndex + 101 — above the trigger's zIndex 100 — for the entire exit
+      // animation), eating every click over the trigger's resting position for
       // as long as the close took to settle. Both motion modes render a
       // close (reduced motion just skips the FLIP, not the backdrop's own
       // mount lifecycle), so this gate isn't scoped to `!reduced` like the
       // FLIP-sampling gates below it.
-      test("(l) a click over the disc's resting position reaches the disc, not the backdrop, 300ms into a close (M11)", async ({
+      test("(l) a click over the trigger's resting position reaches the trigger, not the backdrop, 300ms into a close (M11)", async ({
         page,
       }) => {
         await gotoExample(page, reduced);
-        const disc = page.getByRole("button", { name: DISC_LABEL });
-        const discBox = (await disc.boundingBox())!;
-        const cx = discBox.x + discBox.width / 2;
-        const cy = discBox.y + discBox.height / 2;
+        const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+        const triggerBox = (await trigger.boundingBox())!;
+        const cx = triggerBox.x + triggerBox.width / 2;
+        const cy = triggerBox.y + triggerBox.height / 2;
 
-        await disc.click();
-        const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+        await trigger.click();
+        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
         await sheet.waitFor();
         await waitForStableWidth(page, sheet);
 
@@ -323,28 +323,28 @@ for (const viewport of VIEWPORTS) {
             const el = document.elementFromPoint(x, y);
             return (
               el
-                ?.closest("[data-disc-sheet-part]")
-                ?.getAttribute("data-disc-sheet-part") ?? null
+                ?.closest("[data-morph-sheet-part]")
+                ?.getAttribute("data-morph-sheet-part") ?? null
             );
           },
           [cx, cy],
         );
         console.log(
           `[geometry] ${viewport.width}x${viewport.height} ${mode}: ` +
-            `300ms-into-close elementFromPoint(disc resting position) part=${hitPart}`,
+            `300ms-into-close elementFromPoint(trigger resting position) part=${hitPart}`,
         );
         expect(hitPart).not.toBe("backdrop");
       });
 
       // Review finding #8, resurrected as a real gate — and it caught a
-      // shipped defect immediately. The disc's RESTING shape is CSS
-      // (`border-radius: var(--disc-sheet-disc-radius, 9999px)`), but the
+      // shipped defect immediately. The trigger's RESTING shape is CSS
+      // (`border-radius: var(--morph-sheet-trigger-radius, 9999px)`), but the
       // close morph binds a numeric MotionValue over it (M1) and Motion
       // writes that inline: scale-corrected percentages while the projection
-      // runs, then one final px keyframe when it settles. So "the disc is a
+      // runs, then one final px keyframe when it settles. So "the trigger is a
       // circle at rest" is only true if the morph BOTH ends on a circular
       // value AND releases the inline write afterward. Neither held. Measured
-      // before the fix, on every close path of both example pages, the disc
+      // before the fix, on every close path of both example pages, the trigger
       // rested at `border-radius: 32px` (36px on the flagship) on a 128px box
       // — a paper squircle around a circular child, from the first close
       // until reload. Runs in BOTH motion modes: reduced motion drops the
@@ -353,17 +353,17 @@ for (const viewport of VIEWPORTS) {
       // The 1.6s settle per variant outlasts the 1.5s wall-clock radius hold
       // that used to gate the curve, so what this reads is the real resting
       // shape and not a frame of the hold.
-      test("(o) the disc surface rests as a circle after every close path (#8)", async ({
+      test("(o) the trigger surface rests as a circle after every close path (#8)", async ({
         page,
       }) => {
         await gotoExample(page, reduced);
-        const disc = page.getByRole("button", { name: DISC_LABEL });
+        const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
 
         const expectRestingCircle = async (variant: string) => {
           await page.waitForTimeout(1600);
           const r = await page.evaluate(() => {
             const el = document.querySelector(
-              '[data-disc-sheet-part="disc-surface"]',
+              '[data-morph-sheet-part="trigger-surface"]',
             ) as HTMLElement | null;
             if (!el) return null;
             const box = el.getBoundingClientRect();
@@ -376,7 +376,7 @@ for (const viewport of VIEWPORTS) {
           });
           expect(
             r,
-            `${variant}: the disc surface must be mounted and measurable at rest`,
+            `${variant}: the trigger surface must be mounted and measurable at rest`,
           ).not.toBeNull();
           const half = Math.min(r!.width, r!.height) / 2;
           // A percentage radius is circular at >= 50%; a px radius at >= half
@@ -387,45 +387,45 @@ for (const viewport of VIEWPORTS) {
               : parseFloat(value) >= half - 0.5;
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} ${mode} ${variant}: ` +
-              `resting disc radius computed=${r!.computed} ` +
+              `resting trigger radius computed=${r!.computed} ` +
               `inline=${r!.inline || "(none)"} ` +
               `box=${r!.width.toFixed(0)}x${r!.height.toFixed(0)} (half=${half})`,
           );
           expect(
             isCircular(r!.computed),
-            `${variant}: computed border-radius ${r!.computed} does not render a circle on a ${r!.width}x${r!.height} disc`,
+            `${variant}: computed border-radius ${r!.computed} does not render a circle on a ${r!.width}x${r!.height} trigger`,
           ).toBe(true);
           expect(
             r!.inline === "" || isCircular(r!.inline),
-            `${variant}: a stale inline border-radius (${r!.inline}) survived the morph and beats the --disc-sheet-disc-radius token`,
+            `${variant}: a stale inline border-radius (${r!.inline}) survived the morph and beats the --morph-sheet-trigger-radius token`,
           ).toBe(true);
         };
 
-        await disc.click();
+        await trigger.click();
         await page.waitForTimeout(900);
         await page.keyboard.press("Escape");
         await expectRestingCircle("simple close");
 
         // The reported repro: reopen while the close is still running (M11
-        // made the disc tappable from frame one of a close), then close again.
-        await disc.click();
+        // made the trigger tappable from frame one of a close), then close again.
+        await trigger.click();
         await page.waitForTimeout(900);
         await page.keyboard.press("Escape");
         await page.waitForTimeout(300);
-        await disc.click();
+        await trigger.click();
         await page.waitForTimeout(900);
         await page.keyboard.press("Escape");
         await expectRestingCircle("close interrupted by a reopen");
 
         for (let i = 0; i < 3; i++) {
-          await disc.click();
+          await trigger.click();
           await page.waitForTimeout(180);
           await page.keyboard.press("Escape");
           await page.waitForTimeout(180);
         }
         await expectRestingCircle("rapid open/close toggle");
 
-        await disc.click();
+        await trigger.click();
         await page.waitForTimeout(900);
         await page.keyboard.press("Escape");
         await page.waitForTimeout(90);
@@ -481,8 +481,8 @@ for (const viewport of VIEWPORTS) {
         }) => {
           await gotoExample(page, reduced);
 
-          const disc = page.getByRole("button", { name: DISC_LABEL });
-          await disc.click();
+          const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+          await trigger.click();
 
           // 1.2s covers settle for both the open spring (375/42.5/1.75) and
           // the close spring (240/34/1.75 + the 100ms SURFACE_CLOSE_LEAD_
@@ -523,9 +523,9 @@ for (const viewport of VIEWPORTS) {
           page,
         }) => {
           await page.goto("/flagship.html");
-          await page.waitForSelector('[data-disc-sheet-part="disc-trigger"]');
+          await page.waitForSelector('[data-morph-sheet-part="trigger"]');
           // The flagship's text faces are used ONLY inside its sheet, so they
-          // are still unloaded when the disc is tapped and the swap re-lays
+          // are still unloaded when the trigger is tapped and the swap re-lays
           // the sheet out mid-morph (measured at 390x844: 592 -> 618px tall,
           // ~40ms in). Shadow.tsx re-measures and both clocks restart
           // together when that happens, but Motion's own projection paints
@@ -537,10 +537,10 @@ for (const viewport of VIEWPORTS) {
           );
           await waitForStableWidth(
             page,
-            page.locator('[data-disc-sheet-part="disc-trigger"]'),
+            page.locator('[data-morph-sheet-part="trigger"]'),
           );
 
-          await page.locator('[data-disc-sheet-part="disc-trigger"]').click();
+          await page.locator('[data-morph-sheet-part="trigger"]').click();
           const openResult = await sampleShadowSurfaceDelta(page, 1200);
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} flagship open: ` +
@@ -571,9 +571,9 @@ for (const viewport of VIEWPORTS) {
           await gotoExample(page, reduced);
           await openSheet(page);
 
-          const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+          const sheet = page.locator('[data-morph-sheet-part="sheet"]');
           const box = (await sheet.boundingBox())!;
-          // Top strip of the sheet, above <DiscSheet.Shared>'s 24px margin
+          // Top strip of the sheet, above <MorphSheet.Shared>'s 24px margin
           // and the Close button inside Content — a safe drag-handle point
           // that isn't an interactive child.
           const startX = box.x + box.width / 2;
@@ -594,10 +594,10 @@ for (const viewport of VIEWPORTS) {
 
           const held = await page.evaluate(() => {
             const surface = document.querySelector(
-              '[data-disc-sheet-part="sheet"]',
+              '[data-morph-sheet-part="sheet"]',
             )!;
             const shadow = document.querySelector(
-              '[data-disc-sheet-part="shadow"]',
+              '[data-morph-sheet-part="shadow"]',
             )!;
             const s = surface.getBoundingClientRect();
             const sh = shadow.getBoundingClientRect();
@@ -640,8 +640,8 @@ for (const viewport of VIEWPORTS) {
           page,
         }) => {
           await gotoExample(page, reduced);
-          const disc = page.getByRole("button", { name: DISC_LABEL });
-          await disc.click();
+          const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+          await trigger.click();
 
           // Fire the reversal partway through the open spring's settle,
           // before it has a chance to finish — this is the state a
@@ -685,7 +685,7 @@ for (const viewport of VIEWPORTS) {
 
         // Review finding #1: collapseProgress.set(1) used to fire
         // unconditionally on every isOpening transition, including a tap
-        // that reopens the disc while a PREVIOUS close is still animating —
+        // that reopens the trigger while a PREVIOUS close is still animating —
         // reachable since M11 moved the backdrop out of the way from frame
         // one of a close (see test (l) above). That forced the shadow/
         // radius clock to snap to fully-closed (collapseProgress: 1) right
@@ -697,23 +697,23 @@ for (const viewport of VIEWPORTS) {
         // stale-snapshot defect) is equally able to catch here: a snap
         // shows up as the same class of spike in worst |Δtop|/|Δbottom| in
         // the reopen window, not a small, converging spread.
-        test("(n) shadow does not snap when the disc reopens a still-closing sheet", async ({
+        test("(n) shadow does not snap when the trigger reopens a still-closing sheet", async ({
           page,
         }) => {
           await gotoExample(page, reduced);
-          const disc = page.getByRole("button", { name: DISC_LABEL });
-          await disc.click();
-          const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+          const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+          await trigger.click();
+          const sheet = page.locator('[data-morph-sheet-part="sheet"]');
           await sheet.waitFor();
           await waitForStableWidth(page, sheet);
 
           await page.keyboard.press("Escape");
           // Mid-close — well before the close spring/hold settles (~240-
           // 440ms depending on viewport), and after the backdrop has
-          // already unmounted (M11), so the disc is genuinely tappable
+          // already unmounted (M11), so the trigger is genuinely tappable
           // here.
           await page.waitForTimeout(150);
-          await disc.click();
+          await trigger.click();
 
           const result = await sampleShadowSurfaceDelta(page, 1200);
           console.log(
@@ -736,13 +736,13 @@ for (const viewport of VIEWPORTS) {
           page,
         }) => {
           await gotoExample(page, reduced);
-          const disc = page.getByRole("button", { name: DISC_LABEL });
+          const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
 
           let worstTop = 0;
           let worstHeight = 0;
           let worstBottom = 0;
           for (let i = 0; i < 3; i++) {
-            await disc.click();
+            await trigger.click();
             await page.waitForTimeout(220);
             const openSample = await sampleShadowSurfaceDelta(page, 220);
             worstTop = Math.max(worstTop, openSample.worstTop);
@@ -794,11 +794,11 @@ for (const viewport of VIEWPORTS) {
           //    correct end state at all, instead of staying wrong for the
           //    rest of the close the way the pre-fix 481.7px case did.
           // 2. A residual, KNOWN AND ACCEPTED transient, now much smaller
-          //    than it was: Disc.tsx's resize handler used to re-seat the
-          //    disc wrapper with an instant `.jump()` even while a shared-
+          //    than it was: Trigger.tsx's resize handler used to re-seat the
+          //    trigger wrapper with an instant `.jump()` even while a shared-
           //    layoutId FLIP was in flight — that ancestor-transform jump
           //    compounded with the FLIP's own in-progress transform on its
-          //    child (disc-surface), producing an 868–869px worst-case
+          //    child (trigger-surface), producing an 868–869px worst-case
           //    (375/1280/1700: 868–869 / 586–587 / 651–653px, three runs).
           //    Fixed: the handler now defers the re-seat (pendingResizeRef)
           //    until Sheet's onExitComplete nulls sheetRect, matching the
@@ -807,7 +807,7 @@ for (const viewport of VIEWPORTS) {
           //    375/1280/1700: 298–299 / 294–295 / 367–369px) but did not
           //    zero it, because a SEPARATE, structurally different
           //    mechanism remains: this test's queried "surface" (the actual
-          //    disc-surface/sheet DOM box) reflows natively and
+          //    trigger-surface/sheet DOM box) reflows natively and
           //    synchronously the instant the viewport resizes, while
           //    Shadow.tsx's silhouette is driven by `sheetRect`, which is
           //    D2's OWN tracking value — plumbed through React state, one
@@ -846,18 +846,18 @@ for (const viewport of VIEWPORTS) {
           expect(settled.worstHeight).toBeLessThan(15);
         });
 
-        test("(j) cold first open does not FLIP from a stale disc-size snapshot (D3)", async ({
+        test("(j) cold first open does not FLIP from a stale trigger-size snapshot (D3)", async ({
           page,
         }) => {
           // Deliberately does NOT call waitForStableWidth or otherwise wait
-          // for useDiscSize's post-mount promotion to land before opening —
+          // for useTriggerSize's post-mount promotion to land before opening —
           // that wait is exactly what makes every OTHER test in this file a
           // warm open. This is a fresh navigation (a new Page per Playwright
           // test) with the earliest possible click, which is what a real
           // visitor's first interaction after page load looks like.
           await gotoExample(page, reduced);
-          const disc = page.getByRole("button", { name: DISC_LABEL });
-          await disc.click();
+          const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+          await trigger.click();
 
           const result = await sampleShadowSurfaceDelta(page, 1200);
           console.log(
@@ -873,18 +873,18 @@ for (const viewport of VIEWPORTS) {
           expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
         });
 
-        // Audit M1: the close-morph ellipse. Disc.tsx's disc-surface used to
+        // Audit M1: the close-morph ellipse. Trigger.tsx's trigger-surface used to
         // bind border-radius to a CSS `var()` STRING, which Motion can't
         // parse or scale-correct for a shared-layoutId crossfade — so the
         // computed border-radius on whichever element currently carries the
         // layoutId snapped to the literal 9999px fallback from frame one of
         // every close, painting a full ellipse on a sheet-sized box for the
         // whole collapse. Both crossfade participants (Sheet.tsx's `.sheet`
-        // on open, Disc.tsx's `.discSurface` on close) now bind to the SAME
+        // on open, Trigger.tsx's `.triggerSurface` on close) now bind to the SAME
         // numeric collapseRadius MotionValue (useCollapseRadius.ts), so this
         // asserts the invariant a healthy close must never break: while the
         // box is still sheet-sized (width > 200px — comfortably above the
-        // disc's own resting diameter, which is under 150px at every ramp
+        // trigger's own resting diameter, which is under 150px at every ramp
         // breakpoint), its border-radius can never exceed a plain rounded
         // rectangle's max (min(width, height) / 2) the way an ellipse does.
         test("(k) close-morph border-radius never balloons into an ellipse while the box is still sheet-sized (M1)", async ({
@@ -902,7 +902,7 @@ for (const viewport of VIEWPORTS) {
                 const start = performance.now();
                 function tick() {
                   const el = document.querySelector(
-                    '[data-disc-sheet-part="sheet"], [data-disc-sheet-part="disc-surface"]',
+                    '[data-morph-sheet-part="sheet"], [data-morph-sheet-part="trigger-surface"]',
                   );
                   if (el) {
                     const rect = el.getBoundingClientRect();
@@ -952,7 +952,7 @@ for (const viewport of VIEWPORTS) {
  *
  * example/main.tsx plumbs `?openDelay=<seconds>` into transition.open. A
  * consumer-set 250ms delay should hold the surface AND the shadow at the
- * disc's own box for (most of) that window — sampled at 120ms in, well
+ * trigger's own box for (most of) that window — sampled at 120ms in, well
  * before the delay elapses, so a broken clock has already visibly diverged
  * but a working one hasn't started moving yet.
  */
@@ -963,13 +963,13 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
     page,
   }) => {
     await gotoExample(page, false, { openDelay: "0.25" });
-    const disc = page.getByRole("button", { name: DISC_LABEL });
-    await disc.click();
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+    await trigger.click();
 
     await page.waitForTimeout(120);
     const midDelay = await page.evaluate(() => {
-      const surface = document.querySelector('[data-disc-sheet-part="sheet"]');
-      const shadow = document.querySelector('[data-disc-sheet-part="shadow"]');
+      const surface = document.querySelector('[data-morph-sheet-part="sheet"]');
+      const shadow = document.querySelector('[data-morph-sheet-part="shadow"]');
       if (!surface || !shadow) return null;
       const s = surface.getBoundingClientRect();
       const sh = shadow.getBoundingClientRect();
@@ -984,7 +984,7 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
         `|Δtop|=${midDelay!.top.toFixed(1)}px, |Δbottom|=${midDelay!.bottom.toFixed(1)}px`,
     );
     // Both clocks are still inside the consumer's 250ms delay window at
-    // 120ms — a working component holds both at the disc's box (near 0
+    // 120ms — a working component holds both at the trigger's box (near 0
     // desync). A stripped delay on one clock alone (the D4 bug) lets that
     // clock run ahead for the whole 120ms window, which measured 182.7px at
     // 1280 pre-fix.

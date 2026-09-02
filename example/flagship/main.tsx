@@ -1,11 +1,11 @@
 import { createRoot } from "react-dom/client";
-import { DiscSheet } from "../../src/index";
+import { MorphSheet } from "../../src/index";
 import { CloseMask } from "../CloseMask";
 import "./flagship.css";
 import portraitUrl from "./portrait.jpg";
 
 // The flagship's shared portrait, sized to 100% of whatever slot the package
-// gives it (disc-side inset circle, sheet-side margined circle) — same
+// gives it (trigger-side inset circle, sheet-side margined circle) — same
 // pattern as example/main.tsx's ColorCircle, just with a photo + the
 // dither-bloom ring instead of a gradient.
 function Portrait() {
@@ -85,25 +85,25 @@ function App() {
           face on it — no hover (M4), no press (M12), and Sean's name never
           appeared anywhere in the piece. Doubles as the page's <h1>. */}
       <h1 className="flagship-whisper">
-        Sean Smith — tap the disc. Drag it anywhere.
+        Sean Smith — tap the trigger. Drag it anywhere.
       </h1>
-      <DiscSheet.Root className="flagship-theme">
-        <DiscSheet.Shadow />
+      <MorphSheet.Root className="flagship-theme">
+        <MorphSheet.Shadow />
 
-        <DiscSheet.Disc aria-label="Open contact">
-          <DiscSheet.Shared>
+        <MorphSheet.Trigger aria-label="Open contact">
+          <MorphSheet.Shared>
             <Portrait />
-          </DiscSheet.Shared>
-        </DiscSheet.Disc>
+          </MorphSheet.Shared>
+        </MorphSheet.Trigger>
 
-        <DiscSheet.Sheet aria-labelledby="flagship-sheet-title">
-          <DiscSheet.Shared>
+        <MorphSheet.Sheet aria-labelledby="flagship-sheet-title">
+          <MorphSheet.Shared>
             <Portrait />
-          </DiscSheet.Shared>
+          </MorphSheet.Shared>
 
-          <DiscSheet.Content>
-            <DiscSheet.Close aria-label="Close" />
-            <DiscSheet.Item>
+          <MorphSheet.Content>
+            <MorphSheet.Close aria-label="Close" />
+            <MorphSheet.Item>
               <p className="flagship-eyebrow">Open to work · 2026</p>
               <h2 id="flagship-sheet-title" className="flagship-title">
                 Let&rsquo;s make something together!
@@ -112,9 +112,9 @@ function App() {
                 Looking for full-time design leadership, and open to advisory.
                 Email is fastest.
               </p>
-            </DiscSheet.Item>
+            </MorphSheet.Item>
 
-            <DiscSheet.Item>
+            <MorphSheet.Item>
               <nav aria-label="Contact links" className="flagship-actions">
                 {actions.map((action) => (
                   <a
@@ -142,9 +142,9 @@ function App() {
                   </a>
                 ))}
               </nav>
-            </DiscSheet.Item>
+            </MorphSheet.Item>
 
-            <DiscSheet.Item>
+            <MorphSheet.Item>
               <a
                 className="flagship-cta"
                 href="https://calendar.app.google/bSgz9A1G5FnY6CdD8"
@@ -153,13 +153,13 @@ function App() {
               >
                 book a slot ↗
               </a>
-            </DiscSheet.Item>
-          </DiscSheet.Content>
-        </DiscSheet.Sheet>
+            </MorphSheet.Item>
+          </MorphSheet.Content>
+        </MorphSheet.Sheet>
 
         {/* Escape-hatch reuse, unmodified — see example/CloseMask.tsx. */}
         <CloseMask />
-      </DiscSheet.Root>
+      </MorphSheet.Root>
     </div>
   );
 }

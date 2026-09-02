@@ -14,13 +14,13 @@ const SPECIAL_CASED = new Set(["css-modules.d.ts"]);
 const TEST_FILE_RE = /\.test\.tsx?$/;
 
 function usage() {
-  console.log(`disc-sheet — a draggable disc that morphs into a modal sheet
+  console.log(`morph-sheet — a draggable trigger that morphs into a modal sheet
 
 Usage:
-  npx @seansmithworks/disc-sheet add [targetDir] [--force]
+  npx @seansmithworks/morph-sheet add [targetDir] [--force]
 
   Copies the component source into your project (default target:
-  ./src/disc-sheet) so you own and can edit the files directly.
+  ./src/morph-sheet) so you own and can edit the files directly.
 
 Peer dependencies (install these yourself): react, react-dom, motion
 `);
@@ -45,7 +45,7 @@ function hasAmbientCssModuleDecl(cwd) {
 function cmdAdd(args) {
   const force = args.includes("--force");
   const positional = args.filter((a) => a !== "--force");
-  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/disc-sheet");
+  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/morph-sheet");
 
   const files = readSrcFiles();
 
@@ -66,7 +66,7 @@ function cmdAdd(args) {
     }
     if (conflicts.length > 0) {
       console.error(
-        `disc-sheet: refusing to overwrite existing files (use --force to overwrite):`
+        `morph-sheet: refusing to overwrite existing files (use --force to overwrite):`
       );
       for (const c of conflicts) console.error(`  ${c}`);
       process.exit(1);
@@ -83,16 +83,16 @@ function cmdAdd(args) {
 
   const relTarget = path.relative(process.cwd(), targetDir) || ".";
 
-  console.log(`disc-sheet: copied ${copied} files to ${relTarget}`);
+  console.log(`morph-sheet: copied ${copied} files to ${relTarget}`);
   if (skipCssShim) {
     console.log(
-      `disc-sheet: detected next-env.d.ts, skipping css-modules.d.ts (Next already declares *.module.css)`
+      `morph-sheet: detected next-env.d.ts, skipping css-modules.d.ts (Next already declares *.module.css)`
     );
   }
   console.log(`\nInstall peer dependencies:`);
   console.log(`  npm install react react-dom motion`);
   console.log(`\nImport it:`);
-  console.log(`  import { DiscSheet } from "./${relTarget}";`);
+  console.log(`  import { MorphSheet } from "./${relTarget}";`);
 }
 
 function main() {
@@ -108,7 +108,7 @@ function main() {
     return;
   }
 
-  console.error(`disc-sheet: unknown command "${command}"\n`);
+  console.error(`morph-sheet: unknown command "${command}"\n`);
   usage();
   process.exit(1);
 }

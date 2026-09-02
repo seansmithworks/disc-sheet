@@ -8,7 +8,7 @@ import {
   useReducedMotion,
 } from "motion/react";
 import { DEFAULT_ANCHOR, type AnchorId } from "./anchors";
-import { DiscSheetContext, type DiscSheetContextValue } from "./context";
+import { MorphSheetContext, type MorphSheetContextValue } from "./context";
 import {
   DEFAULT_CLOSE_SPRING,
   DEFAULT_OPEN_SPRING,
@@ -22,14 +22,14 @@ import type { Transition } from "motion/react";
 import type { Rect, RootProps, SheetRect, Spring } from "./types";
 import {
   MD_BREAKPOINT,
-  resolveDiscSize,
-  useDiscSize,
+  resolveTriggerSize,
+  useTriggerSize,
   XL_BREAKPOINT,
-} from "./useDiscSize";
+} from "./useTriggerSize";
 import { usePersistedAnchor } from "./usePersistedAnchor";
 
 /**
- * <DiscSheet.Root> — owns open state, anchor state, the LayoutGroup, the
+ * <MorphSheet.Root> — owns open state, anchor state, the LayoutGroup, the
  * shared context, and the reduced-motion decision.
  *
  * Anchor is uncontrolled-only in v0.1 (docs/PACKAGE-DESIGN.md §8): the
@@ -45,7 +45,7 @@ export function Root({
   onAnchorChange,
   draggable = true,
   persistKey,
-  discSize: discSizeProp,
+  triggerSize: triggerSizeProp,
   sheetMaxWidth = 480,
   transition,
   surfaceCloseLeadDelayMs = SURFACE_CLOSE_LEAD_DELAY_MS,
@@ -81,34 +81,34 @@ export function Root({
     [setAnchorState, onAnchorChange],
   );
 
-  const discSize = useDiscSize(discSizeProp);
+  const triggerSize = useTriggerSize(triggerSizeProp);
 
   // D3 fix — cold-first-open stale shared-layoutId FLIP origin
   // (docs/PACKAGE-DESIGN.md, reference_pinned-bottoms-collapse-dtop-and-
-  // dheight-into-one-assertion). `discSize` above still resolves at vpW=0 on
-  // first render for hydration safety, then promotes in a post-mount effect
-  // — Motion snapshots a shared-layoutId element's box at first paint, which
-  // lands INSIDE that pre-promotion window, so the disc-side box gets
-  // FLIP-tracked at the ramp's base size even on a real (non-base) viewport.
-  // Root re-mounting or re-snapshotting later can't fix this: the snapshot
-  // that matters is the FIRST one, and it is already stale by the time any
-  // JS effect could run.
+  // dheight-into-one-assertion). `triggerSize` above still resolves at
+  // vpW=0 on first render for hydration safety, then promotes in a
+  // post-mount effect — Motion snapshots a shared-layoutId element's box at
+  // first paint, which lands INSIDE that pre-promotion window, so the
+  // trigger-side box gets FLIP-tracked at the ramp's base size even on a
+  // real (non-base) viewport. Root re-mounting or re-snapshotting later
+  // can't fix this: the snapshot that matters is the FIRST one, and it is
+  // already stale by the time any JS effect could run.
   //
   // CSS can resolve a viewport-dependent value at first paint with no JS and
   // no hydration risk — a real @media query, evaluated by the browser before
-  // any script runs. discSizeCss below derives the same three breakpoint
-  // values from resolveDiscSize (the ramp's one source of truth, shared with
-  // the live `discSize` above) and Root renders them as a scoped <style>
-  // block. Every element that reads --disc-sheet-disc-size (Disc.tsx's drag
-  // wrapper, .shared in styles.module.css) now gets the CORRECT size on the
-  // very first frame, so there is never a stale snapshot for Motion to
-  // chase. `discSize` (JS) still exists and still promotes post-mount, but
-  // now only for position math (anchors.ts) and drag-constraint numbers —
-  // never for a FLIP-tracked element's box.
-  const discSizeCss = {
-    base: resolveDiscSize(discSizeProp, 0),
-    md: resolveDiscSize(discSizeProp, MD_BREAKPOINT),
-    xl: resolveDiscSize(discSizeProp, XL_BREAKPOINT),
+  // any script runs. triggerSizeCss below derives the same three breakpoint
+  // values from resolveTriggerSize (the ramp's one source of truth, shared
+  // with the live `triggerSize` above) and Root renders them as a scoped
+  // <style> block. Every element that reads --morph-sheet-trigger-size
+  // (Trigger.tsx's drag wrapper, .shared in styles.module.css) now gets the
+  // CORRECT size on the very first frame, so there is never a stale
+  // snapshot for Motion to chase. `triggerSize` (JS) still exists and still
+  // promotes post-mount, but now only for position math (anchors.ts) and
+  // drag-constraint numbers — never for a FLIP-tracked element's box.
+  const triggerSizeCss = {
+    base: resolveTriggerSize(triggerSizeProp, 0),
+    md: resolveTriggerSize(triggerSizeProp, MD_BREAKPOINT),
+    xl: resolveTriggerSize(triggerSizeProp, XL_BREAKPOINT),
   };
 
   const [isDragging, setIsDragging] = useState(false);
@@ -117,9 +117,10 @@ export function Root({
   const reduceMotion = reduceMotionProp ?? Boolean(systemReduceMotion);
 
   // ── The morph clock ────────────────────────────────────────────────────
-  // collapseProgress: 0 = fully open (sheet), 1 = fully closed (disc). Owned
-  // here so Disc, Sheet, Shared and Shadow all read the same live value —
-  // this is the MotionValue usePKG() exposes as the escape hatch (§3).
+  // collapseProgress: 0 = fully open (sheet), 1 = fully closed (trigger).
+  // Owned here so Trigger, Sheet, Shared and Shadow all read the same live
+  // value — this is the MotionValue usePKG() exposes as the escape hatch
+  // (§3).
   const collapseProgress = useMotionValue(1);
   const prevOpenRef = useRef<boolean | null>(null);
 
@@ -138,7 +139,7 @@ export function Root({
   );
   // The shared element's transition is DIRECTION-AWARE. On the open it only
   // has to clear the growing sheet; on the close it has to arrive home
-  // together with the collapsing disc, which it cannot do on the same spring
+  // together with the collapsing trigger, which it cannot do on the same spring
   // because the surface's close FLIP starts surfaceCloseLeadDelayMs later
   // than it does. `open` is the direction: it is already true when the open
   // morph's layout animation is created and already false when the close
@@ -190,9 +191,9 @@ export function Root({
   // pull the trigger. `time.now()` inside that callback returns the very
   // `frameData.timestamp` the projection animation stamped itself with, so
   // both clocks get an identical startTime by construction — on both the
-  // open (Sheet's `.sheet` is the entering element) and the close (Disc's
-  // `.discSurface` is), and for any consumer transition, delay included,
-  // since both sides read the same transition object (D4).
+  // open (Sheet's `.sheet` is the entering element) and the close
+  // (Trigger's `.triggerSurface` is), and for any consumer transition,
+  // delay included, since both sides read the same transition object (D4).
   //
   // The same rule covers a RE-start: if the sheet's own box changes mid-morph
   // (a font landing, an image finishing), Motion abandons the layout
@@ -202,7 +203,7 @@ export function Root({
   // shadow stays locked to the surface only if it restarts on the same frame
   // — hence startMorphClock re-fires for the whole duration of a morph, not
   // just once. `from` gates it to whichever element is the LEAD for this
-  // direction (Sheet on open, Disc on close); the other one is a follow node
+  // direction (Sheet on open, Trigger on close); the other one is a follow node
   // whose own layout animation must not re-time the morph.
   const morphRef = useRef<{
     to: number;
@@ -212,12 +213,12 @@ export function Root({
   const morphFallbackRafRef = useRef<number | null>(null);
 
   const startMorphClock = useCallback(
-    (from: "disc" | "sheet") => {
+    (from: "trigger" | "sheet") => {
       const morph = morphRef.current;
       if (!morph) return;
       if ((morph.to === 0) !== (from === "sheet")) return;
       // Already settled on target — an unrelated layout animation on an
-      // idle disc/sheet, not a morph to re-time.
+      // idle trigger/sheet, not a morph to re-time.
       if (morph.started && collapseProgress.get() === morph.to) return;
       morph.started = true;
       if (morphFallbackRafRef.current !== null) {
@@ -277,8 +278,8 @@ export function Root({
     // isOpening covers a cold open (collapseProgress already 1 by default)
     // and a settled close reopening (already at 1 from the prior close), so
     // the set(1) below is a no-op in both — but it ALSO fires when a tap
-    // reopens the disc while a previous close is still animating (M11 made
-    // that reachable: the backdrop no longer blocks the disc for the whole
+    // reopens the trigger while a previous close is still animating (M11 made
+    // that reachable: the backdrop no longer blocks the trigger for the whole
     // close). In that case collapseProgress is mid-flight (e.g. 0.3, not 1),
     // and forcing it to 1 snaps the shadow/radius to fully-closed right
     // before startMorphClock re-arms an animation from that forced value,
@@ -303,7 +304,7 @@ export function Root({
     if (morphFallbackRafRef.current !== null) {
       cancelAnimationFrame(morphFallbackRafRef.current);
     }
-    const fallbackFrom = isOpening ? "sheet" : "disc";
+    const fallbackFrom = isOpening ? "sheet" : "trigger";
     morphFallbackRafRef.current = requestAnimationFrame(() => {
       morphFallbackRafRef.current = null;
       if (!morphRef.current?.started) startMorphClock(fallbackFrom);
@@ -328,7 +329,7 @@ export function Root({
     startMorphClock,
   ]);
 
-  const [discRect, setDiscRect] = useState<Rect | null>(null);
+  const [triggerRect, setTriggerRect] = useState<Rect | null>(null);
   const [sheetRect, setSheetRect] = useState<SheetRect | null>(null);
 
   const triggerElRef = useRef<HTMLButtonElement | null>(null);
@@ -338,7 +339,7 @@ export function Root({
   // participants of the shared layoutId (audit M1) read — Sheet.tsx still
   // computes the actual hold/interpolation curve itself (unchanged from
   // pre-fix), then relays every tick into this stable container so
-  // Disc.tsx's disc-surface can bind to the exact same painted values on
+  // Trigger.tsx's triggerSurface can bind to the exact same painted values on
   // close. Owned here (not created fresh inside Sheet) purely so it's a
   // stable instance context can hand to both components regardless of
   // either one's mount lifecycle.
@@ -356,10 +357,10 @@ export function Root({
     [],
   );
 
-  const triggerId = `${idBase}-disc-trigger`;
+  const triggerId = `${idBase}-trigger`;
   const sheetId = `${idBase}-sheet`;
 
-  const contextValue: DiscSheetContextValue = {
+  const contextValue: MorphSheetContextValue = {
     open,
     setOpen,
     anchor,
@@ -368,7 +369,7 @@ export function Root({
     isDragging,
     setIsDragging,
     draggable,
-    discSize,
+    triggerSize,
     sheetMaxWidth,
     reduceMotion,
     zIndex,
@@ -377,8 +378,8 @@ export function Root({
     sheetId,
     collapseProgress,
     collapseRadius,
-    discRect,
-    setDiscRect,
+    triggerRect,
+    setTriggerRect,
     sheetRect,
     setSheetRect,
     sheetDragY,
@@ -400,39 +401,39 @@ export function Root({
   // — server-rendered and deterministic from props alone, so the server and
   // the client's first render emit byte-identical CSS and there is no
   // hydration mismatch risk (E5).
-  const discSizeStyleRule = `[data-disc-sheet-root="${idBase}"]{--disc-sheet-disc-size:${discSizeCss.base}px}`;
-  const discSizeStyleMd = `@media (min-width:${MD_BREAKPOINT}px){[data-disc-sheet-root="${idBase}"]{--disc-sheet-disc-size:${discSizeCss.md}px}}`;
-  const discSizeStyleXl = `@media (min-width:${XL_BREAKPOINT}px){[data-disc-sheet-root="${idBase}"]{--disc-sheet-disc-size:${discSizeCss.xl}px}}`;
+  const triggerSizeStyleRule = `[data-morph-sheet-root="${idBase}"]{--morph-sheet-trigger-size:${triggerSizeCss.base}px}`;
+  const triggerSizeStyleMd = `@media (min-width:${MD_BREAKPOINT}px){[data-morph-sheet-root="${idBase}"]{--morph-sheet-trigger-size:${triggerSizeCss.md}px}}`;
+  const triggerSizeStyleXl = `@media (min-width:${XL_BREAKPOINT}px){[data-morph-sheet-root="${idBase}"]{--morph-sheet-trigger-size:${triggerSizeCss.xl}px}}`;
 
   return (
-    <DiscSheetContext.Provider value={contextValue}>
+    <MorphSheetContext.Provider value={contextValue}>
       <LayoutGroup id={idBase}>
-        <style>{`${discSizeStyleRule}${discSizeStyleMd}${discSizeStyleXl}`}</style>
+        <style>{`${triggerSizeStyleRule}${triggerSizeStyleMd}${triggerSizeStyleXl}`}</style>
         <div
           className={className}
-          data-disc-sheet-root={idBase}
+          data-morph-sheet-root={idBase}
           style={{
-            // Root's wrapper is an ANCESTOR of both <Disc> and <Sheet>, unlike
-            // the disc root div (a sibling of <Sheet>), so custom properties
+            // Root's wrapper is an ANCESTOR of both <Trigger> and <Sheet>, unlike
+            // the trigger root div (a sibling of <Sheet>), so custom properties
             // written here are the only ones both slots can inherit. B1:
-            // --disc-sheet-disc-size was previously written only on the disc
+            // --morph-sheet-trigger-size was previously written only on the trigger
             // root, making it invisible to .shared in the sheet above the
-            // ramp's base breakpoint. M1/M2: --disc-sheet-z and
-            // --disc-sheet-sheet-max-width were never written at all, leaving
+            // ramp's base breakpoint. M1/M2: --morph-sheet-z and
+            // --morph-sheet-sheet-max-width were never written at all, leaving
             // the zIndex and sheetMaxWidth props orphaned from the CSS that
             // reads them.
             //
-            // --disc-sheet-disc-size is NOT written here anymore (D3 fix,
+            // --morph-sheet-trigger-size is NOT written here anymore (D3 fix,
             // above) — an inline style write on this element would always
             // beat the scoped <style> block's @media rules, for any
             // viewport, defeating the whole point of resolving it in CSS.
-            ["--disc-sheet-z" as string]: String(zIndex),
-            ["--disc-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
+            ["--morph-sheet-z" as string]: String(zIndex),
+            ["--morph-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
           }}
         >
           {children}
         </div>
       </LayoutGroup>
-    </DiscSheetContext.Provider>
+    </MorphSheetContext.Provider>
   );
 }

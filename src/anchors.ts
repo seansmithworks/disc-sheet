@@ -2,7 +2,7 @@
  * anchors — the six-anchor model: nearestAnchor, restingLeft/Top, anchorCenter,
  * sheetPlacement.
  *
- * Each anchor expresses the disc's resting position as CSS edge offsets,
+ * Each anchor expresses the trigger's resting position as CSS edge offsets,
  * resolved against the live viewport. All functions here are pure — no DOM
  * reads, no window access beyond the values passed in — so the resting
  * position is always accurate regardless of orientation changes, window
@@ -45,26 +45,26 @@ export const ALL_ANCHORS: AnchorId[] = [
 ];
 
 /**
- * Derive which of the 6 anchors a drag-released disc center belongs to.
+ * Derive which of the 6 anchors a drag-released trigger center belongs to.
  *
  * Region map (2 rows x 3 cols):
  *   Vertical split: top half vs bottom half of viewport (midline = vpH / 2).
  *   Horizontal split: left/center/right thirds (vpW / 3 boundaries).
  */
 export function nearestAnchor(
-  discCenterX: number,
-  discCenterY: number,
+  triggerCenterX: number,
+  triggerCenterY: number,
   vpW: number,
   vpH: number,
 ): AnchorId {
-  const isBottom = discCenterY >= vpH / 2;
+  const isBottom = triggerCenterY >= vpH / 2;
   const row: AnchorEdge = isBottom ? "bottom" : "top";
 
   const third = vpW / 3;
   let col: AnchorHorizontal;
-  if (discCenterX < third) {
+  if (triggerCenterX < third) {
     col = "left";
-  } else if (discCenterX < third * 2) {
+  } else if (triggerCenterX < third * 2) {
     col = "center";
   } else {
     col = "right";
@@ -74,46 +74,46 @@ export function nearestAnchor(
 }
 
 /**
- * Left edge (viewport px) of the disc at its resting position for the given
+ * Left edge (viewport px) of the trigger at its resting position for the given
  * anchor.
- *   Corner anchors: left = EDGE_MARGIN | right = vpW - discSize - EDGE_MARGIN
- *   Center anchors: left = vpW/2 - discSize/2
+ *   Corner anchors: left = EDGE_MARGIN | right = vpW - triggerSize - EDGE_MARGIN
+ *   Center anchors: left = vpW/2 - triggerSize/2
  */
 export function restingLeft(
   anchor: AnchorId,
   vpW: number,
-  discSize: number,
+  triggerSize: number,
 ): number {
   if (anchor.endsWith("left")) return EDGE_MARGIN;
-  if (anchor.endsWith("right")) return vpW - discSize - EDGE_MARGIN;
-  return vpW / 2 - discSize / 2;
+  if (anchor.endsWith("right")) return vpW - triggerSize - EDGE_MARGIN;
+  return vpW / 2 - triggerSize / 2;
 }
 
 /**
- * Top edge (viewport px) of the disc at its resting position for the given
+ * Top edge (viewport px) of the trigger at its resting position for the given
  * anchor.
  *   Top anchors: top = EDGE_MARGIN
- *   Bottom anchors: top = vpH - discSize - EDGE_MARGIN
+ *   Bottom anchors: top = vpH - triggerSize - EDGE_MARGIN
  */
 export function restingTop(
   anchor: AnchorId,
   vpH: number,
-  discSize: number,
+  triggerSize: number,
 ): number {
   if (anchor.startsWith("top")) return EDGE_MARGIN;
-  return vpH - discSize - EDGE_MARGIN;
+  return vpH - triggerSize - EDGE_MARGIN;
 }
 
 /**
- * Disc center position (viewport px) for a given anchor.
+ * Trigger center position (viewport px) for a given anchor.
  */
 export function anchorCenter(
   anchor: AnchorId,
   vpW: number,
   vpH: number,
-  discSize: number,
+  triggerSize: number,
 ): { x: number; y: number } {
-  const half = discSize / 2;
+  const half = triggerSize / 2;
   const M = EDGE_MARGIN;
 
   const isTop = anchor.startsWith("top");
@@ -152,11 +152,11 @@ export function sheetPlacement(
   anchor: AnchorId,
   vpW: number,
   vpH: number,
-  discSize: number,
+  triggerSize: number,
   sheetMaxWidth: number,
 ): SheetPlacement {
   const SHEET_MARGIN = 16;
-  const center = anchorCenter(anchor, vpW, vpH, discSize);
+  const center = anchorCenter(anchor, vpW, vpH, triggerSize);
   const sheetHalfWidth = Math.min(sheetMaxWidth, vpW - 32) / 2;
 
   const clampedSheetCenterX = Math.min(

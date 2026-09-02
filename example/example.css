@@ -1,5 +1,5 @@
 /*
- * example.css — content styling for the disc-sheet example app only. The
+ * example.css — content styling for the morph-sheet example app only. The
  * package itself ships zero typography/spacing decisions for <Item> content
  * (docs/PACKAGE-DESIGN.md §1: "No props beyond that" — those are the
  * consumer's to make). This file is that consumer decision, made once here
@@ -10,33 +10,33 @@
 /* M13: Close.tsx ships unpositioned by design (consumer decides) — without
  * this, it rendered as a 430x44 bar floating between the circle and the
  * heading, the first thing a first-time visitor to this page sees open. */
-[data-disc-sheet-part="close"] {
+[data-morph-sheet-part="close"] {
   position: absolute;
   top: 16px;
   right: 16px;
 }
 
-[data-disc-sheet-part="item"] {
+[data-morph-sheet-part="item"] {
   padding-top: 16px;
 }
 
-[data-disc-sheet-part="item"]:first-of-type {
+[data-morph-sheet-part="item"]:first-of-type {
   padding-top: 24px;
 }
 
-[data-disc-sheet-part="content"] h2 {
+[data-morph-sheet-part="content"] h2 {
   font-size: 20px;
   line-height: 1.3;
   margin: 0 0 8px;
 }
 
-[data-disc-sheet-part="content"] p {
+[data-morph-sheet-part="content"] p {
   margin: 0;
   line-height: 1.5;
   color: #4b4b52;
 }
 
-[data-disc-sheet-part="content"] nav a {
+[data-morph-sheet-part="content"] nav a {
   color: #6366f1;
   text-decoration: underline;
 }

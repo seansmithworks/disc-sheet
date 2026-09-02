@@ -4,10 +4,10 @@
  * (docs/PACKAGE-DESIGN.md / REVIEW-FINDINGS.md, "the mechanical audit that
  * finds four of these").
  *
- * Any --disc-sheet-* variable that styles.module.css READS via var(...) must
- * be either WRITTEN by the package (a .setProperty("--disc-sheet-...") call
- * or a `["--disc-sheet-..." as string]:` inline-style key somewhere in src/)
- * or DOCUMENTED as a consumer-set token (a `--disc-sheet-...` row in the
+ * Any --morph-sheet-* variable that styles.module.css READS via var(...) must
+ * be either WRITTEN by the package (a .setProperty("--morph-sheet-...") call
+ * or a `["--morph-sheet-..." as string]:` inline-style key somewhere in src/)
+ * or DOCUMENTED as a consumer-set token (a `--morph-sheet-...` row in the
  * README's theming table). A var that is neither is a dead prop — this is
  * the exact mechanism that found B1/B3/M1/M2 (styles.module.css read them,
  * nothing wrote them, and two of them weren't even documented at the time).
@@ -15,14 +15,14 @@
  * Exit 0 and print a clean report if every read var is covered. Exit 1 and
  * list the orphans otherwise.
  *
- * Inverse direction: every --disc-sheet-* variable the README documents as a
+ * Inverse direction: every --morph-sheet-* variable the README documents as a
  * consumer token must actually be READ somewhere in src/ (the CSS module's
  * var(...) calls, or a JS/TS reference — e.g. readVarPx). A documented var
  * nothing reads is dead documentation: a consumer who sets it gets silence,
  * and nothing in the repo would ever tell them. This is the audit's
  * structural blind spot — "read implies written-or-documented" says nothing
  * about "documented implies read" — and it is exactly how
- * --disc-sheet-surface-elevated and --disc-sheet-edge-margin survived as
+ * --morph-sheet-surface-elevated and --morph-sheet-edge-margin survived as
  * phantom tokens in the README with zero occurrences in src/.
  */
 import { readFileSync, readdirSync } from "node:fs";
@@ -30,7 +30,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const VAR_RE = /--disc-sheet-[a-zA-Z0-9-]+/g;
+const VAR_RE = /--morph-sheet-[a-zA-Z0-9-]+/g;
 
 function uniqueMatches(text, re) {
   return new Set(text.match(re) ?? []);
@@ -52,35 +52,35 @@ function readSrcFiles(dir, exts) {
 // 1. Vars styles.module.css READS, i.e. appear inside a var(...) call.
 const cssPath = join(ROOT, "src/styles.module.css");
 const css = readFileSync(cssPath, "utf8");
-const varCallRe = /var\(\s*(--disc-sheet-[a-zA-Z0-9-]+)/g;
+const varCallRe = /var\(\s*(--morph-sheet-[a-zA-Z0-9-]+)/g;
 const readVars = new Set();
 for (const m of css.matchAll(varCallRe)) readVars.add(m[1]);
 
-// 2. Vars the package WRITES: any --disc-sheet-* identifier that appears as
+// 2. Vars the package WRITES: any --morph-sheet-* identifier that appears as
 // a .setProperty(...) target or an inline-style object key in src/ TS/TSX.
 const srcFiles = readSrcFiles(join(ROOT, "src"), [".ts", ".tsx"]);
 const writtenVars = new Set();
-const setPropertyRe = /\.setProperty\(\s*["'](--disc-sheet-[a-zA-Z0-9-]+)["']/g;
-const inlineStyleKeyRe = /\[\s*["'](--disc-sheet-[a-zA-Z0-9-]+)["']\s*as string\s*\]/g;
+const setPropertyRe = /\.setProperty\(\s*["'](--morph-sheet-[a-zA-Z0-9-]+)["']/g;
+const inlineStyleKeyRe = /\[\s*["'](--morph-sheet-[a-zA-Z0-9-]+)["']\s*as string\s*\]/g;
 for (const file of srcFiles) {
   const text = readFileSync(file, "utf8");
   for (const m of text.matchAll(setPropertyRe)) writtenVars.add(m[1]);
   for (const m of text.matchAll(inlineStyleKeyRe)) writtenVars.add(m[1]);
 }
 
-// 3. Vars the README DOCUMENTS as consumer-set tokens: any `--disc-sheet-*`
+// 3. Vars the README DOCUMENTS as consumer-set tokens: any `--morph-sheet-*`
 // inside a markdown table cell (backtick-quoted).
 const readmePath = join(ROOT, "README.md");
 const readme = readFileSync(readmePath, "utf8");
 const documentedVars = uniqueMatches(readme, VAR_RE);
 
-// 3b. Just the theming TABLE rows (`| \`--disc-sheet-x\` | ... |`), not the
+// 3b. Just the theming TABLE rows (`| \`--morph-sheet-x\` | ... |`), not the
 // "package writes ..." prose list further down. The two are documented
 // differently on purpose: table rows are the consumer-set contract this
 // inverse check is guarding; the prose list is package-written-and-consumer-
-// read vars (e.g. --disc-sheet-collapse), which the CSS/JS read scan below
+// read vars (e.g. --morph-sheet-collapse), which the CSS/JS read scan below
 // would false-positive on if it tried to hold them to the same rule.
-const tableRowRe = /^\|\s*`(--disc-sheet-[a-zA-Z0-9-]+)`\s*\|/gm;
+const tableRowRe = /^\|\s*`(--morph-sheet-[a-zA-Z0-9-]+)`\s*\|/gm;
 const tableDocumentedVars = new Set();
 for (const m of readme.matchAll(tableRowRe)) tableDocumentedVars.add(m[1]);
 
@@ -108,13 +108,13 @@ console.log(`Documented (README table):  ${documentedVars.size}`);
 console.log("");
 
 // 4. Vars READ anywhere in src/: styles.module.css's var(...) calls (readVars
-// from step 1), plus any --disc-sheet-* string literal passed to a runtime
+// from step 1), plus any --morph-sheet-* string literal passed to a runtime
 // getter (getPropertyValue(...) / readVarPx(...)) in JS/TS. This is
 // deliberately broader than "written" — a var can be read without the
 // package ever writing it (e.g. a shape token a consumer overrides and the
 // package reads back via readVarPx).
 const jsReadRe =
-  /(?:getPropertyValue|readVarPx)\(\s*[^,]*,?\s*["'](--disc-sheet-[a-zA-Z0-9-]+)["']/g;
+  /(?:getPropertyValue|readVarPx)\(\s*[^,]*,?\s*["'](--morph-sheet-[a-zA-Z0-9-]+)["']/g;
 const jsReadVars = new Set();
 for (const file of srcFiles) {
   const text = readFileSync(file, "utf8");
@@ -143,7 +143,7 @@ if (unreadDocumented.length > 0) {
   process.exit(1);
 }
 
-console.log("PASS — every --disc-sheet-* variable styles.module.css reads is either");
+console.log("PASS — every --morph-sheet-* variable styles.module.css reads is either");
 console.log("written by the package or documented as a consumer token, and every");
 console.log("documented consumer token is actually read somewhere in src/.");
 console.log("");

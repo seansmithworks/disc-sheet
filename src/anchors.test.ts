@@ -56,14 +56,14 @@ describe("restingLeft / restingTop", () => {
 });
 
 describe("anchorCenter", () => {
-  it("matches restingLeft/Top + half the disc size", () => {
-    const discSize = 96;
+  it("matches restingLeft/Top + half the trigger size", () => {
+    const triggerSize = 96;
     const anchor = "top-left" as const;
     const vpW = 1440;
     const vpH = 900;
-    const center = anchorCenter(anchor, vpW, vpH, discSize);
-    expect(center.x).toBe(restingLeft(anchor, vpW, discSize) + discSize / 2);
-    expect(center.y).toBe(restingTop(anchor, vpH, discSize) + discSize / 2);
+    const center = anchorCenter(anchor, vpW, vpH, triggerSize);
+    expect(center.x).toBe(restingLeft(anchor, vpW, triggerSize) + triggerSize / 2);
+    expect(center.y).toBe(restingTop(anchor, vpH, triggerSize) + triggerSize / 2);
   });
 
   it("centers a center anchor on the viewport midpoint", () => {
@@ -90,8 +90,8 @@ describe("sheetPlacement", () => {
     expect(bottom.anchorTopPx).toBeUndefined();
   });
 
-  it("clamps the sheet on-screen when the disc sits at a viewport edge", () => {
-    // Disc pinned to the left edge; a 480px-wide sheet centered on the disc
+  it("clamps the sheet on-screen when the trigger sits at a viewport edge", () => {
+    // Trigger pinned to the left edge; a 480px-wide sheet centered on the trigger
     // would run off-screen to the left. anchorX must stay >= SHEET_MARGIN (16).
     const placement = sheetPlacement("top-left", 1440, 900, 96, 480);
     expect(placement.anchorX).toBeGreaterThanOrEqual(16);

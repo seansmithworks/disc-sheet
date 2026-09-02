@@ -1,16 +1,16 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useDiscSheetInternal } from "./context";
+import { useMorphSheetInternal } from "./context";
 import type { ItemProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <DiscSheet.Item> — a staggered child of <DiscSheet.Content>. No props
+ * <MorphSheet.Item> — a staggered child of <MorphSheet.Content>. No props
  * beyond children/className: the stagger interval is internal (§3).
  */
 export function Item({ children, className }: ItemProps) {
-  const ctx = useDiscSheetInternal("Item");
+  const ctx = useMorphSheetInternal("Item");
   const variants = ctx.reduceMotion
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
     : {
@@ -25,7 +25,7 @@ export function Item({ children, className }: ItemProps) {
   return (
     <motion.div
       className={`${styles.item} ${className ?? ""}`}
-      data-disc-sheet-part="item"
+      data-morph-sheet-part="item"
       variants={variants}
     >
       {children}

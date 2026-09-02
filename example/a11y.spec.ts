@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
  * measured by hand once; this gate re-measures it on every run.
  */
 
-const DISC_LABEL = "Open example sheet";
+const TRIGGER_LABEL = "Open example sheet";
 const CLOSE_LABEL = "Close";
 
 test.describe("§6 accessibility contract", () => {
@@ -15,7 +15,7 @@ test.describe("§6 accessibility contract", () => {
     page,
   }) => {
     await page.goto("/");
-    const trigger = page.getByRole("button", { name: DISC_LABEL });
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
 
     expect(await trigger.evaluate((el) => el.tagName)).toBe("BUTTON");
     expect(await trigger.getAttribute("type")).toBe("button");
@@ -24,14 +24,14 @@ test.describe("§6 accessibility contract", () => {
     expect(await trigger.getAttribute("aria-controls")).toBeNull();
 
     await trigger.click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]');
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]');
 
     expect(await trigger.getAttribute("aria-expanded")).toBe("true");
     const controls = await trigger.getAttribute("aria-controls");
     expect(controls).not.toBeNull();
 
     const sheetId = await page
-      .locator('[data-disc-sheet-part="sheet"]')
+      .locator('[data-morph-sheet-part="sheet"]')
       .getAttribute("id");
     expect(controls).toBe(sheetId);
   });
@@ -40,9 +40,9 @@ test.describe("§6 accessibility contract", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
 
-    const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
     await expect(sheet).toHaveAttribute("role", "dialog");
     await expect(sheet).toHaveAttribute("aria-modal", "true");
     await expect(sheet).toHaveAttribute("tabindex", "-1");
@@ -56,8 +56,8 @@ test.describe("§6 accessibility contract", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
     await sheet.waitFor();
     // useDialogBehavior focuses the panel ~50ms after open.
     await page.waitForTimeout(150);
@@ -69,14 +69,14 @@ test.describe("§6 accessibility contract", () => {
 
   test("focus: restores to the trigger on exit-complete", async ({ page }) => {
     await page.goto("/");
-    const trigger = page.getByRole("button", { name: DISC_LABEL });
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
     await trigger.click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]');
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]');
     await page.waitForTimeout(150);
 
     await page.keyboard.press("Escape");
     // Wait for AnimatePresence's exit + onExitComplete.
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]', {
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]', {
       state: "detached",
       timeout: 5000,
     });
@@ -90,10 +90,10 @@ test.describe("§6 accessibility contract", () => {
 
   test("Escape closes the sheet unconditionally", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]');
     await page.keyboard.press("Escape");
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]', {
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]', {
       state: "detached",
       timeout: 5000,
     });
@@ -101,8 +101,8 @@ test.describe("§6 accessibility contract", () => {
 
   test("Tab/Shift+Tab cycle within the panel", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
     await sheet.waitFor();
     await page.waitForTimeout(150);
 
@@ -144,15 +144,15 @@ test.describe("§6 accessibility contract", () => {
       () => document.body.style.overflow,
     );
 
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]');
     const openOverflow = await page.evaluate(
       () => document.body.style.overflow,
     );
     expect(openOverflow).toBe("hidden");
 
     await page.keyboard.press("Escape");
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]', {
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]', {
       state: "detached",
       timeout: 5000,
     });
@@ -166,8 +166,8 @@ test.describe("§6 accessibility contract", () => {
     page,
   }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    const sheet = page.locator('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
     const hasLabel = await sheet.getAttribute("aria-label");
     const hasLabelledBy = await sheet.getAttribute("aria-labelledby");
     expect(Boolean(hasLabel) !== Boolean(hasLabelledBy)).toBe(true);
@@ -175,11 +175,11 @@ test.describe("§6 accessibility contract", () => {
 
   test("visible close control is rendered", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
     const close = page.getByRole("button", { name: CLOSE_LABEL });
     await expect(close).toBeVisible();
     await close.click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]', {
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]', {
       state: "detached",
       timeout: 5000,
     });
@@ -190,8 +190,8 @@ test.describe("§6 accessibility contract", () => {
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]');
     await page.waitForTimeout(300);
 
     const projectionNodes = await page.locator("[data-projection-id]").count();
@@ -206,11 +206,11 @@ test.describe("§6 accessibility contract", () => {
     page.on("pageerror", (err) => errors.push(String(err)));
 
     await page.goto("/");
-    await page.getByRole("button", { name: DISC_LABEL }).click();
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]');
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]');
     await page.waitForTimeout(300);
     await page.keyboard.press("Escape");
-    await page.waitForSelector('[data-disc-sheet-part="sheet"]', {
+    await page.waitForSelector('[data-morph-sheet-part="sheet"]', {
       state: "detached",
       timeout: 5000,
     });

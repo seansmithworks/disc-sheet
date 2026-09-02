@@ -2,30 +2,30 @@
 
 import { cloneElement, isValidElement, useEffect, useRef } from "react";
 import type { CSSProperties, ReactElement } from "react";
-import { useDiscSheetInternal } from "./context";
+import { useMorphSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
 import type { ShadowProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <DiscSheet.Shadow> — the shadow seam (docs/PACKAGE-DESIGN.md §4).
+ * <MorphSheet.Shadow> — the shadow seam (docs/PACKAGE-DESIGN.md §4).
  *
  * Default: renders one fixed, aria-hidden, pointer-events:none div at
- * z-1, sized/positioned to the interpolated silhouette between the disc
+ * z-1, sized/positioned to the interpolated silhouette between the trigger
  * circle and the sheet box, painting a plain box-shadow from
- * --disc-sheet-shadow. Zero dependencies beyond React.
+ * --morph-sheet-shadow. Zero dependencies beyond React.
  *
  * asChild: clones the single child and merges the fixed positioning,
  * z-index, aria-hidden, pointer-events, data-* attributes, and all
- * --disc-sheet-shadow-* custom properties onto it — the shape a consumer
+ * --morph-sheet-shadow-* custom properties onto it — the shape a consumer
  * swaps in a `@seansmithworks/surface-fx` dither layer through. This package
  * never imports surface-fx (docs/PACKAGE-DESIGN.md §4).
  */
 export function Shadow({ className, asChild, children }: ShadowProps) {
-  const ctx = useDiscSheetInternal("Shadow");
+  const ctx = useMorphSheetInternal("Shadow");
   const {
     collapseProgress,
-    discRect,
+    triggerRect,
     sheetRect,
     sheetDragY,
     zIndex,
@@ -38,7 +38,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const el = elRef.current;
       if (!el) return;
       const p = collapseProgress.get();
-      const disc = discRect ?? {
+      const trigger = triggerRect ?? {
         cx: sheetRect?.cx ?? 0,
         cy: sheetRect?.cy ?? 0,
         radius: sheetRect
@@ -55,28 +55,28 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const sheet = sheetRect
         ? { ...sheetRect, cy: sheetRect.cy + dragY }
         : {
-            cx: disc.cx,
-            cy: disc.cy,
-            halfWidth: disc.radius,
-            halfHeight: disc.radius,
+            cx: trigger.cx,
+            cy: trigger.cy,
+            halfWidth: trigger.radius,
+            halfHeight: trigger.radius,
           };
 
-      const cx = sheet.cx + (disc.cx - sheet.cx) * p;
-      const cy = sheet.cy + (disc.cy - sheet.cy) * p;
-      const halfW = sheet.halfWidth + (disc.radius - sheet.halfWidth) * p;
-      const halfH = sheet.halfHeight + (disc.radius - sheet.halfHeight) * p;
+      const cx = sheet.cx + (trigger.cx - sheet.cx) * p;
+      const cy = sheet.cy + (trigger.cy - sheet.cy) * p;
+      const halfW = sheet.halfWidth + (trigger.radius - sheet.halfWidth) * p;
+      const halfH = sheet.halfHeight + (trigger.radius - sheet.halfHeight) * p;
       // The silhouette's corner radius interpolates between the SHEET's own
       // corner radius (not its half-width, which produced a stadium instead
-      // of the sheet's actual rounded-rect silhouette) and the disc's radius.
-      const sheetRadius = readVarPx(el, "--disc-sheet-sheet-radius", 32);
-      const radius = sheetRadius + (disc.radius - sheetRadius) * p;
+      // of the sheet's actual rounded-rect silhouette) and the trigger's radius.
+      const sheetRadius = readVarPx(el, "--morph-sheet-sheet-radius", 32);
+      const radius = sheetRadius + (trigger.radius - sheetRadius) * p;
 
-      el.style.setProperty("--disc-sheet-collapse", String(p));
-      el.style.setProperty("--disc-sheet-shadow-x", `${cx}px`);
-      el.style.setProperty("--disc-sheet-shadow-y", `${cy}px`);
-      el.style.setProperty("--disc-sheet-shadow-w", `${halfW}px`);
-      el.style.setProperty("--disc-sheet-shadow-h", `${halfH}px`);
-      el.style.setProperty("--disc-sheet-shadow-radius", `${radius}px`);
+      el.style.setProperty("--morph-sheet-collapse", String(p));
+      el.style.setProperty("--morph-sheet-shadow-x", `${cx}px`);
+      el.style.setProperty("--morph-sheet-shadow-y", `${cy}px`);
+      el.style.setProperty("--morph-sheet-shadow-w", `${halfW}px`);
+      el.style.setProperty("--morph-sheet-shadow-h", `${halfH}px`);
+      el.style.setProperty("--morph-sheet-shadow-radius", `${radius}px`);
       el.style.width = `${halfW * 2}px`;
       el.style.height = `${halfH * 2}px`;
       el.style.left = `${cx - halfW}px`;
@@ -94,13 +94,13 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       unsubscribeProgress();
       unsubscribeDrag();
     };
-  }, [collapseProgress, discRect, sheetRect, sheetDragY]);
+  }, [collapseProgress, triggerRect, sheetRect, sheetDragY]);
 
   const dataState = isDragging ? "dragging" : ctx.open ? "open" : "closed";
 
   const sharedProps = {
     "aria-hidden": true as const,
-    "data-disc-sheet-part": "shadow",
+    "data-morph-sheet-part": "shadow",
     "data-state": dataState,
   };
 

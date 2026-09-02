@@ -10,7 +10,7 @@ export interface Spring {
   mass?: number;
 }
 
-/** Per-direction override for <DiscSheet.Shared>. Either key may be omitted;
+/** Per-direction override for <MorphSheet.Shared>. Either key may be omitted;
  * the package default for that direction is used instead. */
 export interface SharedTransitionByDirection {
   open?: Spring | Transition;
@@ -18,15 +18,15 @@ export interface SharedTransitionByDirection {
 }
 
 export interface MorphTransition {
-  /** Disc to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
+  /** Trigger to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
   open?: Spring | Transition;
-  /** Sheet to disc. Default: { stiffness: 375, damping: 32, mass: 1 } */
+  /** Sheet to trigger. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
   /**
-   * The <DiscSheet.Shared> element's own morph. Direction-aware, because the
+   * The <MorphSheet.Shared> element's own morph. Direction-aware, because the
    * two directions have different jobs: on the open the shared element only
    * has to clear the growing sheet, on the close it has to arrive home
-   * together with the collapsing disc.
+   * together with the collapsing trigger.
    *
    * A single Spring/Transition applies to BOTH directions. Pass
    * `{ open, close }` to set them independently.
@@ -53,20 +53,20 @@ export interface RootProps {
   defaultAnchor?: AnchorId;
   /** Fires after a drag settles on a new anchor. */
   onAnchorChange?: (anchor: AnchorId) => void;
-  /** Default true. False renders a fixed disc with no drag affordance. */
+  /** Default true. False renders a fixed trigger with no drag affordance. */
   draggable?: boolean;
   /**
    * localStorage key for the chosen anchor.
-   * Default "disc-sheet-anchor". Pass false to disable persistence entirely.
+   * Default "morph-sheet-anchor". Pass false to disable persistence entirely.
    */
   persistKey?: string | false;
 
   // Geometry
   /**
-   * Disc diameter in px. Object form is a breakpoint ramp.
+   * Trigger diameter in px. Object form is a breakpoint ramp.
    * Default { base: 96, md: 128, xl: 144 } at 0 / 768 / 1600.
    */
-  discSize?: number | { base: number; md?: number; xl?: number };
+  triggerSize?: number | { base: number; md?: number; xl?: number };
   /** Sheet max width in px. Default 480. */
   sheetMaxWidth?: number;
 
@@ -82,8 +82,8 @@ export interface RootProps {
    * formula output — the two are coupled by feel, not by computation. This
    * prop has no automatic compensation: if you change it, `transition.shared.close`
    * must be re-dialled to match (on the /tune panel, not recomputed), or the
-   * shared element starts trailing the box and spills past the disc's 2px
-   * border.
+   * shared element starts trailing the box and spills past the round
+   * trigger's 2px border.
    */
   surfaceCloseLeadDelayMs?: number;
   /** Force reduced-motion behavior. Default: the media query. */
@@ -97,7 +97,7 @@ export interface RootProps {
   className?: string;
 }
 
-export interface DiscProps {
+export interface TriggerProps {
   children?: ReactNode;
   className?: string;
   /** Required. This is the button's accessible name. */
@@ -142,7 +142,7 @@ export interface ShadowProps {
   className?: string;
   /** Render a single child in place of the default shadow div, merging the
    * fixed positioning, z-index, aria-hidden, pointer-events, data-* attributes
-   * and --disc-sheet-shadow-* custom properties onto it. */
+   * and --morph-sheet-shadow-* custom properties onto it. */
   asChild?: boolean;
   children?: ReactNode;
 }
@@ -160,16 +160,16 @@ export interface SheetRect {
   halfHeight: number;
 }
 
-/** Public state + escape hatch returned by useDiscSheet(). */
-export interface DiscSheetState {
+/** Public state + escape hatch returned by useMorphSheet(). */
+export interface MorphSheetState {
   open: boolean;
   setOpen: (open: boolean) => void;
   anchor: AnchorId;
   isDragging: boolean;
-  discSize: number;
-  /** 0 = fully open (sheet), 1 = fully closed (disc). Live MotionValue. */
+  triggerSize: number;
+  /** 0 = fully open (sheet), 1 = fully closed (trigger). Live MotionValue. */
   collapseProgress: MotionValue<number>;
   /** Live viewport rects, null before first measure. */
-  discRect: Rect | null;
+  triggerRect: Rect | null;
   sheetRect: SheetRect | null;
 }

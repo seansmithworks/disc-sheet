@@ -2,15 +2,15 @@ import { createContext, useContext } from "react";
 import type { MutableRefObject } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
-import type { DiscSheetState, Rect, SheetRect } from "./types";
+import type { MorphSheetState, Rect, SheetRect } from "./types";
 
 /**
- * Internal context value — everything Disc, Sheet, Shared, Content, Close and
- * Shadow need to coordinate, plus the subset re-exported publicly by
- * useDiscSheet(). Keeping the internal shape richer than the public one means
+ * Internal context value — everything Trigger, Sheet, Shared, Content, Close
+ * and Shadow need to coordinate, plus the subset re-exported publicly by
+ * useMorphSheet(). Keeping the internal shape richer than the public one means
  * widening usePKG() later (if ever needed) is additive, not a breaking change.
  */
-export interface DiscSheetContextValue extends DiscSheetState {
+export interface MorphSheetContextValue extends MorphSheetState {
   setAnchor: (anchor: AnchorId) => void;
   onAnchorChange?: (anchor: AnchorId) => void;
   setIsDragging: (dragging: boolean) => void;
@@ -26,22 +26,23 @@ export interface DiscSheetContextValue extends DiscSheetState {
     close: Transition;
     shared: Transition;
   };
-  setDiscRect: (rect: Rect | null) => void;
+  setTriggerRect: (rect: Rect | null) => void;
   setSheetRect: (rect: SheetRect | null) => void;
   /** A stable numeric-px border-radius MotionValue, owned by Root, that
    * Sheet.tsx relays its own useCollapseRadius() output into every tick so
-   * Disc.tsx's `.discSurface` can bind to the same painted values through a
-   * close (audit M1) — see the note on useCollapseRadius.ts for why this is
-   * a relay rather than a directly-shared instance. Sheet.tsx's own `.sheet`
-   * binds to its local computation directly, not to this. */
+   * Trigger.tsx's `.triggerSurface` can bind to the same painted values
+   * through a close (audit M1) — see the note on useCollapseRadius.ts for
+   * why this is a relay rather than a directly-shared instance. Sheet.tsx's
+   * own `.sheet` binds to its local computation directly, not to this. */
   collapseRadius: MotionValue<number>;
   /** Starts the armed collapseProgress morph (audit M2). Root arms a pending
    * morph in its own layout effect; whichever of Sheet's `.sheet` (open) or
-   * Disc's `.discSurface` (close) receives Motion's `onLayoutAnimationStart`
-   * calls this, so the shadow clock and Motion's layout-projection clock are
-   * created in the SAME frameloop pass and therefore share a start time. See
-   * the long note in Root.tsx. No-op when nothing is armed. */
-  startMorphClock: (from: "disc" | "sheet") => void;
+   * Trigger's `.triggerSurface` (close) receives Motion's
+   * `onLayoutAnimationStart` calls this, so the shadow clock and Motion's
+   * layout-projection clock are created in the SAME frameloop pass and
+   * therefore share a start time. See the long note in Root.tsx. No-op when
+   * nothing is armed. */
+  startMorphClock: (from: "trigger" | "sheet") => void;
   /** Live drag-y offset (px) of the sheet's `drag="y"` gesture, 0 at rest.
    * Sheet.tsx binds this as its motion `y` style so drag writes into it
    * directly; Shadow.tsx reads it to keep the silhouette locked to the
@@ -53,46 +54,46 @@ export interface DiscSheetContextValue extends DiscSheetState {
    * opens with no visible close control rendered. */
   registerClose: () => () => void;
   hasRegisteredClose: () => boolean;
-  /** The disc trigger button element — Sheet focuses it back on exit-complete. */
+  /** The trigger button element — Sheet focuses it back on exit-complete. */
   triggerElRef: MutableRefObject<HTMLButtonElement | null>;
   /** The Content scroll region element — Sheet's swipe-to-close must not fire
    * while this is mid-scroll (docs/PACKAGE-DESIGN.md §1, Content). */
   contentScrollElRef: MutableRefObject<HTMLDivElement | null>;
 }
 
-export const DiscSheetContext = createContext<DiscSheetContextValue | null>(
+export const MorphSheetContext = createContext<MorphSheetContextValue | null>(
   null,
 );
 
 /**
- * SlotContext — the disc/sheet slot discriminator. Provided by <Disc> and
- * <Sheet> around their children, read by <Shared> to decide which of the two
- * shapes it renders (docs/PACKAGE-DESIGN.md's B2/M7 fix): the disc-side
- * instance is an inset, circular clip; the sheet-side instance is an in-flow,
- * margined circle. One mechanism serves both findings.
+ * SlotContext — the trigger/sheet slot discriminator. Provided by <Trigger>
+ * and <Sheet> around their children, read by <Shared> to decide which of the
+ * two shapes it renders (docs/PACKAGE-DESIGN.md's B2/M7 fix): the
+ * trigger-side instance is an inset, circular clip; the sheet-side instance
+ * is an in-flow, margined circle. One mechanism serves both findings.
  */
-export type DiscSheetSlot = "disc" | "sheet";
+export type MorphSheetSlot = "trigger" | "sheet";
 
-export const SlotContext = createContext<DiscSheetSlot | null>(null);
+export const SlotContext = createContext<MorphSheetSlot | null>(null);
 
-export function useDiscSheetSlot(): DiscSheetSlot | undefined {
+export function useMorphSheetSlot(): MorphSheetSlot | undefined {
   const slot = useContext(SlotContext);
   return slot ?? undefined;
 }
 
 /**
- * useDiscSheet — the public escape hatch. Throws outside <DiscSheet.Root>.
+ * useMorphSheet — the public escape hatch. Throws outside <MorphSheet.Root>.
  *
  * usePKG().collapseProgress is the raw MotionValue the package's own radius,
  * mask and opacity transforms read (0 = fully open, 1 = fully closed).
- * Combined with discRect/sheetRect, it is enough to rebuild any of the
+ * Combined with triggerRect/sheetRect, it is enough to rebuild any of the
  * internal choreography externally — see example/CloseMask.tsx.
  */
-export function useDiscSheet(): DiscSheetState {
-  const ctx = useContext(DiscSheetContext);
+export function useMorphSheet(): MorphSheetState {
+  const ctx = useContext(MorphSheetContext);
   if (!ctx) {
     throw new Error(
-      "useDiscSheet() must be called from inside <DiscSheet.Root>.",
+      "useMorphSheet() must be called from inside <MorphSheet.Root>.",
     );
   }
   const {
@@ -100,9 +101,9 @@ export function useDiscSheet(): DiscSheetState {
     setOpen,
     anchor,
     isDragging,
-    discSize,
+    triggerSize,
     collapseProgress,
-    discRect,
+    triggerRect,
     sheetRect,
   } = ctx;
   return {
@@ -110,21 +111,21 @@ export function useDiscSheet(): DiscSheetState {
     setOpen,
     anchor,
     isDragging,
-    discSize,
+    triggerSize,
     collapseProgress,
-    discRect,
+    triggerRect,
     sheetRect,
   };
 }
 
 /** Internal-only accessor, used by the compound components themselves. */
-export function useDiscSheetInternal(
+export function useMorphSheetInternal(
   componentName: string,
-): DiscSheetContextValue {
-  const ctx = useContext(DiscSheetContext);
+): MorphSheetContextValue {
+  const ctx = useContext(MorphSheetContext);
   if (!ctx) {
     throw new Error(
-      `<DiscSheet.${componentName}> must be rendered inside <DiscSheet.Root>.`,
+      `<MorphSheet.${componentName}> must be rendered inside <MorphSheet.Root>.`,
     );
   }
   return ctx;

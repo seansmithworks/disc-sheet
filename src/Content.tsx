@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useDiscSheetInternal } from "./context";
+import { useMorphSheetInternal } from "./context";
 import {
   CONTENT_FADE_OUT_DELAY_MS,
   CONTENT_FADE_OUT_MS,
@@ -12,7 +12,7 @@ import type { ContentProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <DiscSheet.Content> — holds sheet content at opacity 0 through the bloom
+ * <MorphSheet.Content> — holds sheet content at opacity 0 through the bloom
  * and reveals it after, then fades it out first on close. Owns the scroll
  * region: applies overflow-y:auto to itself and reports its scroll element
  * into context so Sheet's swipe-to-close handler can gate on scrollTop
@@ -20,7 +20,7 @@ import styles from "./styles.module.css";
  * extraction).
  */
 export function Content({ children, className }: ContentProps) {
-  const ctx = useDiscSheetInternal("Content");
+  const ctx = useMorphSheetInternal("Content");
   const { reduceMotion, contentScrollElRef } = ctx;
 
   const variants = reduceMotion
@@ -68,7 +68,7 @@ export function Content({ children, className }: ContentProps) {
     <motion.div
       ref={contentScrollElRef}
       className={`${styles.content} ${className ?? ""}`}
-      data-disc-sheet-part="content"
+      data-morph-sheet-part="content"
       variants={variants}
       initial="hidden"
       animate="visible"

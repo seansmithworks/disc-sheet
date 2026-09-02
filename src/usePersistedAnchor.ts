@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ALL_ANCHORS, type AnchorId } from "./anchors";
 
-const DEFAULT_STORAGE_KEY = "disc-sheet-anchor";
+const DEFAULT_STORAGE_KEY = "morph-sheet-anchor";
 
 function isAnchorId(value: string): value is AnchorId {
   return (ALL_ANCHORS as string[]).includes(value);

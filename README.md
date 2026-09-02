@@ -1,6 +1,6 @@
-# disc→sheet
+# trigger→sheet
 
-A draggable disc that morphs into a modal sheet.
+A draggable trigger that morphs into a modal sheet.
 
 ## What it is
 
@@ -14,13 +14,13 @@ There is no canonical design-system name for this pattern. Material has
 SpeedDial, a FAB that expands into a radial menu of actions. Apple and Radix
 both have sheets, but theirs enter from a screen edge rather than growing out
 of a persistent trigger. Nobody has standardized "trigger morphs into
-surface," so `disc-sheet` / `DiscSheet` names the shape directly rather than
+surface," so `morph-sheet` / `MorphSheet` names the shape directly rather than
 reaching for an existing term.
 
 ## Install
 
 ```bash
-npm install @seansmithworks/disc-sheet
+npm install @seansmithworks/morph-sheet
 ```
 
 `dist/` ships compiled ESM + `.d.ts` declarations, so the default import
@@ -28,7 +28,7 @@ needs no build-step config on the consumer's side — no `transpilePackages`,
 no extra `tsc` target. CSS is bundled and auto-imported by the package's own
 entry point; you don't need a separate stylesheet `<link>` or `import` for
 the component to render styled. A manual stylesheet path,
-`@seansmithworks/disc-sheet/styles.css`, also exists if you need to import
+`@seansmithworks/morph-sheet/styles.css`, also exists if you need to import
 the CSS on its own (e.g. to inline it above the fold, or reference it from a
 non-JS build step) — most consumers never need it.
 
@@ -41,12 +41,12 @@ needs a build step on your side. Point Next.js at it via
 
 ```ts
 const nextConfig = {
-  transpilePackages: ["@seansmithworks/disc-sheet"],
+  transpilePackages: ["@seansmithworks/morph-sheet"],
 };
 ```
 
 ```bash
-npm install @seansmithworks/disc-sheet@github:seansmithworks/disc-sheet
+npm install @seansmithworks/morph-sheet@github:seansmithworks/morph-sheet
 ```
 
 This mirrors how `@seansmithworks/device-frame` is consumed. Vite consumers
@@ -63,11 +63,11 @@ If you'd rather own the files outright — no package dependency, no
 project:
 
 ```bash
-npx @seansmithworks/disc-sheet add
+npx @seansmithworks/morph-sheet add
 ```
 
 This drops all of `src/`'s components, hooks, and `styles.module.css` into
-`./src/disc-sheet` (pass a different path as the first argument to change
+`./src/morph-sheet` (pass a different path as the first argument to change
 the target). It skips the test file and, if your project already has a
 `next-env.d.ts`, skips the `*.module.css` ambient type shim too (Next
 already declares it — a duplicate `declare module` block is a TS error). It
@@ -96,15 +96,15 @@ them.
 ```tsx
 "use client";
 
-import { DiscSheet } from "@seansmithworks/disc-sheet";
+import { MorphSheet } from "@seansmithworks/morph-sheet";
 
-function ContactDisc() {
+function ContactTrigger() {
   return (
-    <DiscSheet.Root>
-      <DiscSheet.Shadow />
+    <MorphSheet.Root>
+      <MorphSheet.Shadow />
 
-      <DiscSheet.Disc aria-label="Open contact">
-        <DiscSheet.Shared>
+      <MorphSheet.Trigger aria-label="Open contact">
+        <MorphSheet.Shared>
           <div
             style={{
               width: "100%",
@@ -113,11 +113,11 @@ function ContactDisc() {
               background: "#b4512e",
             }}
           />
-        </DiscSheet.Shared>
-      </DiscSheet.Disc>
+        </MorphSheet.Shared>
+      </MorphSheet.Trigger>
 
-      <DiscSheet.Sheet aria-labelledby="sheet-title">
-        <DiscSheet.Shared>
+      <MorphSheet.Sheet aria-labelledby="sheet-title">
+        <MorphSheet.Shared>
           <div
             style={{
               width: "100%",
@@ -126,42 +126,42 @@ function ContactDisc() {
               background: "#b4512e",
             }}
           />
-        </DiscSheet.Shared>
+        </MorphSheet.Shared>
 
-        <DiscSheet.Content>
-          <DiscSheet.Close aria-label="Close" />
-          <DiscSheet.Item>
+        <MorphSheet.Content>
+          <MorphSheet.Close aria-label="Close" />
+          <MorphSheet.Item>
             <h2 id="sheet-title">Sean Smith</h2>
-          </DiscSheet.Item>
-          <DiscSheet.Item>
+          </MorphSheet.Item>
+          <MorphSheet.Item>
             <p>Links, etc.</p>
-          </DiscSheet.Item>
-        </DiscSheet.Content>
-      </DiscSheet.Sheet>
-    </DiscSheet.Root>
+          </MorphSheet.Item>
+        </MorphSheet.Content>
+      </MorphSheet.Sheet>
+    </MorphSheet.Root>
   );
 }
 ```
 
-Pasted as-is, this renders a solid-colored disc at the bottom-center viewport
-anchor: drag it to re-anchor at any of the six anchors, tap it to morph it
-into the sheet shown above.
+Pasted as-is, this renders a solid-colored trigger at the bottom-center
+viewport anchor: drag it to re-anchor at any of the six anchors, tap it to
+morph it into the sheet shown above.
 
-Nine exports total: eight components (`Root`, `Disc`, `Sheet`, `Shared`,
-`Content`, `Item`, `Close`, `Shadow`) plus the `useDiscSheet()` hook. That is
+Nine exports total: eight components (`Root`, `Trigger`, `Sheet`, `Shared`,
+`Content`, `Item`, `Close`, `Shadow`) plus the `useMorphSheet()` hook. That is
 the whole surface area.
 
 In a Next.js App Router app, `"use client"` has to be the first line of the
-file where you mount `DiscSheet`, as it is in the snippet above. Server
-components can't resolve a property access like `DiscSheet.Root` on a
+file where you mount `MorphSheet`, as it is in the snippet above. Server
+components can't resolve a property access like `MorphSheet.Root` on a
 client-reference namespace — this is the same constraint as Radix, MUI, and
 `motion/react` itself.
 
 ### The escape hatch
 
-`useDiscSheet().collapseProgress` is the raw `MotionValue<number>` the
+`useMorphSheet().collapseProgress` is the raw `MotionValue<number>` the
 package's own radius, mask, and opacity transforms read: `0` at fully open
-(sheet), `1` at fully closed (disc). Combined with `discRect` and
+(sheet), `1` at fully closed (trigger). Combined with `triggerRect` and
 `sheetRect`, it is enough to rebuild any choreography the package doesn't
 expose as a prop. See `example/CloseMask.tsx` for a worked example: it
 rebuilds a trailing-paper close mask from *outside* the package using only
@@ -169,8 +169,8 @@ this hatch.
 
 ```tsx
 function usePKG() {
-  return useDiscSheet();
-  // { open, setOpen, anchor, isDragging, discSize, collapseProgress, discRect, sheetRect }
+  return useMorphSheet();
+  // { open, setOpen, anchor, isDragging, triggerSize, collapseProgress, triggerRect, sheetRect }
 }
 ```
 
@@ -179,62 +179,62 @@ function usePKG() {
 Two public styling surfaces: CSS custom properties and a DOM data-attribute
 contract.
 
-### `--disc-sheet-*` custom properties
+### `--morph-sheet-*` custom properties
 
 Every visual token is a CSS custom property with a hardcoded fallback, so the
 package renders correctly out of the box:
 
 | Variable | Default |
 | --- | --- |
-| `--disc-sheet-surface` | `#faf7f2` |
-| `--disc-sheet-surface-elevated` | `#f4f0e8` |
-| `--disc-sheet-surface-border` | `#e6dfd2` |
-| `--disc-sheet-text` | `#1a1610` |
-| `--disc-sheet-accent` | `#b4512e` |
-| `--disc-sheet-sheet-max-width` | `480px` |
-| `--disc-sheet-shared-size` | matches `--disc-sheet-disc-size` |
-| `--disc-sheet-sheet-radius` | `32px` |
-| `--disc-sheet-disc-radius` | `9999px` |
-| `--disc-sheet-sheet-padding` | `24px` |
-| `--disc-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
-| `--disc-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |
-| `--disc-sheet-z` | `100` |
+| `--morph-sheet-surface` | `#faf7f2` |
+| `--morph-sheet-surface-elevated` | `#f4f0e8` |
+| `--morph-sheet-surface-border` | `#e6dfd2` |
+| `--morph-sheet-text` | `#1a1610` |
+| `--morph-sheet-accent` | `#b4512e` |
+| `--morph-sheet-sheet-max-width` | `480px` |
+| `--morph-sheet-shared-size` | matches `--morph-sheet-trigger-size` |
+| `--morph-sheet-sheet-radius` | `32px` |
+| `--morph-sheet-trigger-radius` | `9999px` |
+| `--morph-sheet-sheet-padding` | `24px` |
+| `--morph-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
+| `--morph-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |
+| `--morph-sheet-z` | `100` |
 
-The package writes `--disc-sheet-disc-size`, `--disc-sheet-disc-x/-y`,
-`--disc-sheet-sheet-left/-top`, `--disc-sheet-collapse`, and
-`--disc-sheet-shadow-x/-y/-w/-h/-radius`; read these, don't set them.
+The package writes `--morph-sheet-trigger-size`, `--morph-sheet-trigger-x/-y`,
+`--morph-sheet-sheet-left/-top`, `--morph-sheet-collapse`, and
+`--morph-sheet-shadow-x/-y/-w/-h/-radius`; read these, don't set them.
 
 `npm run audit:vars` checks this table against `src/styles.module.css` and
-`src/`: any `--disc-sheet-*` variable the CSS reads must be either written by
+`src/`: any `--morph-sheet-*` variable the CSS reads must be either written by
 the package or documented here, or the audit fails.
 
-### `data-disc-sheet-part` DOM contract
+### `data-morph-sheet-part` DOM contract
 
-Every element the package renders carries `data-disc-sheet-part`, and this is
+Every element the package renders carries `data-morph-sheet-part`, and this is
 public, stable surface, not an accident of implementation you happen to be
 able to reach. Use it for CSS overrides or, as `example/CloseMask.tsx` does,
-to find the live element from outside the package via `useDiscSheet()` + a
+to find the live element from outside the package via `useMorphSheet()` + a
 `document.querySelector`.
 
 | Value | Element |
 | --- | --- |
-| `disc-root` | The disc's fixed drag wrapper |
-| `disc-trigger` | The disc's trigger `<button>` |
-| `disc-surface` | The disc's circular seed surface (the FLIP source) |
-| `shared` | `<DiscSheet.Shared>`, on both its disc- and sheet-side instances |
-| `sheet` | `<DiscSheet.Sheet>`'s panel |
+| `trigger-root` | The trigger's fixed drag wrapper |
+| `trigger` | The trigger `<button>` |
+| `trigger-surface` | The trigger's circular seed surface (the FLIP source) |
+| `shared` | `<MorphSheet.Shared>`, on both its trigger- and sheet-side instances |
+| `sheet` | `<MorphSheet.Sheet>`'s panel |
 | `backdrop` | The invisible outside-click catcher (only when `dismissOnBackdrop`) |
-| `content` | `<DiscSheet.Content>`'s scroll region |
-| `item` | `<DiscSheet.Item>` |
-| `close` | `<DiscSheet.Close>`'s button |
-| `shadow` | `<DiscSheet.Shadow>`'s default div (also merged onto an `asChild` child) |
+| `content` | `<MorphSheet.Content>`'s scroll region |
+| `item` | `<MorphSheet.Item>` |
+| `close` | `<MorphSheet.Close>`'s button |
+| `shadow` | `<MorphSheet.Shadow>`'s default div (also merged onto an `asChild` child) |
 
-`<DiscSheet.Shared>` additionally carries `data-disc-sheet-slot="disc"` or
+`<MorphSheet.Shared>` additionally carries `data-morph-sheet-slot="trigger"` or
 `"sheet"`, so consumer CSS (or the package's own
-`.shared[data-disc-sheet-slot=…]` rules) can target either instance without
+`.shared[data-morph-sheet-slot=…]` rules) can target either instance without
 relying on className precedence.
 
-`disc-root` additionally carries `data-disc-sheet-closing` (empty string),
+`trigger-root` additionally carries `data-morph-sheet-closing` (empty string),
 present only while a close is in flight (removed once the sheet has fully
 closed).
 
@@ -250,12 +250,12 @@ These are fixes for specific artifacts, not knobs; see
 `transition.shared` is additionally **direction-aware**. The shared element
 has a different job in each direction — on the open it only has to clear the
 growing sheet, on the close it has to arrive home together with the
-collapsing disc, whose own FLIP starts deliberately later than its own. A
+collapsing trigger, whose own FLIP starts deliberately later than its own. A
 single value still applies to both directions; `{ open, close }` sets them
 independently:
 
 ```tsx
-<DiscSheet.Root
+<MorphSheet.Root
   transition={{
     close: { stiffness: 375, damping: 32, mass: 1 },
     shared: {
@@ -276,7 +276,7 @@ independently:
 ### `surfaceCloseLeadDelayMs`
 
 ```tsx
-<DiscSheet.Root surfaceCloseLeadDelayMs={35}>
+<MorphSheet.Root surfaceCloseLeadDelayMs={35}>
 ```
 
 Milliseconds the surface box waits before starting its close FLIP, so the
@@ -294,7 +294,7 @@ damping by `k`, with `k = Ts / (Ts + D)`); Sean's later hand-dial pass moved
 or `surfaceCloseLeadDelayMs` and re-dial `shared.close` to match on the
 `/tune` panel — do not recompute it — or the shared element stops arriving
 with the box: too fast and it parks early, too slow and it trails, and a
-trailing shared element spills past the disc's 2px border.
+trailing shared element spills past the round trigger's 2px border.
 
 ## Accessibility
 
@@ -306,7 +306,7 @@ trailing shared element spills past the disc's 2px border.
   unconditionally; focus restores to the trigger on exit-complete, not at
   state-change.
 - Body scroll lock while open; Tab/Shift+Tab cycle within the panel.
-- `<DiscSheet.Close>` is required in practice; Root logs a dev-only warning
+- `<MorphSheet.Close>` is required in practice; Root logs a dev-only warning
   if the sheet opens with none registered.
 
 **Known gap:** no `inert` on background content. `aria-modal="true"` covers
@@ -330,7 +330,7 @@ of the dialog.
 
 ## What v0.1 cuts
 
-Entrance choreography, `<DiscSheet.Backdrop>` as its own component (dismissal
+Entrance choreography, `<MorphSheet.Backdrop>` as its own component (dismissal
 still works via `Sheet`'s `dismissOnBackdrop`, which renders an invisible
 click-catcher, no visual dim layer by default), controlled anchor, the
 anchors-subset prop, and arrow-key repositioning between anchors. See

@@ -4,25 +4,25 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
-import { SlotContext, useDiscSheetInternal } from "./context";
+import { SlotContext, useMorphSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
 import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
-import type { DiscProps } from "./types";
+import type { TriggerProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <DiscSheet.Disc> — the fixed drag wrapper + trigger button + morph seed
- * surface.
+ * <MorphSheet.Trigger> — the fixed drag wrapper + trigger button + morph
+ * seed surface.
  *
  * Single-origin position model (docs/PACKAGE-DESIGN.md §1, and the
  * `reference_floating-disc-single-origin-transform` landmine): the wrapper is
  * `position: fixed` at the viewport origin and positioned ENTIRELY by
- * Motion's x/y transform, holding the disc's top-left in viewport px.
+ * Motion's x/y transform, holding the trigger's top-left in viewport px.
  * Nothing ever changes CSS left/top after mount, so a snap is a plain x/y
  * animation with no FLIP and no one-frame transform desync.
  */
-export function Disc({ children, className, ...aria }: DiscProps) {
-  const ctx = useDiscSheetInternal("Disc");
+export function Trigger({ children, className, ...aria }: TriggerProps) {
+  const ctx = useMorphSheetInternal("Trigger");
   const {
     open,
     setOpen,
@@ -30,11 +30,11 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     setAnchor,
     setIsDragging,
     draggable,
-    discSize,
+    triggerSize,
     reduceMotion,
     triggerId,
     sheetId,
-    setDiscRect,
+    setTriggerRect,
     transition,
     triggerElRef,
     sheetRect,
@@ -54,7 +54,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
   );
   const rafRef = useRef<number | null>(null);
   // Set while <Sheet> is mounted (open, or closing but not yet exit-complete
-  // — Sheet.tsx nulls this at onExitComplete). While it's non-null, disc-
+  // — Sheet.tsx nulls this at onExitComplete). While it's non-null, trigger-
   // surface may be mid-FLIP (it's the entering element on close), and this
   // wrapper's own x/y transform is an ANCESTOR of that FLIPping element —
   // jumping it instantly compounds with Motion's still-interpolating
@@ -64,13 +64,13 @@ export function Disc({ children, className, ...aria }: DiscProps) {
   const pendingResizeRef = useRef(false);
 
   // Seed x/y at the anchor's resting position on mount and whenever the
-  // anchor or disc size changes while the sheet is not being dragged.
+  // anchor or trigger size changes while the sheet is not being dragged.
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     const vpW = window.innerWidth;
     const vpH = window.innerHeight;
-    const targetX = restingLeft(anchor, vpW, discSize);
-    const targetY = restingTop(anchor, vpH, discSize);
+    const targetX = restingLeft(anchor, vpW, triggerSize);
+    const targetY = restingTop(anchor, vpH, triggerSize);
     if (!mountedRef.current) {
       x.jump(targetX);
       y.jump(targetY);
@@ -79,11 +79,11 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       x.jump(targetX);
       y.jump(targetY);
     }
-  }, [anchor, discSize, x, y]);
+  }, [anchor, triggerSize, x, y]);
 
-  // Resize: re-seat the disc at its anchor's new resting position. While
+  // Resize: re-seat the trigger at its anchor's new resting position. While
   // <Sheet> is mounted (sheetRect !== null), defer instead of jumping now —
-  // see pendingResizeRef above. The disc isn't visible in that window
+  // see pendingResizeRef above. The trigger isn't visible in that window
   // anyway (its content is gated behind `{!open && ...}` below), so nothing
   // is lost by waiting; the flush effect re-seats at the CURRENT viewport
   // size once the morph settles.
@@ -94,12 +94,12 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         pendingResizeRef.current = true;
         return;
       }
-      x.jump(restingLeft(anchor, window.innerWidth, discSize));
-      y.jump(restingTop(anchor, window.innerHeight, discSize));
+      x.jump(restingLeft(anchor, window.innerWidth, triggerSize));
+      y.jump(restingTop(anchor, window.innerHeight, triggerSize));
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [anchor, discSize, sheetRect, x, y]);
+  }, [anchor, triggerSize, sheetRect, x, y]);
 
   // Flush a deferred resize once the morph is over (sheetRect settles back
   // to null at Sheet's onExitComplete, or was never set — the open case
@@ -109,51 +109,52 @@ export function Disc({ children, className, ...aria }: DiscProps) {
     if (!pendingResizeRef.current) return;
     pendingResizeRef.current = false;
     if (typeof window === "undefined") return;
-    x.jump(restingLeft(anchor, window.innerWidth, discSize));
-    y.jump(restingTop(anchor, window.innerHeight, discSize));
-  }, [anchor, discSize, sheetRect, x, y]);
+    x.jump(restingLeft(anchor, window.innerWidth, triggerSize));
+    y.jump(restingTop(anchor, window.innerHeight, triggerSize));
+  }, [anchor, triggerSize, sheetRect, x, y]);
 
-  // The disc's RESTING shape, as a number Motion can mix from.
+  // The trigger's RESTING shape, as a number Motion can mix from.
   //
   // Motion's shared-layout border-radius handling only sees a radius it
   // manages as an inline value — a CSS rule is invisible to it (the note on
-  // the disc surface's style binding below). The morph binding used to be
-  // scoped to `sheetRect !== null`, i.e. only while a sheet exists, which
-  // left the disc carrying NO parseable radius at rest. So on every open,
-  // Motion mixed the shape from 0 instead of from the circle: measured on
-  // both example pages, the first painted frame of an open was the disc's
-  // box (128x128, unmoved) painted with `border-radius: 0%` — a perfect
-  // circle becoming a perfect square in one frame, before any growth was
-  // visible, then rounding back up over the next ~300ms (roundness 1.00 ->
-  // 0.00 -> 0.14 at +130ms). That pop was the single largest discontinuity
-  // in the morph.
+  // the trigger surface's style binding below). The morph binding used to
+  // be scoped to `sheetRect !== null`, i.e. only while a sheet exists, which
+  // left the trigger carrying NO parseable radius at rest. So on every
+  // open, Motion mixed the shape from 0 instead of from the circle:
+  // measured on both example pages, the first painted frame of an open was
+  // the trigger's box (128x128, unmoved) painted with `border-radius: 0%` —
+  // a perfect circle becoming a perfect square in one frame, before any
+  // growth was visible, then rounding back up over the next ~300ms
+  // (roundness 1.00 -> 0.00 -> 0.14 at +130ms). That pop was the single
+  // largest discontinuity in the morph.
   //
   // Publishing the resting shape as a live numeric MotionValue fixes it at
   // the source and keeps every other resting guarantee: it equals
-  // min(--disc-sheet-disc-radius, discSize / 2), which is a perfect circle
-  // for the default 9999px token, honours a consumer's smaller override, and
-  // re-derives on the disc-size ramp's own breakpoints (discSize is kept live
-  // across resizes by useDiscSize). It is also exactly the value
-  // useCollapseRadius's curve now ends a close on, so the handoff between the
-  // two bound values is continuous — no frame where they disagree.
-  const discRestRadius = useMotionValue(9999);
+  // min(--morph-sheet-trigger-radius, triggerSize / 2), which is a perfect
+  // circle for the default 9999px token, honours a consumer's smaller
+  // override, and re-derives on the trigger-size ramp's own breakpoints
+  // (triggerSize is kept live across resizes by useTriggerSize). It is also
+  // exactly the value useCollapseRadius's curve now ends a close on, so the
+  // handoff between the two bound values is continuous — no frame where
+  // they disagree.
+  const triggerRestRadius = useMotionValue(9999);
   useEffect(() => {
     const el = surfaceRef.current;
     if (!el) return;
-    const token = readVarPx(el, "--disc-sheet-disc-radius", 9999);
-    discRestRadius.set(Math.min(token, discSize / 2));
-  }, [discSize, discRestRadius, sheetRect, open]);
+    const token = readVarPx(el, "--morph-sheet-trigger-radius", 9999);
+    triggerRestRadius.set(Math.min(token, triggerSize / 2));
+  }, [triggerSize, triggerRestRadius, sheetRect, open]);
 
-  // Report the disc's live rect for the escape hatch (usePKG().discRect) and
-  // for Sheet's shadow-mask morph. Also writes --disc-sheet-disc-x/-y —
-  // documented as package-written/consumer-readable — directly on the
+  // Report the trigger's live rect for the escape hatch (usePKG().triggerRect)
+  // and for Sheet's shadow-mask morph. Also writes --morph-sheet-trigger-x/-y
+  // — documented as package-written/consumer-readable — directly on the
   // wrapper without a React re-render, mirroring the source site's bloom-
   // tracking pattern.
   //
-  // setDiscRect is React state on Root, so calling it synchronously here
+  // setTriggerRect is React state on Root, so calling it synchronously here
   // would re-render the whole Root subtree on every pointer-move frame of a
-  // drag. The imperative --disc-sheet-disc-x/-y writes stay per-frame; the
-  // React commit is rAF-coalesced to at most once per frame and skipped
+  // drag. The imperative --morph-sheet-trigger-x/-y writes stay per-frame;
+  // the React commit is rAF-coalesced to at most once per frame and skipped
   // entirely when the rect hasn't moved by more than half a pixel.
   useEffect(() => {
     const commit = () => {
@@ -176,16 +177,16 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         return;
       }
       lastRectRef.current = next;
-      setDiscRect(next);
+      setTriggerRect(next);
     };
 
     const update = () => {
       wrapperRef.current?.style.setProperty(
-        "--disc-sheet-disc-x",
+        "--morph-sheet-trigger-x",
         `${x.get()}px`,
       );
       wrapperRef.current?.style.setProperty(
-        "--disc-sheet-disc-y",
+        "--morph-sheet-trigger-y",
         `${y.get()}px`,
       );
       if (rafRef.current == null) {
@@ -202,7 +203,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       window.removeEventListener("resize", update);
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
-  }, [x, y, setDiscRect]);
+  }, [x, y, setTriggerRect]);
 
   const handleDragStart = useCallback(() => {
     draggedRef.current = true;
@@ -218,8 +219,8 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       const travel = Math.hypot(info.offset.x, info.offset.y);
       if (travel < DRAG_THRESHOLD_PX) {
         draggedRef.current = false;
-        x.set(restingLeft(anchor, vpW, discSize));
-        y.set(restingTop(anchor, vpH, discSize));
+        x.set(restingLeft(anchor, vpW, triggerSize));
+        y.set(restingTop(anchor, vpH, triggerSize));
         return;
       }
 
@@ -239,8 +240,8 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         ? { type: "tween" as const, duration: 0 }
         : { type: "spring" as const, ...SNAP_SPRING };
 
-      const targetX = restingLeft(pickedAnchor, vpW, discSize);
-      const targetY = restingTop(pickedAnchor, vpH, discSize);
+      const targetX = restingLeft(pickedAnchor, vpW, triggerSize);
+      const targetY = restingTop(pickedAnchor, vpH, triggerSize);
 
       if (pickedAnchor !== anchor) setAnchor(pickedAnchor);
 
@@ -252,7 +253,7 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         animate(y, targetY, snapSpring);
       }
     },
-    [anchor, discSize, reduceMotion, setAnchor, x, y],
+    [anchor, triggerSize, reduceMotion, setAnchor, x, y],
   );
 
   const handleClick = useCallback(() => {
@@ -269,21 +270,21 @@ export function Disc({ children, className, ...aria }: DiscProps) {
         wrapperRef.current = el;
       }}
       className={`${styles.dragWrapper} ${className ?? ""}`}
-      // width/height come from .dragWrapper's CSS rule (var(--disc-sheet-
-      // disc-size)), not an inline write of `discSize` — an inline write
-      // here would win over Root's scoped @media block regardless of
+      // width/height come from .dragWrapper's CSS rule (var(--morph-sheet-
+      // trigger-size)), not an inline write of `triggerSize` — an inline
+      // write here would win over Root's scoped @media block regardless of
       // viewport, reproducing D3 one level down (this element is the
-      // ancestor .shared[data-disc-sheet-slot="disc"] inherits from). `x`/
-      // `y` still come from the live discSize for position math (anchors.ts)
-      // — that's unaffected by D3, which is a BOX-SIZE defect, not a
-      // position one.
+      // ancestor .shared[data-morph-sheet-slot="trigger"] inherits from).
+      // `x`/`y` still come from the live triggerSize for position math
+      // (anchors.ts) — that's unaffected by D3, which is a BOX-SIZE defect,
+      // not a position one.
       style={{ x, y }}
-      data-disc-sheet-part="disc-root"
-      // Lift the disc's stacking context above the sheet's for the duration
-      // of a CLOSE. `.dragWrapper` is `position: fixed` with a z-index, so it
-      // is a stacking context: everything inside it — including the disc-side
-      // <Shared> instance — is capped at `--disc-sheet-z` (100) and painted
-      // under the sheet at z + 102.
+      data-morph-sheet-part="trigger-root"
+      // Lift the trigger's stacking context above the sheet's for the
+      // duration of a CLOSE. `.dragWrapper` is `position: fixed` with a
+      // z-index, so it is a stacking context: everything inside it —
+      // including the trigger-side <Shared> instance — is capped at
+      // `--morph-sheet-z` (100) and painted under the sheet at z + 102.
       //
       // That cap put a hole in the middle of every close. The two layoutId
       // pairs crossfade on DIFFERENT springs: `-shared` runs on
@@ -292,36 +293,38 @@ export function Disc({ children, className, ...aria }: DiscProps) {
       // SURFACE_CLOSE_LEAD_DELAY_MS. Measured per frame on both example
       // pages, the sheet-side <Shared> had faded to opacity 0 by 229ms while
       // the sheet element it sits on was STILL at opacity 1 until 246ms —
-      // and the disc-side copy, already at opacity 1 since 87ms and exactly
-      // co-located, was underneath that opaque sheet background. Composited
-      // visibility of the shared element at its worst frame (screencast
-      // pixels sampled at its live centre, 1.0 = its own colour, 0.0 = fully
-      // washed to the surface behind it): 0.021 on index at 238ms, 0.000 on
-      // flagship at 238ms. The crossfade was correct; the compositing was
-      // not — a circle that vanished and came back.
+      // and the trigger-side copy, already at opacity 1 since 87ms and
+      // exactly co-located, was underneath that opaque sheet background.
+      // Composited visibility of the shared element at its worst frame
+      // (screencast pixels sampled at its live centre, 1.0 = its own
+      // colour, 0.0 = fully washed to the surface behind it): 0.021 on
+      // index at 238ms, 0.000 on flagship at 238ms. The crossfade was
+      // correct; the compositing was not — a circle that vanished and came
+      // back.
       //
-      // Lifting the wrapper to z + 103 lets the disc-side copy paint through,
-      // so it covers the gap the sheet-side copy leaves: worst frame 0.987
-      // (index) / 0.981 (flagship). Both surfaces are the same
-      // --disc-sheet-surface, co-located and same-radius by construction
+      // Lifting the wrapper to z + 103 lets the trigger-side copy paint
+      // through, so it covers the gap the sheet-side copy leaves: worst
+      // frame 0.987 (index) / 0.981 (flagship). Both surfaces are the same
+      // --morph-sheet-surface, co-located and same-radius by construction
       // mid-FLIP, so the reordered pair reads identically; the sheet's
       // content is already at opacity 0 by 80ms (CONTENT_FADE_OUT_MS), long
-      // before disc-surface has any opacity at all (0 until 121ms).
+      // before trigger-surface has any opacity at all (0 until 121ms).
       //
       // Gated to the close, NOT to `sheetRect !== null`: while the sheet is
       // OPEN this button still renders (only its children are behind
       // `{!open && ...}`), so lifting it then would float an invisible
-      // disc-size hit target over the open sheet and swallow its clicks.
-      data-disc-sheet-closing={sheetRect !== null && !open ? "" : undefined}
+      // trigger-size hit target over the open sheet and swallow its clicks.
+      data-morph-sheet-closing={sheetRect !== null && !open ? "" : undefined}
       drag={draggable && !open ? true : false}
       dragMomentum={false}
       dragElastic={reduceMotion ? 0 : 0.06}
       dragConstraints={{
         left: 0,
-        right: typeof window !== "undefined" ? window.innerWidth - discSize : 0,
+        right:
+          typeof window !== "undefined" ? window.innerWidth - triggerSize : 0,
         top: 0,
         bottom:
-          typeof window !== "undefined" ? window.innerHeight - discSize : 0,
+          typeof window !== "undefined" ? window.innerHeight - triggerSize : 0,
       }}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -332,8 +335,8 @@ export function Disc({ children, className, ...aria }: DiscProps) {
           triggerElRef.current = el;
         }}
         type="button"
-        className={styles.discTrigger}
-        data-disc-sheet-part="disc-trigger"
+        className={styles.triggerButton}
+        data-morph-sheet-part="trigger"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? sheetId : undefined}
@@ -345,8 +348,8 @@ export function Disc({ children, className, ...aria }: DiscProps) {
           <motion.div
             ref={surfaceRef}
             layoutId={reduceMotion ? undefined : `${ctx.idBase}-surface`}
-            className={styles.discSurface}
-            // This disc surface is the ENTERING element on close (it is
+            className={styles.triggerSurface}
+            // This trigger surface is the ENTERING element on close (it is
             // gated behind `{!open && ...}`, so it mounts only once open
             // flips false), and with a shared layoutId the entering side's
             // transition governs the FLIP. This must be transition.close,
@@ -359,14 +362,14 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // clock inside the same frameloop pass that creates Motion's
             // layout animation, so both share a start time. No-op unless Root
             // has a morph armed. See Root.tsx's clock-coupling note.
-            onLayoutAnimationStart={() => startMorphClock("disc")}
-            data-disc-sheet-part="disc-surface"
+            onLayoutAnimationStart={() => startMorphClock("trigger")}
+            data-morph-sheet-part="trigger-surface"
             // Framer Motion's shared-layout border-radius correction only
             // tracks a border-radius it manages as an inline style value —
             // it can't see the CSS module's border-radius rule. Without this,
             // the crossfade handoff from <Sheet>'s animated borderRadius
             // writes an inline `border-radius: 0` here once the FLIP settles,
-            // leaving the disc square.
+            // leaving the trigger square.
             //
             // audit M1: this used to be a `var()` STRING, which Motion can't
             // parse or scale-correct, so it painted the literal 9999px
@@ -376,15 +379,16 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // relays its own hold/interpolation curve into (context.ts,
             // useCollapseRadius.ts) — bound here through Motion's `style`
             // prop specifically, not written imperatively via a ref+effect.
-            // Disc re-renders on every context change (Root's context value
-            // isn't memoized), and React's own reconciler re-applies a plain
-            // `style` prop's string value on each such render, clobbering any
-            // manual `el.style.borderRadius` write between "change" events —
-            // an earlier version of this fix did exactly that and silently
-            // regressed the close back to painting ~9999px most frames
-            // (caught by geometry.spec.ts's own test (k), added for this
-            // fix). Binding it as a MotionValue keeps Motion itself
-            // responsible for every write, bypassing React's render diff.
+            // Trigger re-renders on every context change (Root's context
+            // value isn't memoized), and React's own reconciler re-applies a
+            // plain `style` prop's string value on each such render,
+            // clobbering any manual `el.style.borderRadius` write between
+            // "change" events — an earlier version of this fix did exactly
+            // that and silently regressed the close back to painting
+            // ~9999px most frames (caught by geometry.spec.ts's own test
+            // (k), added for this fix). Binding it as a MotionValue keeps
+            // Motion itself responsible for every write, bypassing React's
+            // render diff.
             //
             // This line was once believed to cost geometry.spec.ts's
             // shadow-vs-surface CLOSE gate 6.1-7.4px against its 6px bound
@@ -400,28 +404,31 @@ export function Disc({ children, className, ...aria }: DiscProps) {
             // live and unchanged.
             //
             // Scoped to `sheetRect !== null` (mirrors the same signal
-            // Disc.tsx's own pendingResizeRef logic above already uses for
-            // "Sheet is mounted — open, or closing but not yet exit-
+            // Trigger.tsx's own pendingResizeRef logic above already uses
+            // for "Sheet is mounted — open, or closing but not yet exit-
             // complete") rather than bound unconditionally: collapseRadius's
             // hold/gate mechanism (RADIUS_CLOSE_DELAY_SEC, motion.ts) is
             // TIME-based, not tied to when a close visually finishes, so for
             // up to ~1.4s after a normal-speed close settles (and on first
             // page load, before any open has ever happened) it still reads
-            // the SHEET's rounded-rect radius, not the disc's circular one —
-            // caught visually (a squared-off disc at rest) before this
-            // guard existed. Once Sheet's onExitComplete nulls sheetRect
-            // (the morph is provably over), this falls back to `undefined`
-            // and the CSS module's own resting default
-            // (`var(--disc-sheet-disc-radius, 9999px)`, styles.module.css)
-            // takes over — correct immediately, no 1.4s lag.
+            // the SHEET's rounded-rect radius, not the trigger's circular
+            // one — caught visually (a squared-off trigger at rest) before
+            // this guard existed. Once Sheet's onExitComplete nulls
+            // sheetRect (the morph is provably over), this falls back to
+            // `undefined` and the CSS module's own resting default
+            // (`var(--morph-sheet-trigger-radius, 9999px)`,
+            // styles.module.css) takes over — correct immediately, no 1.4s
+            // lag.
             style={{
               borderRadius:
-                sheetRect !== null ? collapseRadius : discRestRadius,
+                sheetRect !== null ? collapseRadius : triggerRestRadius,
             }}
           />
         )}
         {!open && (
-          <SlotContext.Provider value="disc">{children}</SlotContext.Provider>
+          <SlotContext.Provider value="trigger">
+            {children}
+          </SlotContext.Provider>
         )}
       </button>
     </motion.div>

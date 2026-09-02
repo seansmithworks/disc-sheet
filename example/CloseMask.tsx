@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 // Relative import: the example lives inside the package repo itself (no
 // publish step yet), so it reaches the package the same way main.tsx does.
-// A real consumer would import from "@seansmithworks/disc-sheet".
-import { useDiscSheet } from "../src/index";
+// A real consumer would import from "@seansmithworks/morph-sheet".
+import { useMorphSheet } from "../src/index";
 
 /**
  * CloseMask — the trailing-paper close mask, rebuilt from OUTSIDE the
@@ -11,16 +11,16 @@ import { useDiscSheet } from "../src/index";
  * artifact specific to a tall sheet whose shared element leads the close:
  * mid-collapse, the vacated paper above the avatar sits as a solid opaque
  * block for a few frames. This is the package's own escape-hatch validation
- * test — it is cut from `disc-sheet` because it does not belong in a generic
+ * test — it is cut from `morph-sheet` because it does not belong in a generic
  * primitive (a sheet with no leading shared element has no such artifact),
  * but re-derived here for the flagship-style example so the demo isn't
  * visibly worse without it.
  *
  * THE FINDING: this component is buildable using ONLY the documented v0.1
- * API — useDiscSheet().collapseProgress, plus that MotionValue's own
+ * API — useMorphSheet().collapseProgress, plus that MotionValue's own
  * built-in `getVelocity()` (a real `motion` API, not a package addition) —
  * and one documented DOM contract: the sheet element carries
- * `data-disc-sheet-part="sheet"`. No widening of useDiscSheet() was needed.
+ * `data-morph-sheet-part="sheet"`. No widening of useMorphSheet() was needed.
  *
  * Why getVelocity() is required: collapseProgress sweeps the SAME [0, 1]
  * range on open (1 -> 0) as on close (0 -> 1) — the fade envelope below must
@@ -35,12 +35,12 @@ import { useDiscSheet } from "../src/index";
  * sheet element on every collapseProgress tick.
  */
 export function CloseMask() {
-  const { collapseProgress } = useDiscSheet();
+  const { collapseProgress } = useMorphSheet();
 
   useEffect(() => {
     const apply = () => {
       const sheetEl = document.querySelector<HTMLElement>(
-        '[data-disc-sheet-part="sheet"]',
+        '[data-morph-sheet-part="sheet"]',
       );
       if (!sheetEl) return;
 

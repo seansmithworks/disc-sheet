@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { sheetPlacement } from "./anchors";
-import { SlotContext, useDiscSheetInternal } from "./context";
+import { SlotContext, useMorphSheetInternal } from "./context";
 import { SWIPE_OFFSET_PX, SWIPE_VELOCITY_PX_S } from "./motion";
 import { useCollapseRadius } from "./useCollapseRadius";
 import { useDialogBehavior } from "./useDialogBehavior";
@@ -16,10 +16,10 @@ import styles from "./styles.module.css";
 declare const process: { env: { NODE_ENV?: string } };
 
 /**
- * <DiscSheet.Sheet> — the modal surface. Shares the disc's layoutId so
+ * <MorphSheet.Sheet> — the modal surface. Shares the trigger's layoutId so
  * Motion FLIPs the box between the two, and drives border-radius as a pure
  * function of collapseProgress (docs/PACKAGE-DESIGN.md §3) rather than an
- * independent spring, so the disc shape can never appear before the box has
+ * independent spring, so the trigger shape can never appear before the box has
  * actually contracted.
  */
 export function Sheet({
@@ -29,12 +29,12 @@ export function Sheet({
   dismissOnBackdrop = true,
   ...labelled
 }: SheetProps) {
-  const ctx = useDiscSheetInternal("Sheet");
+  const ctx = useMorphSheetInternal("Sheet");
   const {
     open,
     setOpen,
     anchor,
-    discSize,
+    triggerSize,
     sheetMaxWidth,
     reduceMotion,
     zIndex,
@@ -75,7 +75,7 @@ export function Sheet({
     ) {
       // eslint-disable-next-line no-console
       console.warn(
-        "[disc-sheet] <DiscSheet.Sheet> opened with no <DiscSheet.Close> registered. " +
+        "[morph-sheet] <MorphSheet.Sheet> opened with no <MorphSheet.Close> registered. " +
           "Escape and backdrop dismissal are not a substitute for a visible close control.",
       );
     }
@@ -153,12 +153,12 @@ export function Sheet({
   // stays mounted for the entire close animation (AnimatePresence only
   // removes it once the exit finishes), and its CSS geometry (`bottom: 16px`
   // etc.) keeps re-laying-out live if the viewport resizes mid-close —
-  // Disc.tsx's resting position re-seats on the very same resize. Gating this
+  // Trigger.tsx's resting position re-seats on the very same resize. Gating this
   // listener's registration on `open` (the previous shape: one effect doing
   // both the initial measure AND the listener, keyed on [open]) tore the
   // listener down the INSTANT `open` flipped false, i.e. exactly when the
   // close starts, freezing the sheet's cached rect for the whole ~1s close
-  // while the disc re-seated live — reproduced a 481.7px Δtop. Same
+  // while the trigger re-seated live — reproduced a 481.7px Δtop. Same
   // principle as sheetRect's own release below: state a leaving element's
   // siblings still need is released on completion, never on the state
   // change that begins the exit.
@@ -171,7 +171,7 @@ export function Sheet({
   }, [measureSheetRect]);
 
   // Extracted (audit M1) so the exact same hold/interpolation curve is
-  // available to Disc.tsx's disc-surface too — see useCollapseRadius.ts.
+  // available to Trigger.tsx's triggerSurface too — see useCollapseRadius.ts.
   // Called from HERE (not hoisted to Root) deliberately: same component,
   // same hook position, same effect-commit ordering relative to Sheet's
   // other effects (sheetRect measurement, the resize listener) as before
@@ -179,13 +179,13 @@ export function Sheet({
   // logic identical measurably cost geometry.spec.ts's close-tracking gate
   // ~3-4px — apparently from the ordering shift itself, not from anything
   // about the computation. The effect below relays every tick into
-  // ctx.collapseRadius (a stable container Root owns) so Disc.tsx can bind
+  // ctx.collapseRadius (a stable container Root owns) so Trigger.tsx can bind
   // to the exact same painted values on close without needing this hook
   // called from its own position in the tree.
   const sheetBorderRadius = useCollapseRadius({
     collapseProgress,
     open,
-    discSize,
+    triggerSize,
     varsElRef: sheetRef,
   });
 
@@ -200,13 +200,13 @@ export function Sheet({
           anchor,
           window.innerWidth,
           window.innerHeight,
-          discSize,
+          triggerSize,
           sheetMaxWidth,
         )
-      : sheetPlacement(anchor, 1440, 900, discSize, sheetMaxWidth);
+      : sheetPlacement(anchor, 1440, 900, triggerSize, sheetMaxWidth);
 
   const placementStyle: Record<string, string> = {
-    ["--disc-sheet-sheet-left" as string]: `${placement.anchorX}px`,
+    ["--morph-sheet-sheet-left" as string]: `${placement.anchorX}px`,
   };
   if (placement.anchorEdge === "top" && placement.anchorTopPx !== undefined) {
     // Override the CSS default (grow up from bottom) with explicit top/bottom
@@ -247,21 +247,21 @@ export function Sheet({
   return (
     <>
       {/* Invisible click-catcher for outside-click dismissal — not a
-          visible scrim. <DiscSheet.Backdrop> (a visual dim layer) is cut
+          visible scrim. <MorphSheet.Backdrop> (a visual dim layer) is cut
           from v0.1 (docs/PACKAGE-DESIGN.md §8); dismiss-on-outside-click is
           Root/Sheet behavior and costs nothing visually by default.
           Deliberately a SIBLING of <AnimatePresence>, gated on `open` alone
           (audit M11) — the previous shape rendered this inside
           AnimatePresence's `{open && ...}` child, so it survived the whole
-          exit animation at zIndex + 101 (above the disc's zIndex 100),
-          eating every click/tap over the disc for the ~400-1000ms the close
+          exit animation at zIndex + 101 (above the trigger's zIndex 100),
+          eating every click/tap over the trigger for the ~400-1000ms the close
           spring/hold takes to settle. Gating on `open` alone means the
-          backdrop unmounts the instant the close STARTS, so the disc is
+          backdrop unmounts the instant the close STARTS, so the trigger is
           tappable — and the close interruptible — from frame one. */}
       {open && dismissOnBackdrop && (
         <div
           aria-hidden="true"
-          data-disc-sheet-part="backdrop"
+          data-morph-sheet-part="backdrop"
           style={{ position: "fixed", inset: 0, zIndex: zIndex + 101 }}
           onClick={() => setOpen(false)}
         />
@@ -279,7 +279,7 @@ export function Sheet({
             ref={attachSheetRef}
             id={sheetId}
             className={`${styles.sheet} ${className ?? ""}`}
-            data-disc-sheet-part="sheet"
+            data-morph-sheet-part="sheet"
             role="dialog"
             aria-modal="true"
             tabIndex={-1}
@@ -294,7 +294,7 @@ export function Sheet({
                 }
               : {
                   layoutId: `${idBase}-surface`,
-                  // The SHEET is the entering element on open (Disc's surface
+                  // The SHEET is the entering element on open (Trigger's surface
                   // is the entering element on close, gated behind
                   // `{!open && ...}`), and with a shared layoutId the
                   // ENTERING side's transition governs the FLIP. This must be
@@ -316,7 +316,7 @@ export function Sheet({
                   onLayoutAnimationStart: () => startMorphClock("sheet"),
                   style: {
                     // Bound directly to the locally-computed value (not the
-                    // relayed ctx.collapseRadius container Disc.tsx reads) —
+                    // relayed ctx.collapseRadius container Trigger.tsx reads) —
                     // zero extra hop for this element's own paint.
                     borderRadius: sheetBorderRadius,
                     zIndex: zIndex + 102,

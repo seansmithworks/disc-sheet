@@ -1,11 +1,11 @@
 import { createRoot } from "react-dom/client";
-import { DiscSheet } from "../src/index";
+import { MorphSheet } from "../src/index";
 import { CloseMask } from "./CloseMask";
 import "./example.css";
 
-// Sized to 100% of its parent, not a fixed px value: <DiscSheet.Shared>'s two
-// instances (disc-side and sheet-side) are laid out at different sizes by the
-// package itself (the disc's inset circle, the sheet's margined circle), so
+// Sized to 100% of its parent, not a fixed px value: <MorphSheet.Shared>'s two
+// instances (trigger-side and sheet-side) are laid out at different sizes by the
+// package itself (the trigger's inset circle, the sheet's margined circle), so
 // the child inside must fill whatever box it's given rather than assert its
 // own size. Passing two differently-sized children into the two slots is
 // exactly the footgun docs/PACKAGE-DESIGN.md §7B warns about (E1).
@@ -43,13 +43,13 @@ const openDelayOverride = testParams.has("openDelay")
 function App() {
   return (
     <div className="page">
-      <h1>disc-sheet</h1>
+      <h1>morph-sheet</h1>
       <p className="sub">
-        A bare disc, morphing into a sheet. Tap the disc (bottom-center by
+        A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
         default) — drag it to any of the six anchors first if you like.
       </p>
 
-      <DiscSheet.Root
+      <MorphSheet.Root
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}
         transition={
@@ -66,30 +66,30 @@ function App() {
             : undefined
         }
       >
-        <DiscSheet.Shadow />
+        <MorphSheet.Shadow />
 
-        <DiscSheet.Disc aria-label="Open example sheet">
-          <DiscSheet.Shared>
+        <MorphSheet.Trigger aria-label="Open example sheet">
+          <MorphSheet.Shared>
             <ColorCircle />
-          </DiscSheet.Shared>
-        </DiscSheet.Disc>
+          </MorphSheet.Shared>
+        </MorphSheet.Trigger>
 
-        <DiscSheet.Sheet aria-labelledby="example-sheet-title">
-          <DiscSheet.Shared>
+        <MorphSheet.Sheet aria-labelledby="example-sheet-title">
+          <MorphSheet.Shared>
             <ColorCircle />
-          </DiscSheet.Shared>
+          </MorphSheet.Shared>
 
-          <DiscSheet.Content>
-            <DiscSheet.Close aria-label="Close" />
-            <DiscSheet.Item>
+          <MorphSheet.Content>
+            <MorphSheet.Close aria-label="Close" />
+            <MorphSheet.Item>
               <h2 id="example-sheet-title">Placeholder heading</h2>
               <p>
-                Everything inside &lt;DiscSheet.Content&gt; is supplied by the
+                Everything inside &lt;MorphSheet.Content&gt; is supplied by the
                 consumer. This example ships a colored circle, this heading, and
                 two links.
               </p>
-            </DiscSheet.Item>
-            <DiscSheet.Item>
+            </MorphSheet.Item>
+            <MorphSheet.Item>
               <nav
                 aria-label="Example links"
                 style={{ display: "flex", gap: 16 }}
@@ -97,19 +97,19 @@ function App() {
                 <a href="https://example.com">Example.com</a>
                 <a href="https://github.com">GitHub</a>
               </nav>
-            </DiscSheet.Item>
-          </DiscSheet.Content>
-        </DiscSheet.Sheet>
+            </MorphSheet.Item>
+          </MorphSheet.Content>
+        </MorphSheet.Sheet>
 
         {/* CloseMask demonstrates the escape hatch: it rebuilds the
             trailing-paper close mask from OUTSIDE the package using only
-            useDiscSheet().collapseProgress (+ its built-in getVelocity()) and
-            discRect/sheetRect. It renders no DOM of its own — it finds the
-            live sheet element by its documented data-disc-sheet-part="sheet"
+            useMorphSheet().collapseProgress (+ its built-in getVelocity()) and
+            triggerRect/sheetRect. It renders no DOM of its own — it finds the
+            live sheet element by its documented data-morph-sheet-part="sheet"
             attribute and writes a mask-image directly onto it. See
             CloseMask.tsx. */}
         <CloseMask />
-      </DiscSheet.Root>
+      </MorphSheet.Root>
     </div>
   );
 }

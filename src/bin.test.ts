@@ -5,14 +5,14 @@ import path from "node:path";
 import process from "node:process";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-// Drives bin/disc-sheet.mjs (the npx copy-in CLI) as a real child process
+// Drives bin/morph-sheet.mjs (the npx copy-in CLI) as a real child process
 // against a temp directory — review finding #3: the conflict guard, the
 // --force override, and the next-env.d.ts shim-skip all shipped with zero
 // automated coverage. Also exercises #7 (test files/css-modules.d.ts
 // excluded from the copy) in passing, since it's the same file list this
 // suite already has to assert against.
 
-const BIN_PATH = new URL("../bin/disc-sheet.mjs", import.meta.url).pathname;
+const BIN_PATH = new URL("../bin/morph-sheet.mjs", import.meta.url).pathname;
 const SRC_DIR = new URL("../src/", import.meta.url).pathname;
 
 function runBin(args: string[], cwd: string) {
@@ -36,11 +36,11 @@ function expectedSrcFileCount(skipCssShim: boolean) {
   return skipCssShim ? count : count + 1;
 }
 
-describe("bin/disc-sheet.mjs add", () => {
+describe("bin/morph-sheet.mjs add", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "disc-sheet-bin-"));
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "morph-sheet-bin-"));
   });
 
   afterEach(() => {
@@ -51,7 +51,7 @@ describe("bin/disc-sheet.mjs add", () => {
     const result = runBin(["add"], tmpDir);
     expect(result.status).toBe(0);
 
-    const targetDir = path.join(tmpDir, "src", "disc-sheet");
+    const targetDir = path.join(tmpDir, "src", "morph-sheet");
     const copied = fs.readdirSync(targetDir);
 
     expect(copied).not.toContain("anchors.test.ts");
@@ -66,7 +66,7 @@ describe("bin/disc-sheet.mjs add", () => {
     const result = runBin(["add"], tmpDir);
     expect(result.status).toBe(0);
 
-    const targetDir = path.join(tmpDir, "src", "disc-sheet");
+    const targetDir = path.join(tmpDir, "src", "morph-sheet");
     const copied = fs.readdirSync(targetDir);
     expect(copied).not.toContain("css-modules.d.ts");
     expect(copied.length).toBe(expectedSrcFileCount(true));
@@ -76,7 +76,7 @@ describe("bin/disc-sheet.mjs add", () => {
     const first = runBin(["add"], tmpDir);
     expect(first.status).toBe(0);
 
-    const targetDir = path.join(tmpDir, "src", "disc-sheet");
+    const targetDir = path.join(tmpDir, "src", "morph-sheet");
     const sentinelFile = path.join(targetDir, "anchors.ts");
     fs.writeFileSync(sentinelFile, "// sentinel, must survive\n");
 
@@ -95,7 +95,7 @@ describe("bin/disc-sheet.mjs add", () => {
     const first = runBin(["add"], tmpDir);
     expect(first.status).toBe(0);
 
-    const targetDir = path.join(tmpDir, "src", "disc-sheet");
+    const targetDir = path.join(tmpDir, "src", "morph-sheet");
     const sentinelFile = path.join(targetDir, "anchors.ts");
     fs.writeFileSync(sentinelFile, "// sentinel, must be overwritten\n");
 

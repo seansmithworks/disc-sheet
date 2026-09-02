@@ -1,8 +1,8 @@
-# `disc-sheet` package design
+# `morph-sheet` package design
 
-Draggable disc that morphs into a sheet. Generic React primitive, compound-component API.
+Draggable trigger that morphs into a sheet. Generic React primitive, compound-component API.
 
-Shipped as `@seansmithworks/disc-sheet`. `DiscSheet` is the exported namespace object throughout, and `--disc-sheet-*` is the CSS custom property namespace.
+Shipped as `@seansmithworks/morph-sheet`. `MorphSheet` is the exported namespace object throughout, and `--morph-sheet-*` is the CSS custom property namespace.
 
 Source of the extraction: `src/components/chrome/FloatingIdentity.tsx`, `ContactSheet.tsx`, `anchorPositions.ts` and their CSS modules on `seansmithdesign.com`. Everything cited below was verified against those files, not inferred.
 
@@ -12,7 +12,7 @@ Source of the extraction: `src/components/chrome/FloatingIdentity.tsx`, `Contact
 
 Three things ship, in this order of priority:
 
-1. **The primitive.** A disc that lives at one of six viewport anchors, can be dragged and snapped between them, and morphs into a modal sheet. Consumer supplies all content.
+1. **The primitive.** A trigger that lives at one of six viewport anchors, can be dragged and snapped between them, and morphs into a modal sheet. Consumer supplies all content.
 2. **The flagship example.** Sean's identity/contact surface, rebuilt on top of the primitive. It is an example app in the repo, not a second entry point in the package.
 3. **The shadow seam.** A slot where a `@seansmith/surface-fx` dither layer drops in. The package never imports surface-fx.
 
@@ -30,36 +30,36 @@ Precedent check. Two of Sean's own packages already set conventions:
 ### The tree
 
 ```tsx
-import { DiscSheet } from "@seansmithworks/disc-sheet";
+import { MorphSheet } from "@seansmithworks/morph-sheet";
 
-<DiscSheet.Root>
-  <DiscSheet.Shadow />
+<MorphSheet.Root>
+  <MorphSheet.Shadow />
 
-  <DiscSheet.Disc aria-label="Open contact">
-    <DiscSheet.Shared>
+  <MorphSheet.Trigger aria-label="Open contact">
+    <MorphSheet.Shared>
       <Avatar />
-    </DiscSheet.Shared>
-  </DiscSheet.Disc>
+    </MorphSheet.Shared>
+  </MorphSheet.Trigger>
 
-  <DiscSheet.Sheet aria-labelledby="sheet-title">
-    <DiscSheet.Shared>
+  <MorphSheet.Sheet aria-labelledby="sheet-title">
+    <MorphSheet.Shared>
       <Avatar />
-    </DiscSheet.Shared>
+    </MorphSheet.Shared>
 
-    <DiscSheet.Content>
-      <DiscSheet.Close aria-label="Close" />
-      <DiscSheet.Item>
+    <MorphSheet.Content>
+      <MorphSheet.Close aria-label="Close" />
+      <MorphSheet.Item>
         <h2 id="sheet-title">Sean Smith</h2>
-      </DiscSheet.Item>
-      <DiscSheet.Item>…</DiscSheet.Item>
-    </DiscSheet.Content>
-  </DiscSheet.Sheet>
-</DiscSheet.Root>
+      </MorphSheet.Item>
+      <MorphSheet.Item>…</MorphSheet.Item>
+    </MorphSheet.Content>
+  </MorphSheet.Sheet>
+</MorphSheet.Root>
 ```
 
 Nine exports total: eight components plus one hook. That is the whole surface area.
 
-### `<DiscSheet.Root>`
+### `<MorphSheet.Root>`
 
 Owns open state, anchor state, the `LayoutGroup`, the shared context, and the reduced-motion decision.
 
@@ -76,12 +76,12 @@ interface SharedTransitionByDirection {
 }
 
 interface MorphTransition {
-  /** Disc to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
+  /** Trigger to sheet. Default: { stiffness: 375, damping: 42.5, mass: 1.75 } */
   open?: Spring | Transition;
-  /** Sheet to disc. Default: { stiffness: 375, damping: 32, mass: 1 } */
+  /** Sheet to trigger. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
   /**
-   * The <DiscSheet.Shared> element's own morph. Direction-aware: a single
+   * The <MorphSheet.Shared> element's own morph. Direction-aware: a single
    * value applies to both directions, { open, close } sets them apart.
    * Defaults: open { stiffness: 500, damping: 45 },
    *           close { stiffness: 305, damping: 28.9, mass: 1 }
@@ -105,20 +105,20 @@ interface RootProps {
   defaultAnchor?: AnchorId;
   /** Fires after a drag settles on a new anchor. */
   onAnchorChange?: (anchor: AnchorId) => void;
-  /** Default true. False renders a fixed disc with no drag affordance. */
+  /** Default true. False renders a fixed trigger with no drag affordance. */
   draggable?: boolean;
   /**
    * localStorage key for the chosen anchor.
-   * Default "disc-sheet-anchor". Pass false to disable persistence entirely.
+   * Default "morph-sheet-anchor". Pass false to disable persistence entirely.
    */
   persistKey?: string | false;
 
   // ── Geometry ──────────────────────────────────────────────────
   /**
-   * Disc diameter in px. Object form is a breakpoint ramp.
+   * Trigger diameter in px. Object form is a breakpoint ramp.
    * Default { base: 96, md: 128, xl: 144 } at 0 / 768 / 1600.
    */
-  discSize?: number | { base: number; md?: number; xl?: number };
+  triggerSize?: number | { base: number; md?: number; xl?: number };
   /** Sheet max width in px. Default 480. */
   sheetMaxWidth?: number;
 
@@ -136,18 +136,18 @@ interface RootProps {
 }
 ```
 
-**Uncontrolled path.** `<DiscSheet.Root>` with no `open`. The disc tap toggles internal state, `onOpenChange` fires for telemetry. The anchor is read from `localStorage` at mount, validated against the six legal values, and written back on every settled drag. This is the default and it is what the flagship example uses.
+**Uncontrolled path.** `<MorphSheet.Root>` with no `open`. The trigger tap toggles internal state, `onOpenChange` fires for telemetry. The anchor is read from `localStorage` at mount, validated against the six legal values, and written back on every settled drag. This is the default and it is what the flagship example uses.
 
-**Controlled path.** Pass `open` and `onOpenChange`. The package calls `onOpenChange(next)` and does nothing else; the surface only changes when `open` changes. All internal triggers route through the same call: disc tap, Escape, backdrop click, swipe-down past threshold, `<DiscSheet.Close>`. There is no second escape valve, so a consumer holding `open={false}` gets a sheet that genuinely cannot open.
+**Controlled path.** Pass `open` and `onOpenChange`. The package calls `onOpenChange(next)` and does nothing else; the surface only changes when `open` changes. All internal triggers route through the same call: trigger tap, Escape, backdrop click, swipe-down past threshold, `<MorphSheet.Close>`. There is no second escape valve, so a consumer holding `open={false}` gets a sheet that genuinely cannot open.
 
 Anchor is deliberately **uncontrolled only** in v0.1. See §8.
 
-### `<DiscSheet.Disc>`
+### `<MorphSheet.Trigger>`
 
 The fixed drag wrapper plus the trigger button plus the morph seed surface.
 
 ```ts
-interface DiscProps {
+interface TriggerProps {
   children?: React.ReactNode;
   className?: string;
   /** Required. This is the button's accessible name. */
@@ -157,15 +157,15 @@ interface DiscProps {
 
 Renders three nested nodes the consumer does not control:
 
-1. `motion.div[data-disc-sheet-part="disc-root"]`, `position: fixed` at the viewport origin, positioned entirely by Motion `x`/`y` MotionValues holding the disc's top-left in viewport px. This single-origin model is load-bearing: nothing ever changes CSS `left`/`top` after mount, so a snap is a plain `x`/`y` animation with no FLIP and no one-frame transform desync.
-2. `button[data-disc-sheet-part="disc-trigger"]`, transparent, fills the wrapper, carries `aria-haspopup="dialog"` / `aria-expanded` / `aria-controls`.
-3. `motion.div[data-disc-sheet-part="disc-surface"]`, the `layoutId` seed. Circular, painted from `--disc-sheet-surface` and `--disc-sheet-surface-border`. This is the element that FLIPs into the sheet, which is why it is package-owned rather than a slot.
+1. `motion.div[data-morph-sheet-part="trigger-root"]`, `position: fixed` at the viewport origin, positioned entirely by Motion `x`/`y` MotionValues holding the trigger's top-left in viewport px. This single-origin model is load-bearing: nothing ever changes CSS `left`/`top` after mount, so a snap is a plain `x`/`y` animation with no FLIP and no one-frame transform desync.
+2. `button[data-morph-sheet-part="trigger"]`, transparent, fills the wrapper, carries `aria-haspopup="dialog"` / `aria-expanded` / `aria-controls`.
+3. `motion.div[data-morph-sheet-part="trigger-surface"]`, the `layoutId` seed. Circular, painted from `--morph-sheet-surface` and `--morph-sheet-surface-border`. This is the element that FLIPs into the sheet, which is why it is package-owned rather than a slot.
 
 `children` render above the seed surface, inside the button.
 
-### `<DiscSheet.Sheet>`
+### `<MorphSheet.Sheet>`
 
-The modal surface. Same `layoutId` as the disc seed, so Motion FLIPs the box between the two.
+The modal surface. Same `layoutId` as the trigger seed, so Motion FLIPs the box between the two.
 
 ```ts
 type Labelled =
@@ -186,9 +186,9 @@ The `Labelled` union makes it a type error to render a dialog with no accessible
 
 Escape is **not** configurable. A modal surface that traps focus and cannot be dismissed by keyboard is a defect, not a variant.
 
-### `<DiscSheet.Shared>`
+### `<MorphSheet.Shared>`
 
-The shared-element slot. Rendered **twice**: once inside `<DiscSheet.Disc>`, once inside `<DiscSheet.Sheet>`, with the same children. It carries its own `layoutId` and its own spring, independent of the surface morph.
+The shared-element slot. Rendered **twice**: once inside `<MorphSheet.Trigger>`, once inside `<MorphSheet.Sheet>`, with the same children. It carries its own `layoutId` and its own spring, independent of the surface morph.
 
 ```ts
 interface SharedProps {
@@ -197,11 +197,11 @@ interface SharedProps {
 }
 ```
 
-Critical structural rule inherited from the source, and the package enforces it by construction: `<DiscSheet.Shared>` renders as a **sibling** of the disc seed surface, never a child. Nesting it would make its projection inherit the surface's close-morph FLIP, freezing it at the surface's transient mid-collapse box and then teleporting it home. The comment at `FloatingIdentity.tsx:1935-1944` documents that exact bug.
+Critical structural rule inherited from the source, and the package enforces it by construction: `<MorphSheet.Shared>` renders as a **sibling** of the trigger seed surface, never a child. Nesting it would make its projection inherit the surface's close-morph FLIP, freezing it at the surface's transient mid-collapse box and then teleporting it home. The comment at `FloatingIdentity.tsx:1935-1944` documents that exact bug.
 
 Optional: omit it entirely. The morph still works; there is just no element that persists visually across it.
 
-### `<DiscSheet.Content>` and `<DiscSheet.Item>`
+### `<MorphSheet.Content>` and `<MorphSheet.Item>`
 
 `Content` holds sheet content at opacity 0 through the bloom and reveals it after, then fades it out first on close. `Item` is a staggered child.
 
@@ -214,7 +214,7 @@ No props beyond that. The reveal delay, stagger interval, and exit duration are 
 
 `Content` also owns the scroll region: it applies `overflow-y: auto` to itself and reports `scrollTop` to the swipe-to-close handler, which must not fire while the content is scrolled. That coupling exists today at `ContactSheet.tsx:929-930` and it is easy to lose in an extraction.
 
-### `<DiscSheet.Close>`
+### `<MorphSheet.Close>`
 
 ```ts
 interface CloseProps {
@@ -226,7 +226,7 @@ interface CloseProps {
 
 Registers itself in context on mount. If the sheet opens and no `Close` is registered, Root logs a dev-only warning. Escape and backdrop click are not a substitute for a visible close control.
 
-### `<DiscSheet.Backdrop>`
+### `<MorphSheet.Backdrop>`
 
 Opt-in **visual** scrim only. Dismiss-on-outside-click is Root behavior and works whether or not `Backdrop` is rendered.
 
@@ -240,37 +240,37 @@ interface BackdropProps {
 
 This split matters. The site currently ships `backdropDimEnabled: false` (verified in `surface-fx/src/schema/bloomDefaults.ts`), so the default look is a clear page behind the bloom. Making the scrim a component rather than a boolean means the default costs nothing and the dim variant costs one line.
 
-### `<DiscSheet.Shadow>`
+### `<MorphSheet.Shadow>`
 
 See §4.
 
-### `useDiscSheet()`
+### `useMorphSheet()`
 
 ```ts
-interface DiscSheetState {
+interface MorphSheetState {
   open: boolean;
   setOpen: (open: boolean) => void;
   anchor: AnchorId;
   isDragging: boolean;
-  discSize: number;
-  /** 0 = fully open (sheet), 1 = fully closed (disc). Live MotionValue. */
+  triggerSize: number;
+  /** 0 = fully open (sheet), 1 = fully closed (trigger). Live MotionValue. */
   collapseProgress: MotionValue<number>;
   /** Live viewport rects, null before first measure. */
-  discRect: { cx: number; cy: number; radius: number } | null;
+  triggerRect: { cx: number; cy: number; radius: number } | null;
   sheetRect: { cx: number; cy: number; halfWidth: number; halfHeight: number } | null;
 }
 
-function useDiscSheet(): DiscSheetState;
+function useMorphSheet(): MorphSheetState;
 ```
 
-Throws outside `<DiscSheet.Root>`. This hook is the escape hatch for §3 and the data source for §4.
+Throws outside `<MorphSheet.Root>`. This hook is the escape hatch for §3 and the data source for §4.
 
 ### Props deliberately NOT exposed
 
 | Not exposed | Why |
 | --- | --- |
 | `dragElastic`, `dragMomentum`, `dragConstraints`, drag threshold (5px) | Drag feel is one dialed system. Exposing pieces of it lets a consumer produce an off-screen excursion or a tap that registers as a drag. |
-| Snap spring (`stiffness 700, damping 52, mass 1`) | Deliberately overdamped so the disc never overshoots past a viewport edge. A softer value is a bug, not a preference. |
+| Snap spring (`stiffness 700, damping 52, mass 1`) | Deliberately overdamped so the trigger never overshoots past a viewport edge. A softer value is a bug, not a preference. |
 | `radiusHoldFraction`, `openContentRevealDelaySec`, `contentFadeOutMs`, `contentFadeOutDelayMs` | The close choreography. Every one of these exists to suppress a specific artifact. See §3. (`surfaceCloseLeadDelayMs` was promoted OUT of this row and into §3's props table — it is a duration, not a suppressed artifact.) |
 | The trailing-paper mask envelope constants (`FADE_START/PEAK/END`, `MAX_FADE`, `BAND`) | Internal to one artifact fix. See §8, where this is a cut. |
 | The 2x3 anchor region map thresholds | Changing them makes "nearest anchor" not mean nearest. |
@@ -300,30 +300,30 @@ Required companion file: `src/css-modules.d.ts`, copied verbatim from device-fra
 
 ### Namespace and mapping
 
-Every variable is `--disc-sheet-*` and every one has a hardcoded fallback in the CSS, so the package renders correctly with a consumer who sets nothing. The mapping below is what the flagship example writes to re-skin the primitive back into Sean's site.
+Every variable is `--morph-sheet-*` and every one has a hardcoded fallback in the CSS, so the package renders correctly with a consumer who sets nothing. The mapping below is what the flagship example writes to re-skin the primitive back into Sean's site.
 
 | Package variable | Default (fallback baked in the CSS) | Current site variable |
 | --- | --- | --- |
-| `--disc-sheet-surface` | `#faf7f2` | `--color-paper` |
-| `--disc-sheet-surface-elevated` | `#f4f0e8` | `--color-paper-soft` (midnight sheet fill) |
-| `--disc-sheet-surface-border` | `#e6dfd2` | `--color-paper-edge` |
-| `--disc-sheet-text` | `#1a1610` | `--color-ink` |
-| `--disc-sheet-accent` | `#b4512e` | `--color-accent` (focus ring only) |
-| `--disc-sheet-sheet-max-width` | `480px` | `--contact-sheet-max-width` |
-| `--disc-sheet-shared-size` | matches `--disc-sheet-disc-size` | `--contact-portrait-size` |
-| `--disc-sheet-sheet-radius` | `32px` | `tuning.sheetRadius` |
-| `--disc-sheet-disc-radius` | `9999px` | `tuning.discRadius` |
-| `--disc-sheet-edge-margin` | `16px` | `EDGE_MARGIN` in `anchorPositions.ts` |
-| `--disc-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` | `.discSurface` box-shadow |
-| `--disc-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` | `.sheet` box-shadow |
-| `--disc-sheet-z` | `100` | the z-index literals |
+| `--morph-sheet-surface` | `#faf7f2` | `--color-paper` |
+| `--morph-sheet-surface-elevated` | `#f4f0e8` | `--color-paper-soft` (midnight sheet fill) |
+| `--morph-sheet-surface-border` | `#e6dfd2` | `--color-paper-edge` |
+| `--morph-sheet-text` | `#1a1610` | `--color-ink` |
+| `--morph-sheet-accent` | `#b4512e` | `--color-accent` (focus ring only) |
+| `--morph-sheet-sheet-max-width` | `480px` | `--contact-sheet-max-width` |
+| `--morph-sheet-shared-size` | matches `--morph-sheet-trigger-size` | `--contact-portrait-size` |
+| `--morph-sheet-sheet-radius` | `32px` | `tuning.sheetRadius` |
+| `--morph-sheet-trigger-radius` | `9999px` | `tuning.discRadius` |
+| `--morph-sheet-edge-margin` | `16px` | `EDGE_MARGIN` in `anchorPositions.ts` |
+| `--morph-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` | `.triggerSurface` box-shadow |
+| `--morph-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` | `.sheet` box-shadow |
+| `--morph-sheet-z` | `100` | the z-index literals |
 
-Derived z-stack, from `--disc-sheet-z` (call it `z`):
+Derived z-stack, from `--morph-sheet-z` (call it `z`):
 
 | Layer | z |
 | --- | --- |
 | Shadow | `z - 1` |
-| Disc | `z` |
+| Trigger | `z` |
 | Backdrop | `z + 101` |
 | Sheet | `z + 102` |
 
@@ -333,17 +333,17 @@ Those offsets reproduce the shipped stack exactly (99 / 100 / 201 / 202) at the 
 
 | Variable | On | Meaning |
 | --- | --- | --- |
-| `--disc-sheet-disc-size` | disc root | resolved diameter in px |
-| `--disc-sheet-disc-x`, `--disc-sheet-disc-y` | disc root | live top-left in viewport px |
-| `--disc-sheet-sheet-left`, `--disc-sheet-sheet-top` | sheet | resolved placement in px |
-| `--disc-sheet-collapse` | shadow layer | `0..1`, the live morph progress |
-| `--disc-sheet-shadow-x/-y/-w/-h/-radius` | shadow layer | the interpolated silhouette |
+| `--morph-sheet-trigger-size` | trigger root | resolved diameter in px |
+| `--morph-sheet-trigger-x`, `--morph-sheet-trigger-y` | trigger root | live top-left in viewport px |
+| `--morph-sheet-sheet-left`, `--morph-sheet-sheet-top` | sheet | resolved placement in px |
+| `--morph-sheet-collapse` | shadow layer | `0..1`, the live morph progress |
+| `--morph-sheet-shadow-x/-y/-w/-h/-radius` | shadow layer | the interpolated silhouette |
 
 ### One fix taken during extraction
 
-The site duplicates the disc breakpoints in two places: the `@media` blocks in `FloatingIdentity.module.css:94-106` and the `resolveDiscSize()` function at `FloatingIdentity.tsx:311-317`, with a comment on each telling you to keep them in sync. That is a latent bug, and the sync failure mode (disc shifts off its anchor) is exactly the kind of thing that gets debugged twice.
+The site duplicates the trigger breakpoints in two places: the `@media` blocks in `FloatingIdentity.module.css:94-106` and the `resolveDiscSize()` function at `FloatingIdentity.tsx:311-317`, with a comment on each telling you to keep them in sync. That is a latent bug, and the sync failure mode (trigger shifts off its anchor) is exactly the kind of thing that gets debugged twice.
 
-In the package, `resolveDiscSize()` remains the single source of the size ramp, but it is not JS writing the var at runtime. `Root` renders a scoped `<style>` block with real `@media` rules — one per breakpoint in the ramp — that set `--disc-sheet-disc-size` in CSS, server-rendered and deterministic from props alone. Neither `Root`'s wrapper nor `Disc`'s drag wrapper writes `--disc-sheet-disc-size` inline; an inline write on either would always beat the `@media` rules, at every viewport, and defeat the point of resolving the size in CSS. The live JS value from the size hook feeds only position math (`anchors.ts`) and drag-constraint numbers — never a FLIP-tracked element's painted box.
+In the package, `resolveTriggerSize()` remains the single source of the size ramp, but it is not JS writing the var at runtime. `Root` renders a scoped `<style>` block with real `@media` rules — one per breakpoint in the ramp — that set `--morph-sheet-trigger-size` in CSS, server-rendered and deterministic from props alone. Neither `Root`'s wrapper nor `Trigger`'s drag wrapper writes `--morph-sheet-trigger-size` inline; an inline write on either would always beat the `@media` rules, at every viewport, and defeat the point of resolving the size in CSS. The live JS value from the size hook feeds only position math (`anchors.ts`) and drag-constraint numbers — never a FLIP-tracked element's painted box.
 
 This split exists because Motion snapshots a shared-`layoutId` element's box at first paint. A JS-resolved size is not available correctly at first paint without either a hydration mismatch (server and client disagreeing before the effect that would set it runs) or a stale post-mount promotion (the size hook returning a base value on first render for hydration safety, then correcting itself after Motion has already snapshotted the shared-element origin). Resolving the size in CSS via `@media`, instead of in JS via an effect, means the browser has the correct value at first paint with no client-side correction step for Motion to snapshot ahead of.
 
@@ -360,19 +360,19 @@ The morph is hand-dialed. The design rule is: **springs are props, shape tokens 
 | Key | Default | Provenance |
 | --- | --- | --- |
 | `open` | `{ stiffness: 375, damping: 42.5, mass: 1.75 }` | `surfaceCloseSpring` scaled by k=1.25 (stiffness by k², damping by k), which preserves the damping ratio and shortens settle ~20% |
-| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` | Dialled by Sean on /tune, saved as "Version 4" (`docs/tuning/dialkit-disc-sheet-close.json`). Retuned 2026-08-31 from 240/34/1.75; a k=0.92 "slow the shell down" strawman (317.4/29.44/1) was tried and rejected — he dialled the shell back to exactly this. Damping ratio 0.826 |
+| `close` | `{ stiffness: 375, damping: 32, mass: 1 }` | Dialled by Sean on /tune, saved as "Version 4" (`docs/tuning/dialkit-morph-sheet-close.json`). Retuned 2026-08-31 from 240/34/1.75; a k=0.92 "slow the shell down" strawman (317.4/29.44/1) was tried and rejected — he dialled the shell back to exactly this. Damping ratio 0.826 |
 | `shared.open` | `{ stiffness: 500, damping: 45 }` | stiff and near-critically damped so the shared element clears the growing sheet without overshoot |
 | `shared.close` | `{ stiffness: 340, damping: 30, mass: 1 }` | Dialled by Sean on /tune ("Version 4"), NOT derived. He asked for a slower avatar, was given a k=0.85 strawman (220.3625/24.565/1), and dialled back past the k=Ts/(Ts+D)=0.902 arrive-together value to something FASTER than either: wn 18.44 rad/s vs 17.46 derived vs 14.85 strawman. The derivation no longer holds for this pair — deriving from `close` would give damping 30.47, and 30 is where the panel's step-1 slider left it, so the damping ratio drifts to 0.814 against the shell's 0.826. Re-dial on /tune if `close` changes; do not recompute |
 | `surfaceCloseLeadDelayMs` | `35` | ms the surface box waits before starting its close FLIP, so the shared element leads the shrink instead of scaling in lockstep. At 100 the shared element was 53% of the way home before the sheet started collapsing and the close ran 573ms; at 35 it is 17% home and the close runs 507ms, four frames shorter, with the detachment still legible. `shared.close` was formerly derived from this value; as of "Version 4" it is a dialled value and is no longer coupled by formula — re-dial both on /tune together |
 
 `shared` is **direction-aware** because the two directions have different
 jobs. On the open the shared element only has to clear the growing sheet; on
-the close it has to arrive home together with the collapsing disc — and it
+the close it has to arrive home together with the collapsing trigger — and it
 cannot do that on the open's spring, because the surface's close FLIP is
 deliberately started `surfaceCloseLeadDelayMs` after the shared element's.
 Left on one fixed spring, the shared element parked at its resting box 175ms
-before the disc stopped moving, and the 2px border relationship
-(`.shared[data-disc-sheet-slot="disc"]`, `inset: 2px`) arrived a sixth of a
+before the trigger stopped moving, and the 2px border relationship
+(`.shared[data-morph-sheet-slot="trigger"]`, `inset: 2px`) arrived a sixth of a
 second early. The close default was originally derived from `close` by
 formula; as of "Version 4" it is independently dialled instead (see the table
 above), so if `close` is ever retuned again, `shared.close` must be re-dialled
@@ -396,7 +396,7 @@ Each accepts a full Motion `Transition` as well as the `Spring` shorthand, so "I
 
 ### CSS variables: shape tokens
 
-`--disc-sheet-sheet-radius` (32px) and `--disc-sheet-disc-radius` (9999px). These are read once when the sheet opens, via a small `readVarPx` helper modelled on the existing `useCssVarPx.ts`, and fed to the border-radius transform.
+`--morph-sheet-sheet-radius` (32px) and `--morph-sheet-trigger-radius` (9999px). These are read once when the sheet opens, via a small `readVarPx` helper modelled on the existing `useCssVarPx.ts`, and fed to the border-radius transform.
 
 Rationale: radius is a design token. A designer will want it sitting next to the rest of the surface styling in CSS, not buried in a JS prop object. Every other visual token in this package is a CSS variable, and radius should not be the exception just because JS happens to interpolate it.
 
@@ -406,7 +406,7 @@ Not props, not variables, not documented as tunable:
 
 | Constant | Value | What it prevents |
 | --- | --- | --- |
-| `radiusHoldFraction` | 0.74 | The disc shape appearing before the box has contracted (an over-rounded rectangle). Progress-based, so it holds correctly however long a close runs. A second, wall-clock hold (`radiusCloseDelaySec: 1.5`) used to sit on top of it and was removed: 1.5s is longer than a close takes, so it suppressed this hold entirely on the close direction and left the disc resting on the SHEET's radius — a squircle — after every close. |
+| `radiusHoldFraction` | 0.74 | The trigger shape appearing before the box has contracted (an over-rounded rectangle). Progress-based, so it holds correctly however long a close runs. A second, wall-clock hold (`radiusCloseDelaySec: 1.5`) used to sit on top of it and was removed: 1.5s is longer than a close takes, so it suppressed this hold entirely on the close direction and left the trigger resting on the SHEET's radius — a squircle — after every close. |
 | `openContentRevealDelaySec` | 0.2 | Text visibly stretching during the bloom |
 | `contentFadeOutMs` / `DelayMs` | 80 / 0 | Content still painted while the box collapses under it |
 | stagger interval | 0.04 | |
@@ -418,9 +418,9 @@ Each of these is a fix for a specific artifact. Exposing them turns "we solved t
 
 ### The escape hatch
 
-**`useDiscSheet().collapseProgress`**: the raw `MotionValue<number>`, 0 at fully open, 1 at fully closed. It is the same value the package's own radius, mask, and opacity transforms read.
+**`useMorphSheet().collapseProgress`**: the raw `MotionValue<number>`, 0 at fully open, 1 at fully closed. It is the same value the package's own radius, mask, and opacity transforms read.
 
-Anything the package will not animate for you, you animate off that value, and it is frame-locked to the morph by construction rather than by a parallel timer. Combined with `discRect` and `sheetRect`, that is enough to rebuild any of the internal choreography externally. Section 8 uses exactly this to validate the hatch: the trailing-paper close mask is cut from the package and rebuilt in the example app. If it cannot be rebuilt from outside, the hatch is inadequate and we find out in week one instead of after v1.
+Anything the package will not animate for you, you animate off that value, and it is frame-locked to the morph by construction rather than by a parallel timer. Combined with `triggerRect` and `sheetRect`, that is enough to rebuild any of the internal choreography externally. Section 8 uses exactly this to validate the hatch: the trailing-paper close mask is cut from the package and rebuilt in the example app. If it cannot be rebuilt from outside, the hatch is inadequate and we find out in week one instead of after v1.
 
 ---
 
@@ -431,60 +431,60 @@ Anything the package will not animate for you, you animate off that value, and i
 ### Default, zero dependencies
 
 ```tsx
-<DiscSheet.Root>
-  <DiscSheet.Shadow />
+<MorphSheet.Root>
+  <MorphSheet.Shadow />
   …
-</DiscSheet.Root>
+</MorphSheet.Root>
 ```
 
-Renders one `div`: `position: fixed`, `aria-hidden="true"`, `pointer-events: none`, at `z - 1`, sized and positioned to the interpolated silhouette between the disc circle and the sheet box. It paints a plain `box-shadow` from `--disc-sheet-shadow`. It carries, updated every frame without a React re-render:
+Renders one `div`: `position: fixed`, `aria-hidden="true"`, `pointer-events: none`, at `z - 1`, sized and positioned to the interpolated silhouette between the trigger circle and the sheet box. It paints a plain `box-shadow` from `--morph-sheet-shadow`. It carries, updated every frame without a React re-render:
 
 ```
-data-disc-sheet-part="shadow"
+data-morph-sheet-part="shadow"
 data-state="closed" | "open" | "dragging"
 style:
-  --disc-sheet-collapse: 0..1
-  --disc-sheet-shadow-x / -y      viewport px, silhouette center
-  --disc-sheet-shadow-w / -h      half-extents in px
-  --disc-sheet-shadow-radius      px
+  --morph-sheet-collapse: 0..1
+  --morph-sheet-shadow-x / -y      viewport px, silhouette center
+  --morph-sheet-shadow-w / -h      half-extents in px
+  --morph-sheet-shadow-radius      px
 ```
 
-A consumer with only CSS can already do a lot with that: swap the shadow, tie its opacity to `--disc-sheet-collapse`, change the falloff.
+A consumer with only CSS can already do a lot with that: swap the shadow, tie its opacity to `--morph-sheet-collapse`, change the falloff.
 
 ### Swapped for a surface-fx dither layer
 
 ```tsx
-import { DiscSheet, useDiscSheet } from "@seansmithworks/disc-sheet";
+import { MorphSheet, useMorphSheet } from "@seansmithworks/morph-sheet";
 import { useRippleEngine, velocityToRipple } from "@seansmith/surface-fx";
 
 function DitherShadow() {
-  const { collapseProgress, discRect, sheetRect, isDragging } = useDiscSheet();
+  const { collapseProgress, triggerRect, sheetRect, isDragging } = useMorphSheet();
   // build the mask / shader uniforms off collapseProgress + the two rects
   return <canvas … />;
 }
 
-<DiscSheet.Shadow asChild>
+<MorphSheet.Shadow asChild>
   <DitherShadow />
-</DiscSheet.Shadow>
+</MorphSheet.Shadow>
 ```
 
-`asChild` clones the single child and merges onto it: the fixed positioning, the z-index, `aria-hidden`, `pointer-events: none`, the `data-*` attributes, and all the `--disc-sheet-shadow-*` custom properties. The child gets a correctly placed, correctly stacked, non-interactive layer for free and only has to paint.
+`asChild` clones the single child and merges onto it: the fixed positioning, the z-index, `aria-hidden`, `pointer-events: none`, the `data-*` attributes, and all the `--morph-sheet-shadow-*` custom properties. The child gets a correctly placed, correctly stacked, non-interactive layer for free and only has to paint.
 
-The richer signal (the raw MotionValue and the two rects) comes through `useDiscSheet()`, not through the slot. Keeping data flow in the hook and layout in the slot means the slot has one job and the hook has one job.
+The richer signal (the raw MotionValue and the two rects) comes through `useMorphSheet()`, not through the slot. Keeping data flow in the hook and layout in the slot means the slot has one job and the hook has one job.
 
-**The package never imports surface-fx.** `@seansmith/surface-fx` appears only in the example app's dependencies. The default `<DiscSheet.Shadow />` has no dependency beyond React.
+**The package never imports surface-fx.** `@seansmith/surface-fx` appears only in the example app's dependencies. The default `<MorphSheet.Shadow />` has no dependency beyond React.
 
 ### Why this shape
 
-- **Render prop** (`<DiscSheet.Shadow>{(state) => …}</DiscSheet.Shadow>`): equal power, but every consumer re-declares the fixed positioning and the z-index, and gets one of them wrong. The slot owns the container so the consumer owns only the paint.
+- **Render prop** (`<MorphSheet.Shadow>{(state) => …}</MorphSheet.Shadow>`): equal power, but every consumer re-declares the fixed positioning and the z-index, and gets one of them wrong. The slot owns the container so the consumer owns only the paint.
 - **Data-attributes only, styled by consumer CSS**: cannot paint a WebGL canvas or a JS-computed radial mask. Insufficient for the actual target.
 - **A `shadow` prop on Root taking a component**: makes composition order implicit and reads badly in a compound API.
 
 ### The tradeoff you are buying
 
-Today the box-shadow is painted directly on `.discSurface` and `.sheet`. In this design it moves to the separate shadow layer, which means **if you do not render `<DiscSheet.Shadow />` you get a flat disc with no shadow.**
+Today the box-shadow is painted directly on `.triggerSurface` and `.sheet`. In this design it moves to the separate shadow layer, which means **if you do not render `<MorphSheet.Shadow />` you get a flat trigger with no shadow.**
 
-That is deliberate. The alternative (keep a built-in shadow on the surfaces *and* offer a shadow layer) means swapping in the dither requires two edits: add the layer, and null out the built-in. That is the friction that makes people not bother. Radix makes the same call with `Dialog.Overlay`. `<DiscSheet.Shadow />` appears in every documentation example including the one-line copy-paste sample.
+That is deliberate. The alternative (keep a built-in shadow on the surfaces *and* offer a shadow layer) means swapping in the dither requires two edits: add the layer, and null out the built-in. That is the friction that makes people not bother. Radix makes the same call with `Dialog.Overlay`. `<MorphSheet.Shadow />` appears in every documentation example including the one-line copy-paste sample.
 
 ---
 
@@ -493,29 +493,29 @@ That is deliberate. The alternative (keep a built-in shadow on the surfaces *and
 ### Package
 
 ```
-disc-sheet/
+morph-sheet/
 ├── package.json              ~35    name, root-only exports, react+motion peers
 ├── tsconfig.json             ~20    device-frame's, verbatim
 ├── README.md                ~260    pitch → install → one copy-paste sample → prop tables
 └── src/
-    ├── index.ts              ~25    the DiscSheet namespace object, useDiscSheet, exported types
+    ├── index.ts              ~25    the MorphSheet namespace object, useMorphSheet, exported types
     ├── Root.tsx             ~180    context, open+anchor state, LayoutGroup, persistence, reduced-motion, id generation
-    ├── Disc.tsx             ~200    fixed drag wrapper, x/y MotionValues, drag + nearest-anchor snap, tap-vs-drag, trigger button, seed surface
+    ├── Trigger.tsx             ~200    fixed drag wrapper, x/y MotionValues, drag + nearest-anchor snap, tap-vs-drag, trigger button, seed surface
     ├── Sheet.tsx            ~260    dialog surface, layoutId FLIP, borderRadius transform, swipe-to-close, placement from anchor
     ├── Shared.tsx            ~45    shared-element slot, own layoutId + spring
     ├── Content.tsx           ~70    post-bloom reveal container, scroll region, Item
     ├── Close.tsx             ~35    close button, registers itself for the dev warning
     ├── Backdrop.tsx          ~45    visual scrim only
     ├── Shadow.tsx            ~95    shadow slot + asChild merge, writes geometry vars per frame
-    ├── context.ts            ~70    context type, useDiscSheet, the throw-outside-Root guard
+    ├── context.ts            ~70    context type, useMorphSheet, the throw-outside-Root guard
     ├── anchors.ts           ~180    six-anchor model: nearestAnchor, restingLeft/Top, anchorCenter, sheetPlacement
     ├── motion.ts             ~75    default springs, internal choreography constants, transition merge
-    ├── useDiscSize.ts        ~45    resolve the ramp to a number, write --disc-sheet-disc-size, resize handling
+    ├── useTriggerSize.ts     ~45    resolve the ramp to a number, write --morph-sheet-trigger-size, resize handling
     ├── usePersistedAnchor.ts ~50    localStorage read + validate + write
     ├── useDialogBehavior.ts  ~95    scroll lock, focus trap, Escape, focus restore on exit-complete
     ├── readVarPx.ts          ~35    read a px custom property (radius tokens)
     ├── types.ts              ~60    AnchorId, Spring, MorphTransition, prop interfaces
-    ├── styles.module.css    ~380    all package CSS, --disc-sheet-* vars with fallbacks
+    ├── styles.module.css    ~380    all package CSS, --morph-sheet-* vars with fallbacks
     └── css-modules.d.ts       ~4    device-frame's file, verbatim
 ```
 
@@ -524,14 +524,14 @@ Roughly 1,900 lines. That is higher than the raw extraction estimate (~800 TS + 
 ### Example app
 
 ```
-disc-sheet/example/
+morph-sheet/example/
 ├── index.html            ~20
 ├── vite.config.ts         ~8
 ├── main.tsx              ~40    mount, palette toggle for light/midnight proof
-├── IdentityDisc.tsx     ~220    Sean's contact surface, built on the primitive
-├── DitherShadow.tsx     ~120    surface-fx dither layer through <DiscSheet.Shadow asChild>
+├── IdentityTrigger.tsx  ~220    Sean's contact surface, built on the primitive
+├── DitherShadow.tsx     ~120    surface-fx dither layer through <MorphSheet.Shadow asChild>
 ├── CloseMask.tsx         ~60    the trailing-paper mask, rebuilt off collapseProgress (see §8)
-└── example.module.css   ~200    the site's tokens mapped onto --disc-sheet-*
+└── example.module.css   ~200    the site's tokens mapped onto --morph-sheet-*
 ```
 
 ### Where surface-fx's conventions carry over, and where they do not
@@ -572,26 +572,26 @@ Do not carry over:
 **Reduced motion.** With `prefers-reduced-motion: reduce` or `reduceMotion`:
 - No FLIP. `layoutId` is dropped on both the surface and the shared element, so the sheet cross-fades at 200ms instead of morphing.
 - No swipe-to-close on the sheet (drag would fight the reduced-motion contract).
-- Disc drag elastic goes to 0 and the anchor snap is instant.
+- Trigger drag elastic goes to 0 and the anchor snap is instant.
 - The default shadow layer paints statically at the resting silhouette.
 
 **Hit target.** The drag wrapper is at least 96px on every breakpoint, comfortably over WCAG 2.5.5's 44px.
 
-**Touch.** `touch-action: none` on the disc wrapper so Motion owns the pointer stream; `touch-action: pan-y` on the sheet so content still scrolls.
+**Touch.** `touch-action: none` on the trigger wrapper so Motion owns the pointer stream; `touch-action: pan-y` on the sheet so content still scrolls.
 
 ### What the consumer owns
 
-- Every semantic inside `<DiscSheet.Sheet>`: heading levels, landmarks, link text, reading order.
+- Every semantic inside `<MorphSheet.Sheet>`: heading levels, landmarks, link text, reading order.
 - Supplying both accessible names. Both are typed-required, so this is enforced, not merely asked for.
-- Rendering a visible `<DiscSheet.Close>`. The package does not place it, because placement is a design decision, but Root logs a dev-only warning if the sheet opens with none registered. Escape plus backdrop click is not sufficient for a touch user with a screen reader.
-- Color contrast of the content and of any `--disc-sheet-*` overrides.
+- Rendering a visible `<MorphSheet.Close>`. The package does not place it, because placement is a design decision, but Root logs a dev-only warning if the sheet opens with none registered. Escape plus backdrop click is not sufficient for a touch user with a screen reader.
+- Color contrast of the content and of any `--morph-sheet-*` overrides.
 - Any live-region announcements their content needs beyond the dialog role.
 
 ### Known gaps, stated rather than hidden
 
 1. **No `inert` on background content.** `aria-modal="true"` is what ships today and it covers modern AT, but screen readers that ignore it can navigate out of the dialog. Radix applies `inert` to siblings. v0.2 item, called out in the README rather than quietly omitted.
 2. **The focus trap does not see into shadow DOM or iframes.** Same limitation as the shipped code.
-3. **No keyboard repositioning.** The disc is fully reachable and operable by keyboard (Tab to it, Enter opens), but moving it between anchors is pointer-only. This matches the shipped component. See §8 for the cost.
+3. **No keyboard repositioning.** The trigger is fully reachable and operable by keyboard (Tab to it, Enter opens), but moving it between anchors is pointer-only. This matches the shipped component. See §8 for the cost.
 
 ---
 
@@ -607,11 +607,11 @@ Do not carry over:
 
 **Uncertainty: low.** I would make this call again without hesitating.
 
-### B. `<DiscSheet.Shared>` is duplicated in both Disc and Sheet, not hoisted to a Root prop
+### B. `<MorphSheet.Shared>` is duplicated in both Trigger and Sheet, not hoisted to a Root prop
 
-**Rejected:** `<DiscSheet.Root shared={<Avatar />}>`, with the package rendering it into both states automatically.
+**Rejected:** `<MorphSheet.Root shared={<Avatar />}>`, with the package rendering it into both states automatically.
 
-**Why rejected.** The shared element needs genuinely different layout in each state. In the disc it is `inset: 2px` and clipped to a circle so the surface ring shows around it. In the sheet it is `position: absolute; top: 24px; left: 24px` at a fixed size, sitting over a spacer row (`ContactSheet.module.css:168-178`). A single hoisted node can only be styled by the package, which means the package would have to own sheet header layout. That is a content decision and it does not belong in a generic primitive. Duplicating the slot keeps layout with the consumer in both states.
+**Why rejected.** The shared element needs genuinely different layout in each state. In the trigger it is `inset: 2px` and clipped to a circle so the surface ring shows around it. In the sheet it is `position: absolute; top: 24px; left: 24px` at a fixed size, sitting over a spacer row (`ContactSheet.module.css:168-178`). A single hoisted node can only be styled by the package, which means the package would have to own sheet header layout. That is a content decision and it does not belong in a generic primitive. Duplicating the slot keeps layout with the consumer in both states.
 
 **Cost.** A real footgun. If the two slots get different children, the morph looks broken and the cause is not obvious. Mitigations are weak: a dev-time child-count comparison catches the crude version and misses the subtle one.
 
@@ -625,19 +625,19 @@ Do not carry over:
 
 **Cost.** Someone who wants a materially different close choreography has to fork. Accepted. That is a fork worth forcing, because the alternative is a package that ships twenty ways to look wrong.
 
-**Uncertainty: medium.** This section used to flag `radiusCloseDelaySec: 1.5` as tuned to a 480px-wide, roughly 600px-tall sheet and wrong for a 900px one. It was worse than that — being wall-clock rather than progress-based, it was longer than a close takes at ANY sheet size, so it never let the radius round at all on the close direction and left the disc resting as a squircle. It is gone; `radiusHoldFraction` alone carries the hold, and the rounding phase targets half the disc's own box so it lands on the resting shape continuously. The remaining soft spot is that `sheetMaxWidth` is a prop while `--disc-sheet-sheet-max-width` is also a CSS variable; those two must not disagree, and the package should let the prop win and write the variable.
+**Uncertainty: medium.** This section used to flag `radiusCloseDelaySec: 1.5` as tuned to a 480px-wide, roughly 600px-tall sheet and wrong for a 900px one. It was worse than that — being wall-clock rather than progress-based, it was longer than a close takes at ANY sheet size, so it never let the radius round at all on the close direction and left the trigger resting as a squircle. It is gone; `radiusHoldFraction` alone carries the hold, and the rounding phase targets half the trigger's own box so it lands on the resting shape continuously. The remaining soft spot is that `sheetMaxWidth` is a prop while `--morph-sheet-sheet-max-width` is also a CSS variable; those two must not disagree, and the package should let the prop win and write the variable.
 
 ---
 
 ## 8. What I would cut from v0.1
 
-Ship this: `Root`, `Disc`, `Sheet`, `Shared`, `Content`, `Item`, `Close`, `Shadow`, `useDiscSheet`. Roughly 1,400 lines. That is the smallest thing that is still the actual product.
+Ship this: `Root`, `Trigger`, `Sheet`, `Shared`, `Content`, `Item`, `Close`, `Shadow`, `useMorphSheet`. Roughly 1,400 lines. That is the smallest thing that is still the actual product.
 
 | Cut | Cost |
 | --- | --- |
-| **The entrance choreography** (WAAPI arrival stroke, impact ripple, velocity coupling) | Already out of scope per the extraction map; reconfirming it. Near-zero cost to the package. Real cost to the site: the disc simply appears. The site keeps its own arrival animation on a wrapper, driven off `useDiscSheet().discRect`. Say this out loud in the migration plan so nobody discovers it during cutover. |
-| **`<DiscSheet.Backdrop>`** | Site default is already no scrim. Dismissal behavior still ships. A consumer who wants a dim scrim writes six lines of their own fixed div. Low. |
-| **Controlled `anchor` + `onAnchorChange` as a controlled pair** | Ship uncontrolled and persisted only; keep `onAnchorChange` as a read-only notification. Cost: an app that wants to move the disc programmatically (get out of the way of another modal) cannot. Real use case, not v0.1's. Low-medium. |
+| **The entrance choreography** (WAAPI arrival stroke, impact ripple, velocity coupling) | Already out of scope per the extraction map; reconfirming it. Near-zero cost to the package. Real cost to the site: the trigger simply appears. The site keeps its own arrival animation on a wrapper, driven off `useMorphSheet().triggerRect`. Say this out loud in the migration plan so nobody discovers it during cutover. |
+| **`<MorphSheet.Backdrop>`** | Site default is already no scrim. Dismissal behavior still ships. A consumer who wants a dim scrim writes six lines of their own fixed div. Low. |
+| **Controlled `anchor` + `onAnchorChange` as a controlled pair** | Ship uncontrolled and persisted only; keep `onAnchorChange` as a read-only notification. Cost: an app that wants to move the trigger programmatically (get out of the way of another modal) cannot. Real use case, not v0.1's. Low-medium. |
 | **The `anchors` subset prop and `edgeMargin`** | All six anchors at 16px. Cost: low, and it is additive later. |
 | **Arrow-key repositioning between anchors** | Roughly 20 lines and a genuine accessibility and delight win, but it does not exist in the shipped component and extraction is the wrong time to add behavior. Cost: a documented a11y gap that stays documented. |
 | **The trailing-paper close mask** (`surfaceCloseMask` and its triangular envelope) | **The expensive one, and it doubles as the design's own test.** See below. |
@@ -648,8 +648,8 @@ That mask is roughly 50 lines of the least explicable code in `ContactSheet.tsx`
 
 But Sean's flagship example *does* have it, and cutting the mask outright would make the example visibly worse than the live site it replaces. That is not acceptable.
 
-So: **cut it from the package, rebuild it in the example app** off `useDiscSheet().collapseProgress`, in `example/CloseMask.tsx`. Roughly 60 lines applying a `maskImage` to `<DiscSheet.Sheet>` from outside.
+So: **cut it from the package, rebuild it in the example app** off `useMorphSheet().collapseProgress`, in `example/CloseMask.tsx`. Roughly 60 lines applying a `maskImage` to `<MorphSheet.Sheet>` from outside.
 
 This is the design's own validation test. If that mask can be rebuilt from outside the package with no additional API, the escape hatch in §3 is proven sufficient and the internal-constants decision in §7C is safe. If it cannot, the hatch is inadequate and we learn it in week one, on a case we already understand, instead of after v1 on a case we do not.
 
-Build the example's `CloseMask.tsx` **first**, before finalizing `useDiscSheet()`'s shape. It is the cheapest possible check on the most consequential decision in this document.
+Build the example's `CloseMask.tsx` **first**, before finalizing `useMorphSheet()`'s shape. It is the cheapest possible check on the most consequential decision in this document.

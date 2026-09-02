@@ -1,11 +1,11 @@
 /*
- * disc-sheet — all package CSS. Every variable is --disc-sheet-* and every
+ * morph-sheet — all package CSS. Every variable is --morph-sheet-* and every
  * one has a hardcoded fallback, so the package renders correctly with a
  * consumer who sets nothing (docs/PACKAGE-DESIGN.md §2).
  *
- * --disc-sheet-disc-size is written by Root.tsx as a scoped @media-query
- * <style> block (derived from useDiscSize's resolveDiscSize, its one source
- * of truth), not an inline style — that is the D3 fix (stale first-open
+ * --morph-sheet-trigger-size is written by Root.tsx as a scoped @media-query
+ * <style> block (derived from useTriggerSize's resolveTriggerSize, its one
+ * source of truth), not an inline style — that is the D3 fix (stale first-open
  * shared-layoutId snapshot): a real @media query resolves correctly at
  * first paint, before any JS runs, so there is never a stale pre-promotion
  * value for Motion to snapshot. This file never hand-copies the ramp's
@@ -16,27 +16,27 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: var(--disc-sheet-z, 100);
-  width: var(--disc-sheet-disc-size, 96px);
-  height: var(--disc-sheet-disc-size, 96px);
+  z-index: var(--morph-sheet-z, 100);
+  width: var(--morph-sheet-trigger-size, 96px);
+  height: var(--morph-sheet-trigger-size, 96px);
   cursor: grab;
   touch-action: none;
 }
 
-/* Close only (Disc.tsx sets the attribute, and the note there has the
- * measurements): lift the disc's stacking context over the sheet's
- * z + 102 so the disc-side <Shared> copy is not occluded by the sheet's
+/* Close only (Trigger.tsx sets the attribute, and the note there has the
+ * measurements): lift the trigger's stacking context over the sheet's
+ * z + 102 so the trigger-side <Shared> copy is not occluded by the sheet's
  * still-opaque background mid-crossfade. Stays a calc() on the token rather
- * than an inline style so a consumer's own --disc-sheet-z still governs. */
-.dragWrapper[data-disc-sheet-closing] {
-  z-index: calc(var(--disc-sheet-z, 100) + 103);
+ * than an inline style so a consumer's own --morph-sheet-z still governs. */
+.dragWrapper[data-morph-sheet-closing] {
+  z-index: calc(var(--morph-sheet-z, 100) + 103);
 }
 
 .dragWrapper:active {
   cursor: grabbing;
 }
 
-.discTrigger {
+.triggerButton {
   position: relative;
   display: block;
   width: 100%;
@@ -48,23 +48,23 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.discTrigger:focus-visible {
-  outline: 2px solid var(--disc-sheet-accent, #b4512e);
+.triggerButton:focus-visible {
+  outline: 2px solid var(--morph-sheet-accent, #b4512e);
   outline-offset: 5px;
-  border-radius: var(--disc-sheet-disc-radius, 9999px);
+  border-radius: var(--morph-sheet-trigger-radius, 9999px);
 }
 
-.discSurface {
+.triggerSurface {
   position: absolute;
   inset: 0;
-  border-radius: var(--disc-sheet-disc-radius, 9999px);
-  background: var(--disc-sheet-surface, #faf7f2);
-  /* 2px, not 1px — .shared[data-disc-sheet-slot="disc"]'s inset:2px exists to
+  border-radius: var(--morph-sheet-trigger-radius, 9999px);
+  background: var(--morph-sheet-surface, #faf7f2);
+  /* 2px, not 1px — .shared[data-morph-sheet-slot="trigger"]'s inset:2px exists to
    * expose exactly this ring; the two must agree or the ring reads as
    * lopsided. */
-  border: 2px solid var(--disc-sheet-surface-border, #e6dfd2);
+  border: 2px solid var(--morph-sheet-surface-border, #e6dfd2);
   box-shadow: var(
-    --disc-sheet-shadow,
+    --morph-sheet-shadow,
     0 1px 4px rgba(26, 22, 16, 0.14),
     0 6px 24px rgba(0, 0, 0, 0.15)
   );
@@ -73,41 +73,42 @@
 
 /*
  * .shared — the shared-element slot, base rule. Sized to
- * --disc-sheet-shared-size, which defaults to the live --disc-sheet-disc-size
- * (written on <DiscSheet.Root>'s own wrapper div, an ancestor of both the
- * disc and the sheet, so both slots resolve the same size).
+ * --morph-sheet-shared-size, which defaults to the live --morph-sheet-trigger-size
+ * (written on <MorphSheet.Root>'s own wrapper div, an ancestor of both the
+ * trigger and the sheet, so both slots resolve the same size).
  *
- * The disc- and sheet-side instances need genuinely different layout — the
- * disc clips to a circle inset in the surface ring, the sheet sits in flow
- * with margin — so a single opinionated rule (the pre-review version of this
- * file) can never serve both. `data-disc-sheet-slot="disc" | "sheet"`, set by
- * <Shared> from SlotContext (provided by <Disc>/<Sheet>), is a higher-
- * specificity attribute selector, so it reliably wins over this base rule
- * regardless of source order — unlike trying to override via a
+ * The trigger- and sheet-side instances need genuinely different layout —
+ * the trigger clips to a circle inset in the surface ring, the sheet sits
+ * in flow with margin — so a single opinionated rule (the pre-review
+ * version of this file) can never serve both. `data-morph-sheet-slot="trigger" | "sheet"`,
+ * set by <Shared> from SlotContext (provided by <Trigger>/<Sheet>), is a
+ * higher-specificity attribute selector, so it reliably wins over this base
+ * rule regardless of source order — unlike trying to override via a
  * consumer-supplied className, which has equal specificity to this rule and
  * whose precedence depends on bundler concatenation order, not on intent.
  */
 .shared {
   position: relative;
-  /* The fallback is disc-size MINUS the disc-side slot's 2px inset on each
-   * edge (4px total), not the raw disc-size: the disc-side instance below is
-   * inset:2px inside a discSize-square parent, so its EFFECTIVE rendered box
-   * is discSize-4. Both instances must resolve to the same effective size —
-   * that equality is what a zero-scale FLIP (B1) requires — so this base
-   * rule (which the sheet-side slot inherits unmodified) has to match it. */
+  /* The fallback is trigger-size MINUS the trigger-side slot's 2px inset on
+   * each edge (4px total), not the raw trigger-size: the trigger-side
+   * instance below is inset:2px inside a triggerSize-square parent, so its
+   * EFFECTIVE rendered box is triggerSize-4. Both instances must resolve to
+   * the same effective size — that equality is what a zero-scale FLIP (B1)
+   * requires — so this base rule (which the sheet-side slot inherits
+   * unmodified) has to match it. */
   width: var(
-    --disc-sheet-shared-size,
-    calc(var(--disc-sheet-disc-size, 96px) - 4px)
+    --morph-sheet-shared-size,
+    calc(var(--morph-sheet-trigger-size, 96px) - 4px)
   );
   height: var(
-    --disc-sheet-shared-size,
-    calc(var(--disc-sheet-disc-size, 96px) - 4px)
+    --morph-sheet-shared-size,
+    calc(var(--morph-sheet-trigger-size, 96px) - 4px)
   );
   pointer-events: none;
 }
 
-/* Disc-side: inset in the surface ring, clipped to a circle, centered. */
-.shared[data-disc-sheet-slot="disc"] {
+/* Trigger-side: inset in the surface ring, clipped to a circle, centered. */
+.shared[data-morph-sheet-slot="trigger"] {
   position: absolute;
   inset: 2px;
   z-index: 1;
@@ -123,7 +124,7 @@
 /* Sheet-side: no header row to sit inside here, so this stays in flow with
  * margin rather than the source's `position: absolute` — simpler than the
  * extraction source because the package has no header spacer to clear. */
-.shared[data-disc-sheet-slot="sheet"] {
+.shared[data-morph-sheet-slot="sheet"] {
   position: relative;
   margin: 24px 24px 0;
   border-radius: 50%;
@@ -133,30 +134,30 @@
 
 .sheet {
   position: fixed;
-  width: min(var(--disc-sheet-sheet-max-width, 480px), calc(100vw - 32px));
-  left: var(--disc-sheet-sheet-left, 16px);
-  /* Default: grow upward from the bottom edge. When the disc is anchored in
+  width: min(var(--morph-sheet-sheet-max-width, 480px), calc(100vw - 32px));
+  left: var(--morph-sheet-sheet-left, 16px);
+  /* Default: grow upward from the bottom edge. When the trigger is anchored in
    * the top half of the viewport, Sheet.tsx overrides `top`/`bottom` inline
    * (not via a var) so the sheet grows downward instead — see Sheet.tsx's
    * placementStyle. */
   bottom: 16px;
   display: flex;
   flex-direction: column;
-  background: var(--disc-sheet-surface-elevated, #f4f0e8);
-  border: 1px solid var(--disc-sheet-surface-border, #e6dfd2);
+  background: var(--morph-sheet-surface-elevated, #f4f0e8);
+  border: 1px solid var(--morph-sheet-surface-border, #e6dfd2);
   /* Motion's inline borderRadius MotionValue (Sheet.tsx) wins during the
    * morph; this supplies the resting shape AND the reduced-motion shape,
    * which never gets an inline value at all (its render branch passes no
    * borderRadius) and previously rendered with square corners. */
-  border-radius: var(--disc-sheet-sheet-radius, 32px);
+  border-radius: var(--morph-sheet-sheet-radius, 32px);
   box-shadow: var(
-    --disc-sheet-sheet-shadow,
+    --morph-sheet-sheet-shadow,
     0 8px 48px rgba(0, 0, 0, 0.24),
     0 2px 8px rgba(0, 0, 0, 0.12)
   );
   max-height: 88dvh;
   overflow: hidden;
-  color: var(--disc-sheet-text, #1a1610);
+  color: var(--morph-sheet-text, #1a1610);
 }
 
 .sheet:focus {
@@ -171,8 +172,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y;
-  padding: 0 var(--disc-sheet-sheet-padding, 24px)
-    var(--disc-sheet-sheet-padding, 24px);
+  padding: 0 var(--morph-sheet-sheet-padding, 24px)
+    var(--morph-sheet-sheet-padding, 24px);
 }
 
 /* Layout-neutral: kept as a real (if empty) CSS-module rule so
@@ -192,21 +193,21 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--disc-sheet-text, #1a1610);
+  color: var(--morph-sheet-text, #1a1610);
   cursor: pointer;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
 .closeButton:focus-visible {
-  outline: 2px solid var(--disc-sheet-accent, #b4512e);
+  outline: 2px solid var(--morph-sheet-accent, #b4512e);
   outline-offset: 2px;
 }
 
 .shadow {
-  border-radius: var(--disc-sheet-shadow-radius, 9999px);
+  border-radius: var(--morph-sheet-shadow-radius, 9999px);
   box-shadow: var(
-    --disc-sheet-shadow,
+    --morph-sheet-shadow,
     0 1px 4px rgba(26, 22, 16, 0.14),
     0 6px 24px rgba(0, 0, 0, 0.15)
   );
@@ -214,7 +215,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dragWrapper,
-  .discTrigger {
+  .triggerButton {
     cursor: pointer;
   }
 }

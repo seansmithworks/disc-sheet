@@ -1,22 +1,22 @@
 {
-  "name": "@seansmithworks/disc-sheet",
+  "name": "@seansmithworks/morph-sheet",
   "version": "0.1.0",
   "type": "module",
-  "description": "Draggable disc that morphs into a modal sheet. Generic React primitive, compound-component API.",
+  "description": "Draggable trigger that morphs into a modal sheet. Generic React primitive, compound-component API.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seansmithworks/disc-sheet.git"
+    "url": "git+https://github.com/seansmithworks/morph-sheet.git"
   },
-  "homepage": "https://github.com/seansmithworks/disc-sheet#readme",
+  "homepage": "https://github.com/seansmithworks/morph-sheet#readme",
   "bugs": {
-    "url": "https://github.com/seansmithworks/disc-sheet/issues"
+    "url": "https://github.com/seansmithworks/morph-sheet/issues"
   },
   "keywords": [
     "react",
     "sheet",
     "modal",
-    "disc",
+    "trigger",
     "fab",
     "motion",
     "framer-motion",
@@ -39,7 +39,7 @@
   },
   "types": "./dist/index.d.ts",
   "bin": {
-    "disc-sheet": "./bin/disc-sheet.mjs"
+    "morph-sheet": "./bin/morph-sheet.mjs"
   },
   "files": [
     "dist",
