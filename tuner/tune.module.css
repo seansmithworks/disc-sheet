@@ -1,0 +1,202 @@
+/* The tuner shell. It supplies the chrome that dialkit's INLINE mode
+   deliberately strips (.dialkit-panel-inline drops border/radius/shadow), so
+   the measured readout and the dial panel read as one object. */
+
+.stage {
+  position: fixed;
+  inset: 0;
+}
+
+.dock {
+  position: fixed;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 288px;
+  max-height: 86vh;
+
+  /* Below the trigger and the sheet (--morph-sheet-z defaults to 100) so the
+     motion being measured is never occluded by the thing measuring it. */
+  z-index: 50;
+
+  display: flex;
+  flex-direction: column;
+  background: #212121;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* The dock stays put through the morph. It sits below --morph-sheet-z (100),
+   so the trigger and sheet paint OVER it and the motion is never occluded.
+   Hiding it was worse: the readouts matter most during the morph, and a panel
+   fading in and out is itself motion competing with the motion being judged. */
+
+.readout {
+  padding: 12px 12px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+.readoutHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.readoutTitle {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.runCount {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.36);
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.metric {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 9px 9px;
+  min-width: 0;
+}
+
+.metricLabel {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.metricValue {
+  margin-top: 3px;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 22px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.metricUnit {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.38);
+  margin-left: 2px;
+}
+
+.metricNote {
+  margin-top: 4px;
+  font-size: 10px;
+  line-height: 1.32;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ok {
+  color: #5fd08b;
+}
+.warn {
+  color: #e9b949;
+}
+.bad {
+  color: #f2685a;
+}
+.idle {
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.subline {
+  margin-top: 9px;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.36);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one export path off this panel — a MotionPreset-shaped JSON blob to
+   the clipboard, ready to paste into `preset={...}`. Deliberately separate
+   from dialkit's own toolbar Copy, which emits the raw dial values
+   (discShell/avatar/leadDelay/avatarFill) rather than the package's shape. */
+.copyButton {
+  margin-top: 10px;
+  width: 100%;
+  padding: 7px 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.copyButton:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* dialkit's inline panel sizes itself off `max-height: inherit`, which has
+   nothing definite to resolve against inside a flex column — the Avatar
+   folder and the lead-delay slider fell off the bottom with no way to reach
+   them. Scroll here instead and let the panel be its natural height. */
+.dials {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.dials::-webkit-scrollbar {
+  width: 0;
+}
+
+.foot {
+  padding: 8px 12px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 10px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.foot code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* The sheet's own content on this route — same markup as `/` so the motion
+   under test is the motion Sean already judged. */
+.avatar {
+  /* border-box so the outline never changes the div's 100%x100% footprint —
+     the readouts measure the Shared wrapper, but keeping this inert is
+     cheaper than reasoning about it later. */
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border-radius: 100%;
+
+  /* Outline always on; fill alpha is dialled (--avatar-fill, 0 = see-through)
+     so the shell's box stays visible behind the avatar while tuning. */
+  border: 2px solid #b4512e;
+  background: rgba(180, 81, 46, var(--avatar-fill, 0.2));
+}

@@ -82,6 +82,33 @@ Peer dependencies aren't copied and still need installing:
 npm install react react-dom motion
 ```
 
+### Live-tuning panel
+
+```bash
+npx @seansmithworks/morph-sheet add tuner
+```
+
+Copies a small dialkit-driven page (`./tuner` by default) for dialling the
+close choreography by eye instead of by hand-typed spring numbers — the same
+panel Sean's own "Version 4" defaults were dialled on. It needs
+[`dialkit`](https://www.npmjs.com/package/dialkit) as a **devDependency**,
+which the copy-in tells you to install:
+
+```bash
+npm install -D dialkit
+```
+
+`dialkit` is never a dependency of this package itself and shouldn't become
+one of your consuming app either: its stylesheet pulls Geist Mono from
+Google Fonts, an external request you don't want on every page load, and a
+tuning panel is a development tool that has no business being reachable
+from a production bundle. Mount `tuner/page.tsx` behind a route your prod
+build never ships (or a dev-only guard), dial the close, then use the
+panel's **Copy as MotionPreset** button — it emits a `MotionPreset`-shaped
+object you paste straight into `preset={...}` on `<MorphSheet.Root>`, no
+hand-translation. This repo runs the same file live at
+`npm run dev` → `/tune.html`.
+
 ## Peer dependencies
 
 - `react` >=19

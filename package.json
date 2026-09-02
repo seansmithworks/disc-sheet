@@ -45,6 +45,7 @@
     "dist",
     "src",
     "bin",
+    "tuner",
     "README.md",
     "LICENSE"
   ],
@@ -62,6 +63,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "dialkit": "^1.4.3",
     "motion": "^12.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

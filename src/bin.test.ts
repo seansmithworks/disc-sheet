@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 const BIN_PATH = new URL("../bin/morph-sheet.mjs", import.meta.url).pathname;
 const SRC_DIR = new URL("../src/", import.meta.url).pathname;
+const TUNER_DIR = new URL("../tuner/", import.meta.url).pathname;
 
 function runBin(args: string[], cwd: string) {
   return spawnSync(process.execPath, [BIN_PATH, ...args], {
@@ -110,5 +111,63 @@ describe("bin/morph-sheet.mjs add", () => {
     const result = runBin(["bogus"], tmpDir);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('unknown command "bogus"');
+  });
+});
+
+describe("bin/morph-sheet.mjs add tuner", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "morph-sheet-bin-tuner-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("copies the tuner files into a fresh target dir, default ./tuner", () => {
+    const result = runBin(["add", "tuner"], tmpDir);
+    expect(result.status).toBe(0);
+
+    const targetDir = path.join(tmpDir, "tuner");
+    const copied = fs.readdirSync(targetDir).sort();
+    const expected = fs.readdirSync(TUNER_DIR).sort();
+    expect(copied).toEqual(expected);
+    expect(result.stdout).toContain("npm install -D dialkit");
+    expect(result.stdout.toLowerCase()).toContain("development tool");
+  });
+
+  it("refuses to overwrite existing tuner files without --force", () => {
+    const first = runBin(["add", "tuner"], tmpDir);
+    expect(first.status).toBe(0);
+
+    const targetDir = path.join(tmpDir, "tuner");
+    const sentinelFile = path.join(targetDir, "page.tsx");
+    fs.writeFileSync(sentinelFile, "// sentinel, must survive\n");
+
+    const second = runBin(["add", "tuner"], tmpDir);
+    expect(second.status).toBe(1);
+    expect(second.stderr).toContain("refusing to overwrite existing files");
+    expect(fs.readFileSync(sentinelFile, "utf8")).toBe(
+      "// sentinel, must survive\n",
+    );
+  });
+
+  it("respects a custom target dir", () => {
+    const result = runBin(["add", "tuner", "scratch/tune-panel"], tmpDir);
+    expect(result.status).toBe(0);
+    expect(
+      fs.existsSync(path.join(tmpDir, "scratch/tune-panel/page.tsx")),
+    ).toBe(true);
+  });
+
+  it("does not disturb a bare `add`'s file set", () => {
+    const result = runBin(["add"], tmpDir);
+    expect(result.status).toBe(0);
+    const targetDir = path.join(tmpDir, "src", "morph-sheet");
+    expect(fs.readdirSync(targetDir)).toEqual(
+      expect.arrayContaining(["index.ts"]),
+    );
+    expect(fs.existsSync(path.join(tmpDir, "tuner"))).toBe(false);
   });
 });

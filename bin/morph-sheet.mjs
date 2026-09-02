@@ -13,6 +13,12 @@ const SRC_DIR = new URL("../src/", import.meta.url);
 const SPECIAL_CASED = new Set(["css-modules.d.ts"]);
 const TEST_FILE_RE = /\.test\.tsx?$/;
 
+// The tuner lives at the repo's top level (see tuner/, not src/ or example/)
+// specifically so it is never swept into readSrcFiles() below and shipped to
+// every consumer who just wants the component.
+const TUNER_DIR = new URL("../tuner/", import.meta.url);
+const TUNER_FILES = ["page.tsx", "tune.module.css"];
+
 function usage() {
   console.log(`morph-sheet — a draggable trigger that morphs into a modal sheet
 
@@ -21,6 +27,12 @@ Usage:
 
   Copies the component source into your project (default target:
   ./src/morph-sheet) so you own and can edit the files directly.
+
+  npx @seansmithworks/morph-sheet add tuner [targetDir] [--force]
+
+  Copies the live-tuning panel instead (default target: ./tuner). It is a
+  development tool, not part of the component — see its own instructions
+  after copying.
 
 Peer dependencies (install these yourself): react, react-dom, motion
 `);
@@ -42,24 +54,14 @@ function hasAmbientCssModuleDecl(cwd) {
   return fs.existsSync(path.join(cwd, "next-env.d.ts"));
 }
 
-function cmdAdd(args) {
-  const force = args.includes("--force");
-  const positional = args.filter((a) => a !== "--force");
-  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/morph-sheet");
-
-  const files = readSrcFiles();
-
-  const skipCssShim = hasAmbientCssModuleDecl(process.cwd());
-  if (!skipCssShim) {
-    files.push("css-modules.d.ts");
-  }
-
+/** Shared conflict-guard + copy, used by both `add` and `add tuner`. */
+function copyFiles(sourceDir, files, targetDir, force) {
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  const conflicts = [];
   if (!force) {
+    const conflicts = [];
     for (const file of files) {
       const dest = path.join(targetDir, file);
       if (fs.existsSync(dest)) conflicts.push(dest);
@@ -75,12 +77,33 @@ function cmdAdd(args) {
 
   let copied = 0;
   for (const file of files) {
-    const srcPath = new URL(file, SRC_DIR);
+    const srcPath = new URL(file, sourceDir);
     const dest = path.join(targetDir, file);
     fs.copyFileSync(srcPath, dest);
     copied += 1;
   }
+  return copied;
+}
 
+function cmdAdd(args) {
+  const force = args.includes("--force");
+  const positional = args.filter((a) => a !== "--force");
+
+  if (positional[0] === "tuner") {
+    cmdAddTuner(positional.slice(1), force);
+    return;
+  }
+
+  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/morph-sheet");
+
+  const files = readSrcFiles();
+
+  const skipCssShim = hasAmbientCssModuleDecl(process.cwd());
+  if (!skipCssShim) {
+    files.push("css-modules.d.ts");
+  }
+
+  const copied = copyFiles(SRC_DIR, files, targetDir, force);
   const relTarget = path.relative(process.cwd(), targetDir) || ".";
 
   console.log(`morph-sheet: copied ${copied} files to ${relTarget}`);
@@ -93,6 +116,23 @@ function cmdAdd(args) {
   console.log(`  npm install react react-dom motion`);
   console.log(`\nImport it:`);
   console.log(`  import { MorphSheet } from "./${relTarget}";`);
+}
+
+function cmdAddTuner(positional, force) {
+  const targetDir = path.resolve(process.cwd(), positional[0] || "./tuner");
+
+  const copied = copyFiles(TUNER_DIR, TUNER_FILES, targetDir, force);
+  const relTarget = path.relative(process.cwd(), targetDir) || ".";
+
+  console.log(`morph-sheet: copied ${copied} tuner files to ${relTarget}`);
+  console.log(`\nThe tuner needs dialkit itself, as a devDependency only:`);
+  console.log(`  npm install -D dialkit`);
+  console.log(
+    `\nThis is a development tool for dialling motion by hand, not part of\n` +
+      `the shipped component — mount it behind a route your production build\n` +
+      `never reaches (e.g. gate it out of prod, or delete it once you've\n` +
+      `copied its output into your preset).`
+  );
 }
 
 function main() {
