@@ -1,0 +1,156 @@
+/*
+ * media-card.css — the "why would I want this" example. Tokens are the 13
+ * documented --morph-sheet-* custom properties from the README theming
+ * table, set to a cool App-Store-like palette distinct from the flagship's
+ * warm one. Nothing here duplicates a token's color as a hardcoded value
+ * outside the .media-theme block.
+ */
+
+.media-page {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+}
+
+.media-whisper {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  margin: 0;
+  font-size: 13px;
+  color: rgba(20, 22, 28, 0.5);
+  max-width: 280px;
+}
+
+.media-theme {
+  --morph-sheet-surface: #f5f6fa;
+  --morph-sheet-surface-elevated: #ffffff;
+  --morph-sheet-surface-border: #e3e6ee;
+  --morph-sheet-text: #14161c;
+  --morph-sheet-accent: #3b6fed;
+  --morph-sheet-sheet-max-width: 420px;
+  --morph-sheet-sheet-radius: 28px;
+  --morph-sheet-sheet-padding: 24px;
+  --morph-sheet-shadow:
+    0 1px 3px rgba(20, 22, 28, 0.12), 0 8px 24px rgba(20, 22, 28, 0.14);
+  --morph-sheet-sheet-shadow:
+    0 12px 48px rgba(20, 22, 28, 0.22), 0 2px 8px rgba(20, 22, 28, 0.1);
+}
+
+/* Trigger radius is left at the package default (9999px, a circle):
+ * <MorphSheet.Shared>'s own clip (styles.module.css) is hardcoded to a
+ * circle mask independent of --morph-sheet-trigger-radius, so squaring the
+ * surface ring here would leave a circular icon inside a squared-off ring —
+ * the exact mismatched-shape bug shape variants are gated on. Judgment call:
+ * the icon itself reads as an "app icon" through its glyph and gradient,
+ * not through the trigger's outer silhouette. */
+.media-icon {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #6a8dff 0%, #3b6fed 55%, #2748a8 100%);
+}
+
+.media-icon svg {
+  width: 42%;
+  height: 42%;
+  fill: #ffffff;
+}
+
+[data-morph-sheet-part="close"] {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.media-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.media-title {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--morph-sheet-text);
+}
+
+.media-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--morph-sheet-text);
+  opacity: 0.6;
+}
+
+.media-get {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 32px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  background: var(--morph-sheet-accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.media-get:focus-visible {
+  outline: 2px solid var(--morph-sheet-accent);
+  outline-offset: 2px;
+}
+
+.media-meta {
+  display: flex;
+  margin: 20px 0 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--morph-sheet-surface-border);
+  border-bottom: 1px solid var(--morph-sheet-surface-border);
+}
+
+.media-meta-stat {
+  flex: 1;
+  text-align: center;
+  border-right: 1px solid var(--morph-sheet-surface-border);
+}
+
+.media-meta-stat:last-child {
+  border-right: none;
+}
+
+.media-meta-stat dt {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--morph-sheet-text);
+  opacity: 0.5;
+  margin: 0 0 4px;
+}
+
+.media-meta-stat dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--morph-sheet-text);
+}
+
+.media-description {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--morph-sheet-text);
+  opacity: 0.8;
+}
