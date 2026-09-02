@@ -1,5 +1,6 @@
 import type { Transition } from "motion/react";
 import type {
+  MorphTransition,
   MotionPreset,
   Spring,
   SharedTransitionByDirection,
@@ -232,6 +233,112 @@ function isSpringShorthand(value: Spring | Transition): value is Spring {
     "visualDuration" in value
   );
 }
+// DurationSpring.bounce is required, not optional, even though Motion's own
+// spring type marks it optional: Motion's duration-key list is
+// ["duration", "bounce"] — visualDuration is NOT in it — so
+// {visualDuration: 0.4} with no bounce never enters the duration-based
+// resolution block at all and silently settles on Motion's plain defaults
+// (1050ms on a 0->100 keyframe, vs. the intended ~400ms). Requiring bounce
+// at the type level is the only thing closing that hole; do not make it
+// optional to "match Motion's types" more closely. `bounce: 0` is still a
+// perfectly valid, common value — Motion's own checks test `!== undefined`,
+// not truthiness, so a zero bounce is unaffected by this requirement.
+
+/**
+ * Per-direction `shared` source, before it's merged against a package
+ * default. `explicitShared` (the `transition.shared` prop) replaces
+ * `presetShared` WHOLESALE when present — no deep merge across the three
+ * possible shapes (Spring / Transition / {open, close}), same rule
+ * `isSharedByDirection`'s caller documents. But "wholesale" only applies to
+ * the shape the caller actually supplied: a directional `{ open }` object
+ * that omits `close` must fall back to the PRESET's `close` for that
+ * direction, not straight to the package default — otherwise
+ * `preset={presets.snappy} transition={{ shared: { open: x } }}` silently
+ * resets the close-direction shared spring to 340/30/1 instead of snappy's
+ * 449.65/34.5, and the shared element trails the box by 45ms instead of
+ * leading it (measured), spilling past the trigger's 2px border.
+ */
+function resolveSharedForDirection(
+  explicitShared: Spring | Transition | SharedTransitionByDirection | undefined,
+  presetShared: Spring | Transition | SharedTransitionByDirection | undefined,
+  open: boolean,
+): Spring | Transition | undefined {
+  if (explicitShared !== undefined) {
+    if (isSharedByDirection(explicitShared)) {
+      const explicitForDirection = open
+        ? explicitShared.open
+        : explicitShared.close;
+      if (explicitForDirection !== undefined) return explicitForDirection;
+      return presetShared === undefined
+        ? undefined
+        : isSharedByDirection(presetShared)
+          ? open
+            ? presetShared.open
+            : presetShared.close
+          : presetShared;
+    }
+    // A single Spring/Transition explicit override applies to both directions.
+    return explicitShared;
+  }
+  if (presetShared === undefined) return undefined;
+  return isSharedByDirection(presetShared)
+    ? open
+      ? presetShared.open
+      : presetShared.close
+    : presetShared;
+}
+
+/**
+ * Resolves every field an explicit `transition` prop and a `preset` can
+ * touch into the three ready-to-use Transitions Root hands to Trigger/Sheet/
+ * Shared: `open`, `close` and the direction-appropriate `shared`. Pulled out
+ * of Root's component body so it can be unit tested directly (motion.test.ts)
+ * rather than only through a re-declared copy of the same expression — see
+ * the F3 finding this fixes.
+ *
+ * Field-by-field precedence for `open`/`close`: an explicit
+ * `transition.<field>` wins over the same field on `preset.transition`, and
+ * only then falls back to the package default. `shared` goes through
+ * {@link resolveSharedForDirection} instead, since it is direction-aware and
+ * replaced whole rather than merged.
+ */
+export function resolveMotion({
+  preset,
+  transition,
+  surfaceCloseLeadDelayMs,
+  reduceMotion,
+  open,
+}: {
+  preset: MotionPreset | undefined;
+  transition: MorphTransition | undefined;
+  surfaceCloseLeadDelayMs: number;
+  reduceMotion: boolean;
+  open: boolean;
+}): { open: Transition; close: Transition; shared: Transition } {
+  const openTransition = mergeTransition(
+    transition?.open ?? preset?.transition?.open,
+    DEFAULT_OPEN_SPRING,
+  );
+  const closeTransition = mergeTransition(
+    transition?.close ?? preset?.transition?.close,
+    DEFAULT_CLOSE_SPRING,
+    reduceMotion ? undefined : surfaceCloseLeadDelayMs / 1000,
+  );
+  const sharedForDirection = resolveSharedForDirection(
+    transition?.shared,
+    preset?.transition?.shared,
+    open,
+  );
+  const sharedTransition = mergeTransition(
+    sharedForDirection,
+    open ? DEFAULT_SHARED_SPRING : DEFAULT_SHARED_CLOSE_SPRING,
+  );
+  return {
+    open: openTransition,
+    close: closeTransition,
+    shared: sharedTransition,
+  };
+}
 
 // ── Presets ──────────────────────────────────────────────────────────────
 // `preset` is a named feel: exactly the two fields the /tune panel can
@@ -291,8 +398,26 @@ const GENTLE_PRESET: MotionPreset = {
   surfaceCloseLeadDelayMs: 41,
 };
 
-export const presets = {
+/** Recursively Object.freeze a preset tree (plain objects only — every leaf
+ * here is a number or a nested plain object, never an array or class
+ * instance). `presets.default.transition === DEFAULT_OPEN_SPRING` etc. by
+ * reference (see above), so freezing DEFAULT_PRESET here also freezes those
+ * shared constants — that is the point: `{...presets.default}` is a shallow
+ * clone, so its `transition` is still the SAME frozen object, and mutating
+ * it now throws (strict mode) or silently no-ops instead of poisoning
+ * every other mount that reads `presets.default` or the DEFAULT_* constants. */
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const key of Object.keys(value)) {
+      deepFreeze((value as Record<string, unknown>)[key]);
+    }
+  }
+  return value;
+}
+
+export const presets = deepFreeze({
   default: DEFAULT_PRESET,
   snappy: SNAPPY_PRESET,
   gentle: GENTLE_PRESET,
-} satisfies Record<"default" | "snappy" | "gentle", MotionPreset>;
+} satisfies Record<"default" | "snappy" | "gentle", MotionPreset>);

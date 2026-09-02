@@ -13,11 +13,19 @@ export interface StiffnessSpring {
 /** Motion's designer-legible spring shorthand — two numbers instead of
  * stiffness/damping. `visualDuration` is spring-only in Motion (a tween
  * never carries it), which is what lets mergeTransition tell this apart
- * from a full Transition without a `type` key on either shape. */
+ * from a full Transition without a `type` key on either shape.
+ *
+ * No `mass` here, deliberately: Motion's spring resolver checks for
+ * `stiffness`/`damping`/`mass` FIRST, before it ever looks at
+ * `visualDuration`/`bounce`, so a `mass` key silently discards both and
+ * falls back to Motion's own defaults (stiffness 100 / damping 10).
+ * Measured on a 0->100 keyframe: `{visualDuration:0.4, bounce:0.2}` settles
+ * in 660ms; the same object plus `mass:1.75` settles in 2080ms, with no
+ * error and no warning. `bounce` is required, not optional, for the
+ * opposite reason — see mergeTransition's isSpringShorthand comment. */
 export interface DurationSpring {
   visualDuration: number;
   bounce: number;
-  mass?: number;
 }
 
 export type Spring = StiffnessSpring | DurationSpring;

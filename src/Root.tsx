@@ -9,17 +9,9 @@ import {
 } from "motion/react";
 import { DEFAULT_ANCHOR, type AnchorId } from "./anchors";
 import { MorphSheetContext, type MorphSheetContextValue } from "./context";
-import {
-  DEFAULT_CLOSE_SPRING,
-  DEFAULT_OPEN_SPRING,
-  DEFAULT_SHARED_CLOSE_SPRING,
-  DEFAULT_SHARED_SPRING,
-  mergeTransition,
-  SURFACE_CLOSE_LEAD_DELAY_MS,
-  isSharedByDirection,
-} from "./motion";
+import { resolveMotion, SURFACE_CLOSE_LEAD_DELAY_MS } from "./motion";
 import type { Transition } from "motion/react";
-import type { Rect, RootProps, SheetRect, Spring } from "./types";
+import type { Rect, RootProps, SheetRect } from "./types";
 import {
   MD_BREAKPOINT,
   resolveTriggerSize,
@@ -141,15 +133,6 @@ export function Root({
     preset?.surfaceCloseLeadDelayMs ??
     SURFACE_CLOSE_LEAD_DELAY_MS;
 
-  const openTransition = mergeTransition(
-    transition?.open ?? preset?.transition?.open,
-    DEFAULT_OPEN_SPRING,
-  );
-  const closeTransition = mergeTransition(
-    transition?.close ?? preset?.transition?.close,
-    DEFAULT_CLOSE_SPRING,
-    reduceMotion ? undefined : surfaceCloseLeadDelayMs / 1000,
-  );
   // The shared element's transition is DIRECTION-AWARE. On the open it only
   // has to clear the growing sheet; on the close it has to arrive home
   // together with the collapsing trigger, which it cannot do on the same spring
@@ -158,21 +141,21 @@ export function Root({
   // morph's layout animation is created and already false when the close
   // morph's is, so reading it here picks the right spring by construction.
   // See DEFAULT_SHARED_CLOSE_SPRING for the derivation of the close default.
-  // Whole-field precedence for `shared`, not a deep merge: it can be a
-  // Spring, a Transition, or a directional {open, close} object, and those
-  // three shapes shallow-spread into nonsense together. The caller's
-  // `shared` wins outright over the preset's if present at all.
-  const sharedProvided = transition?.shared ?? preset?.transition?.shared;
-  const sharedForDirection =
-    sharedProvided && isSharedByDirection(sharedProvided)
-      ? open
-        ? sharedProvided.open
-        : sharedProvided.close
-      : (sharedProvided as Spring | Transition | undefined);
-  const sharedTransition = mergeTransition(
-    sharedForDirection,
-    open ? DEFAULT_SHARED_SPRING : DEFAULT_SHARED_CLOSE_SPRING,
-  );
+  // The actual field-by-field / directional-fallback merge is
+  // resolveMotion (motion.ts) — pulled out of this component body so it has
+  // real unit coverage (motion.test.ts) instead of only being exercised
+  // through the component tree.
+  const {
+    open: openTransition,
+    close: closeTransition,
+    shared: sharedTransition,
+  } = resolveMotion({
+    preset,
+    transition,
+    surfaceCloseLeadDelayMs,
+    reduceMotion,
+    open,
+  });
 
   // ── Clock coupling (audit M2: "a ghost card leads the sheet on open") ─────
   // The shadow's collapseProgress clock and Motion's layout-projection clock

@@ -58,6 +58,8 @@ export type {
   SheetRect,
   ShadowProps,
   Spring,
+  StiffnessSpring,
+  DurationSpring,
 } from "./types";
 
 export {

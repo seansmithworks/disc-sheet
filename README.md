@@ -268,8 +268,9 @@ closed).
 ## Motion
 
 Three springs are props (`transition.open` / `.close` / `.shared`), each
-accepting the `{ stiffness, damping, mass? }` shorthand or a full Motion
-`Transition`, plus one number: `surfaceCloseLeadDelayMs`. Everything else,
+accepting either `{ stiffness, damping, mass? }` or `{ visualDuration, bounce }`
+(see below for both spring shorthands), or a full Motion `Transition`, plus
+one number: `surfaceCloseLeadDelayMs`. Everything else,
 hold fractions, stagger intervals, swipe thresholds, drag feel, is internal.
 These are fixes for specific artifacts, not knobs; see
 `docs/PACKAGE-DESIGN.md` §3 and §7C in the source repo for why.
@@ -340,7 +341,12 @@ nothing. `snappy` and `gentle` are un-dialled strawmen (frequency-scaled off
 the `/tune` panel; that's a one-line change per preset, not an API change.
 
 An explicit `transition` or `surfaceCloseLeadDelayMs` prop on `Root` always
-wins over the same field on `preset`, field by field:
+wins over the same field on `preset`, field by field — **except `shared`**,
+which is replaced whole rather than merged (it can be a Spring, a
+Transition, or a directional `{ open, close }` object, and those three
+shapes don't shallow-merge sensibly). If your explicit `shared` only sets
+one direction, the other direction falls back to the preset's `shared` for
+that direction, not the package default:
 
 ```tsx
 <MorphSheet.Root preset={presets.snappy} transition={{ open: mySpring }}>
@@ -348,14 +354,33 @@ wins over the same field on `preset`, field by field:
 
 keeps `snappy`'s `close` and `shared`, taking only `mySpring` for `open`.
 
+```tsx
+<MorphSheet.Root
+  preset={presets.snappy}
+  transition={{ shared: { open: mySharedOpenSpring } }}
+>
+```
+
+keeps `snappy`'s `shared.close`, taking only `mySharedOpenSpring` for
+`shared.open`.
+
 ### `{ visualDuration, bounce }`
 
 Every spring prop also accepts Motion's designer-legible shorthand — two
-numbers instead of `stiffness`/`damping`/`mass`:
+numbers instead of `stiffness`/`damping`. Use exactly these two keys,
+**`visualDuration` and `bounce`, both required**:
 
 ```tsx
 <MorphSheet.Root transition={{ open: { visualDuration: 0.4, bounce: 0.2 } }}>
 ```
+
+Do not use Motion's other duration shorthand, `{ duration, bounce }` — this
+package's shorthand detection treats anything with a `duration` key as a
+plain tween and silently drops `bounce`. And do not add `mass` to this
+shorthand: Motion resolves `stiffness`/`damping`/`mass` before it ever looks
+at `visualDuration`/`bounce`, so a `mass` key here discards both and the
+spring falls back to Motion's own defaults — this package's `DurationSpring`
+type has no `mass` field specifically to prevent that.
 
 ## Accessibility
 
