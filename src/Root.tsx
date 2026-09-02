@@ -20,6 +20,11 @@ import {
 } from "./useTriggerSize";
 import { usePersistedAnchor } from "./usePersistedAnchor";
 
+// `process` is not declared in a Vite consumer's tsconfig (`types` is an
+// allowlist, so @types/node never loads). Declare it locally rather than
+// depending on the consumer's ambient globals — same pattern as Sheet.tsx.
+declare const process: { env: { NODE_ENV?: string } };
+
 /**
  * <MorphSheet.Root> — owns open state, anchor state, the LayoutGroup, the
  * shared context, and the reduced-motion decision.
@@ -47,7 +52,33 @@ export function Root({
   zIndex = 100,
   className,
 }: RootProps) {
-  const generatedId = useId();
+  // <MorphSheet.Root> is the first hook call this component makes, so it is
+  // also the first thing that fails when a consumer forgets "use client" on
+  // the file that mounts <MorphSheet.Root> in a Next.js App Router (or any
+  // RSC) app: the server tries to run this component as a Server Component,
+  // React has no hooks dispatcher installed, and useId() throws its generic
+  // "Invalid hook call" error — which names neither MorphSheet nor "use
+  // client" and is not actionable to someone who has never seen it before.
+  // Dev-only (NODE_ENV define-passthrough, same as Sheet.tsx's warning and
+  // for the same reason — see vite.lib.config.ts) so production builds pay
+  // no cost and ship no extra diagnostic string; this is genuinely fatal
+  // (nothing below can render without hooks), so it throws rather than warns.
+  let generatedId: string;
+  if (process.env.NODE_ENV !== "production") {
+    try {
+      generatedId = useId();
+    } catch (err) {
+      throw new Error(
+        "[morph-sheet] <MorphSheet.Root> failed to render. This almost " +
+          'always means the file that mounts it is missing "use client": ' +
+          'add `"use client";` as the very first line of that file — ' +
+          "Server Components cannot run this package's hooks. " +
+          (err instanceof Error ? `Original error: ${err.message}` : ""),
+      );
+    }
+  } else {
+    generatedId = useId();
+  }
   const idBase = id ?? generatedId;
 
   const isControlled = controlledOpen !== undefined;
