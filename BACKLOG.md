@@ -240,3 +240,22 @@ Queued behind Phase 2 — same branch, same worktree, so only one agent commits 
 - [x] **F4 README overstates "field by field".** `shared` is replaced whole, not merged; that carve-out lives only in a code comment. F2 is what a consumer hits as a result.
 - [x] **F8 `Spring` became a union but its members are unexported.** A consumer holding a `Spring` and reading `.stiffness` now needs narrowing, and cannot write the narrowing helper because `StiffnessSpring`/`DurationSpring` are unnameable from outside. Breaking, but free right now — still 404 on npm. **Fix: export both.**
 - [x] **F7 `visualDuration` alone is undefined behaviour.** Motion's `durationKeys` is `["duration","bounce"]` — `visualDuration` is not in it, so `{visualDuration:0.4}` with no `bounce` settles in 1050ms on Motion's defaults. `DurationSpring` requiring `bounce` is the only guard, and it reads as arbitrary strictness against Motion's own optional `bounce`. **Fix: a comment recording why, so the next person "matching Motion's types" does not open the hole.** (`bounce: 0` is safe; the guard tests `!== undefined`.)
+
+### ⚠️ Dial history orphaned by the panel-id rename — Sean's call, 2026-09-02
+
+Phase 6 renamed `PANEL_ID` in the consumer's tuner from `disc-sheet-close` to `morph-sheet-close`, and Phase 2 shipped the repo copy already carrying the new id. dialkit persists under `dialkit:${id}`, so the panel now reads a **different localStorage key** and opens with no history — which is why it shows "Version 1" rather than the dialled Version 4.
+
+**Nothing is lost.** Two independent recovery paths, both verified this session:
+- The old key `dialkit:disc-sheet-close` is untouched in the browser. Nothing deleted it.
+- `docs/tuning/dialkit-morph-sheet-close.json` is a committed byte-exact snapshot holding all three saved presets: `Phase 4 (77f6d9b)`, `Version 3`, `Version 4`.
+
+The shipped defaults in `src/motion.ts` are unaffected — they are source constants, not panel state. The panel correctly displays 375 / 32 / 1.0.
+
+Three options, none started because this is Sean's dial history and the choice is his:
+1. Revert `PANEL_ID` to `disc-sheet-close` in both copies — history reappears immediately, but the id keeps a name the package no longer uses.
+2. Keep the new id and add a one-time migration that copies the old key across when the new one is empty. Correct long-term, but it is new code in the tool that judges taste.
+3. Keep the new id and import the committed JSON snapshot through the panel.
+
+Deliberately NOT auto-migrated overnight: silently rewriting his saved dial state is not a call an agent should make while he is asleep.
+
+Related, same area: the panel's visible dial label still reads **"Disc Shell"**. The KEY `discShell` must stay (renaming it drops the saved values inside each preset), but the display label is cosmetic and can change independently if dialkit separates the two.
