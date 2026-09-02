@@ -287,15 +287,14 @@ reduced motion. It is the single biggest lever on how long a close feels: at
 53% of the way home before the sheet moves; at `0` there is no detachment to
 read at all.
 
-The three close values are coupled. `shared.close` is derived from `close`
-by the same frequency-scaling the package uses everywhere (stiffness by
-`k²`, damping by `k`, which preserves the damping ratio and moves only the
-rate), with `k = Ts / (Ts + D)` — the shared element starts `D` earlier than
-the surface, so it has to take `D` longer to settle. Change `close` or
-`surfaceCloseLeadDelayMs` and re-derive `shared.close` alongside it, or the
-shared element stops arriving with the box: too fast and it parks early, too
-slow and it trails, and a trailing shared element spills past the disc's 2px
-border.
+The three close values are coupled, but not by formula. `shared.close` was
+originally derived from `close` by frequency-scaling (stiffness by `k²`,
+damping by `k`, with `k = Ts / (Ts + D)`); Sean's later hand-dial pass moved
+`shared.close` past that derived value, so it no longer holds. Change `close`
+or `surfaceCloseLeadDelayMs` and re-dial `shared.close` to match on the
+`/tune` panel — do not recompute it — or the shared element stops arriving
+with the box: too fast and it parks early, too slow and it trails, and a
+trailing shared element spills past the disc's 2px border.
 
 ## Accessibility
 

@@ -54,8 +54,12 @@ export const DEFAULT_SHARED_SPRING: Spring = {
 };
 
 /**
- * CLOSE-direction shared spring — DERIVED from DEFAULT_CLOSE_SPRING so the
- * shared element and the surface box land together ("one clock").
+ * CLOSE-direction shared spring — independently dialled to land together
+ * with DEFAULT_CLOSE_SPRING ("one clock"). It was ORIGINALLY derived from
+ * DEFAULT_CLOSE_SPRING by formula; as of Sean's "Version 4" dial pass below
+ * it no longer is. The derivation history is kept because it explains how
+ * the pair was first reached, not because it still governs the shipped
+ * numbers — see the NOT derived note further down.
  *
  * The problem it fixes: the shared element runs its own layoutId animation
  * with no delay, while the surface's close FLIP is deliberately handicapped by
@@ -78,8 +82,11 @@ export const DEFAULT_SHARED_SPRING: Spring = {
  *
  *   stiffness 375 * 0.902^2 = 305      damping 32 * 0.902 = 28.9      mass 1
  *
- * THIS CONSTANT IS DERIVED FROM SURFACE_CLOSE_LEAD_DELAY_MS. Change that and
- * this has to be re-derived, or the shared element starts trailing the box
+ * THAT WAS THE ORIGINAL DERIVATION. It no longer holds — see the "NOT derived"
+ * note further down this comment, which supersedes it. This constant and
+ * SURFACE_CLOSE_LEAD_DELAY_MS are now an independently dialled pair, coupled
+ * by feel rather than formula: change one and the other must be re-dialled
+ * on /tune, not recomputed, or the shared element starts trailing the box
  * and spills out past the disc's edge.
  *
  * Damping ratio 0.826 before and after, matched to the close spring's, so the
@@ -135,7 +142,8 @@ export const RADIUS_HOLD_FRACTION = 0.74;
  * element visibly leads the shrink instead of scaling in lockstep.
  *
  * STRAWMAN 2026-08-31, was 100 — Sean's call, one line to revert (and see
- * the warning on DEFAULT_SHARED_CLOSE_SPRING, which is derived from this).
+ * the warning on DEFAULT_SHARED_CLOSE_SPRING — the two are a dialled pair,
+ * not a derivation, so changing this one requires re-dialling that one).
  * It is the single biggest lever on close duration, and at 100 it bought
  * more re-home read than the close could afford. Measured on a prod build
  * at 1280x800, medians of 3:

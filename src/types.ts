@@ -77,10 +77,13 @@ export interface RootProps {
    * element visibly leads the shrink instead of scaling in lockstep. Default
    * 35. Ignored under reduced motion.
    *
-   * `transition.shared.close`'s default is derived from this value — slow the
-   * surface's start without slowing the shared element to match and the
-   * shared element starts trailing the box, which spills it past the disc's
-   * 2px border.
+   * `transition.shared.close` was formerly derived from this value; as of
+   * Sean's "Version 4" dial pass it is an independently dialled value, not a
+   * formula output — the two are coupled by feel, not by computation. This
+   * prop has no automatic compensation: if you change it, `transition.shared.close`
+   * must be re-dialled to match (on the /tune panel, not recomputed), or the
+   * shared element starts trailing the box and spills past the disc's 2px
+   * border.
    */
   surfaceCloseLeadDelayMs?: number;
   /** Force reduced-motion behavior. Default: the media query. */

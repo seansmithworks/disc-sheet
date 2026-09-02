@@ -373,8 +373,10 @@ deliberately started `surfaceCloseLeadDelayMs` after the shared element's.
 Left on one fixed spring, the shared element parked at its resting box 175ms
 before the disc stopped moving, and the 2px border relationship
 (`.shared[data-disc-sheet-slot="disc"]`, `inset: 2px`) arrived a sixth of a
-second early. The close default is derived from `close` rather than dialed,
-so the two stay coupled if `close` is ever retuned again.
+second early. The close default was originally derived from `close` by
+formula; as of "Version 4" it is independently dialled instead (see the table
+above), so if `close` is ever retuned again, `shared.close` must be re-dialled
+on /tune to match — it will not stay coupled automatically.
 
 `surfaceCloseLeadDelayMs` is the one internal choreography constant that has
 been promoted to a prop, and the reason is the rule below rather than an
@@ -384,9 +386,11 @@ kind: it is not a suppressed artifact, it is a *duration*, and it is the
 single biggest lever on how long a close feels — the one number that has to
 move when the close reads too long or too short. Everything else in the
 internal table has a right answer; this one has a taste answer, and taste
-answers belong to whoever is looking at it. It stays coupled to
-`shared.close` through the derivation above, documented on both constants, in
-the README, and here.
+answers belong to whoever is looking at it. It is coupled to `shared.close`
+by feel, not by the derivation above — that derivation is history, not a
+live relation. If either value is retuned, the other has to be re-dialled on
+/tune to match; this is documented on both constants, in the README, and
+here.
 
 Each accepts a full Motion `Transition` as well as the `Spring` shorthand, so "I need a tween, not a spring" is never a reason to fork. When the package needs to compose its own `delay` onto the close transition, it applies it **only if the consumer did not specify one**.
 
