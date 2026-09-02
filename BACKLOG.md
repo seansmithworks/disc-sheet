@@ -127,8 +127,8 @@ Sean's verdict on the coupled close: "really close." Two directional notes + one
 **Closed this session:** Phase 4 coupling (bf48b0a) · lead-delay strawman 100→35 (77f6d9b) · /tune dialkit tuner (987e2ff) · V4 baked as shipped defaults (23c3c49) · preset snapshot to disk (34dc0ab). Gates 20/75 verified by the orchestrator, not just claimed, at every step.
 
 **Carried (on-objective):**
-- [ ] **Sean's hands-on verdict on the production build at :3000.** The only remaining gate before publish. V4 is now the shipped default, so what he judges is what ships. *carried 2× since 2026-08-31.*
-- [ ] `npm login` && `npm publish --access public`, then merge feat/customization-parity → main. His 3 commands; token was 401 as of 2026-08-31.
+- [x] **Sean's hands-on verdict on the production build at :3000.** CLOSED 2026-09-01 — "It's looking good." V4 stands as the shipped motion default; the motion objective is done and is not to be reopened.
+- [ ] ~~`npm login` && `npm publish --access public`~~ **ON HOLD — do NOT publish.** Sean decided 2026-09-01 to hold 0.1.0 and ship one bigger first release including the variations/settings work below. Publishing now would burn the version number and force the API expansion into a 0.2 it no longer needs to be. Merge to main also waits.
 
 **Parked (off-objective, do not carry into the next thread):**
 - [ ] Consumer app has no version control — `git init` at ~/Code/_experiments/disc-sheet-consumer offered, not done. /tune exists only on disk.
@@ -138,3 +138,73 @@ Sean's verdict on the coupled close: "really close." Two directional notes + one
 - [ ] Consumer resolves motion@13.1.1 while the geometry suite gates on v12. Untested combination.
 - [ ] `npm pack` still does not run `build:lib` (the prepack item). Every ship cycle this session needed a manual build + dist grep to prove the change shipped.
 - [ ] dialkit's stylesheet @imports Geist Mono from Google Fonts — external request on /tune.
+
+## 0.1.0 scope expansion — variations + settings (decided 2026-09-01)
+
+**Decision:** Sean is HOLDING the 0.1.0 release to widen the public API first, against the orchestrator's recommendation to ship now and add additively as 0.2. Recorded so the tradeoff is not re-litigated: holding keeps the API reshapeable including breaking changes, and costs a shipped package in the meantime. His call, made with that tradeoff stated.
+
+**Scope Sean selected (all four, plus a research question):**
+- [ ] Motion presets — named springs so consumers pick a feel instead of hand-tuning stiffness/damping; /tune becomes a preset picker that exports values.
+- [ ] Shape + size variations — circle/squircle/square, size ramps, sheet dimensions. **GATED** on animated child-radius masking (see the v0.2 shape-presets item above — same constraint, unchanged).
+- [ ] Layout + behavior settings — anchors, placement, backdrop, dismiss, controlled/uncontrolled.
+- [ ] One unified config surface — CSS custom properties + config object, design-system drop-in shape.
+- [ ] Answer: what do standard UI toolkits commonly ship that disc-sheet does not? Gap analysis against the real source, not a listicle.
+
+**Status:** scoping dispatched to /adversarial-plan 2026-09-01. Plan to be delivered as an Artifact (Sean is on phone; localhost review is unreachable). No implementation dispatched until Sean picks a cut.
+
+## Plan gate CLOSED — /adversarial-plan verdict RETHINK (2026-09-01)
+
+Evidence on disk: `scratchpad/plan/{draft-plan.md,refuter-prompt.txt,refutation.md}`. Opus refuter, 20 findings, read the tree not just the prose.
+
+**The draft's headline recommendation was killed.** Proposed adding `<DiscSheet.Portal>`; it is unsafe here and fails existing tests. `--disc-sheet-disc-size` is written ONLY by Root's scoped style block (`Root.tsx:403-405`) and read to size the shared element (`styles.module.css:98-105`); custom properties inherit down the DOM tree, so portalling severs it and the sheet-side Shared falls to the 92px fallback against the disc-side's real size. That equality is what the zero-scale FLIP requires. Also: portalling the sheet ALONE unpairs it from the disc (both are position:fixed and shift identically under a transformed ancestor, so the morph currently stays coherent); portalling both re-opens the measured 0.000-visibility crossfade bug (`Disc.tsx:283-315`); and an SSR-safe portal deletes the first-paint window the D3 disc-size fix depends on (`Root.tsx:86-107`). Correct fix is a README section, not a Portal part. DO NOT re-propose a portal without solving token forwarding first.
+
+**Real defects the gate surfaced — fix regardless of any naming or configurator decision:**
+- [ ] `src/types.ts:80-84` JSDoc on the PUBLIC `surfaceCloseLeadDelayMs` prop says `transition.shared.close` "is derived from this value". FALSE since V4. It compiles into `dist/index.d.ts` and every consumer's IntelliSense. A consumer who raises the lead delay trusting the doc gets the avatar spilling past the disc's 2px border.
+- [ ] `src/motion.ts:57` and `:81-83` assert the same dead derivation, contradicted by `:102-110` in the same file. Four stale sites total, not two.
+- [ ] Focus trap does not trap (`useDialogBehavior.ts:54-70`): Tab is only intercepted when activeElement is already the first or last focusable INSIDE the panel. Focus anywhere else and Tab walks out. Plus a 50ms setTimeout before initial focus where the trap is inert.
+- [ ] No background `aria-hidden`/`inert`. `aria-modal="true"` (`Sheet.tsx:284`) is a hint browsers do not act on. Screen readers read the whole page behind the sheet.
+- [ ] Scroll lock sets `body.overflow=hidden` with no scrollbar compensation — visible ~15px sideways page shift on open, on a library whose whole pitch is motion quality.
+- [ ] Geometry gate has never run against motion@13, which the verification consumer resolves. The only instrument that can prove the V4 feel survived a refactor does not cover the environment it is judged in.
+- [ ] `index.ts:61-67` exports five runtime geometry helpers (`anchorCenter`, `nearestAnchor`, `restingLeft`, `restingTop`, `sheetPlacement`). Decide before publish whether these are public forever.
+
+**Corrections to earlier scoping:**
+- Preset shape: a `preset` OBJECT prop on Root carrying `{transition, surfaceCloseLeadDelayMs, sharedSize}` is the only shape that round-trips the tuner's export (`docs/tuning/dialkit-disc-sheet-close.json` = discShell/avatar/leadDelay/avatarFill). Passing a spring object into the existing `transition` prop reaches 2 of 4 fields.
+- The tuner's `baseValues` already stores `{visualDuration, bounce}` — Motion's designer-facing spring format. Adopt it as a `Spring` union member.
+- `asChild` on all 8 parts is not viable: Sheet/Disc/Shared/Content carry layoutId, drag, MotionValues and load-bearing refs. Safe on Close and Item only.
+- `forwardRef` is deprecated in React 19 and the peer floor is >=19. Its absence was correct, not a gap.
+- `EDGE_MARGIN` tokenization is not one line: `anchors.ts` is documented pure, tests import the constant, four public signatures would change, and there are ~6 hardcoded 16s including a separate `SHEET_MARGIN`.
+- `/tune` lives in the unversioned consumer app, not this repo. BACKLOG:114 already decided the delivery: `npx disc-sheet add tuner`.
+- Sheet dimensions are NOT already shipped: `max-height: 88dvh` and `bottom: 16px` are hardcoded with no token or prop.
+
+## New directions raised 2026-09-01 (voice, partially parsed — CONFIRM BEFORE BUILDING)
+
+- [ ] **Visual configurator on the site.** Pick a variation, see it live, copy the code, paste it in. Two install paths: npm, or copy-paste from the tool. shadcn model. Covers disc shape AND sheet content layouts. Answers to "where does it live" and "does it replace the API work" came back as "both, site first" / "both in parallel" but arrived alongside a background-task notification the harness flagged as unverifiable. NOT treated as confirmed.
+- [ ] **Showcase examples with media**, tied to the already-parked "icon to advertisement" concept: iOS-squircle app icon morphing into an App Store-style preview card. Plus a full-size-image variant.
+- [ ] **Naming system across all Sean's components/tools/frameworks.** Immediate trigger: "disc-sheet" stops being accurate the moment the disc can be a squircle or a square, so shape variants and the package name are coupled. He wants a convention, not complex or fancy, but distinctive enough to be recognizable when shared. GATES PUBLISHING — the package name is in package.json, the npm scope, the README, and every import line.
+- [x] CONFIRMED 2026-09-01: the configurator answers ("both, site first" / "both in parallel") ARE Sean's. Build against them.
+- [x] "the ditter" = **dither** — one of Sean's other tools/effects that needs more work (cf. the surface-fx dither). Another package the naming system has to cover, and a reason the system matters more than this one name.
+- [ ] Still unparsed from dictation: "puppy tier agent" (guess: agent-pasteable registry output, shadcn-style) and "out of the LinkedIn app around".
+
+## ⛔ SCOPE — LOCKED 2026-09-01. Read this before planning anything in this repo.
+
+**Objective:** Ship `@seansmithworks/morph-sheet` as a component a stranger can install and actually use, promoted from seansmithdesign.com. Sean's framing: "I need to start shipping the things I'm building for fun." The site is a demo platform to show teams how he works, so the page promotes the component AND him; npm and GitHub are the other two doors in.
+
+**Order Sean set:** component + how it's used FIRST (CLI install, local visual reference), THEN the site.
+
+**Done when:**
+- [ ] A stranger can change how it feels without typing spring numbers
+- [ ] A local visual reference lives in THIS repo (today /tune exists only in the unversioned consumer app)
+- [ ] One example answers "why would I want this", not just "it works"
+- [ ] Published to npm, public on GitHub
+- [ ] One page on the site: example gallery first, dials on ONE specimen
+
+**NOT in scope — do not widen into these:**
+- A component system or platform. "The first of a system is not important." Later he wants to define components-vs-skills as a process case study; that is a SEPARATE effort.
+- Content layouts as package exports. Content stays any-children; presets (list, image, video, app promo) ship as `npx morph-sheet add` copy-in so visual tweaks are never breaking changes.
+- A React portal. Investigated and killed; see the plan-gate section above.
+- Shape variants, unless animated child-radius masking lands first.
+
+**Fixed engineering decisions (do not re-litigate):**
+- Motion presets = a `preset` OBJECT prop on Root carrying `{transition, surfaceCloseLeadDelayMs, sharedSize}`. Only shape that round-trips the tuner's 4-field export. NOT a `preset="snappy"` string union — zero of five peer libraries ship named presets; react-spring's exported `config` objects are the precedent.
+- Adopt Motion's `{visualDuration, bounce}` as a `Spring` union member — two designer-legible numbers. The tuner's own baseValues already store springs that way.
+- The default preset ships the dialled values EXACTLY: open 375/42.5/1.75, close 375/32/1, shared.open 500/45, shared.close 340/30/1, lead delay 35, snap 700/52/1.
