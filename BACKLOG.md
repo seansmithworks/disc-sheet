@@ -208,3 +208,20 @@ Evidence on disk: `scratchpad/plan/{draft-plan.md,refuter-prompt.txt,refutation.
 - Motion presets = a `preset` OBJECT prop on Root carrying `{transition, surfaceCloseLeadDelayMs, sharedSize}`. Only shape that round-trips the tuner's 4-field export. NOT a `preset="snappy"` string union — zero of five peer libraries ship named presets; react-spring's exported `config` objects are the precedent.
 - Adopt Motion's `{visualDuration, bounce}` as a `Spring` union member — two designer-legible numbers. The tuner's own baseValues already store springs that way.
 - The default preset ships the dialled values EXACTLY: open 375/42.5/1.75, close 375/32/1, shared.open 500/45, shared.close 340/30/1, lead delay 35, snap 700/52/1.
+
+## Overnight delivery run — dispatched 2026-09-02 (Sean asleep; NO publish, NO deploy)
+
+Sean's two calls at dispatch: snappy/gentle ship as **marked strawmen** tonight (re-dial on the tuner in the morning, one line each); examples = **all three** (media/app-promo card FIRST since it doubles as the site hero, then simple list, then form/contact).
+
+Sequential dispatch, not parallel — every phase commits to `feat/customization-parity` in the same worktree, and parallel pushes there race silently. Each phase: gates re-run by the orchestrator (20 vitest / 75 Playwright / audit PASS, never bare `npx playwright test`), then a reviewer agent that did not write the code.
+
+**Correction to the locked scope's third preset key.** The lock says the preset object carries `{transition, surfaceCloseLeadDelayMs, sharedSize}`. Verified this session: **`sharedSize` is not a prop and nothing in `src/` reads it** — the size prop is `triggerSize`, and `--morph-sheet-shared-size` is a CSS var that defaults to the trigger size. The tuner's four exported fields map to `transition.close` (discShell), `transition.shared.close` (avatar), `surfaceCloseLeadDelayMs` (leadDelay), and nothing (avatarFill, "diagnostic, not choreography" per its own comment). So **two keys round-trip the tuner completely**. Flagged to Sean before dispatch, not objected to. Building `{transition, surfaceCloseLeadDelayMs}`; size stays the separate `triggerSize` prop it already is.
+
+- [ ] Phase 1 — motion presets: `preset` object prop on Root (explicit `transition`/`surfaceCloseLeadDelayMs` win over it), exported `presets` with `default`/`snappy`/`gentle`, `{visualDuration, bounce}` accepted as a `Spring` union member. `default` REFERENCES the shipped constants so byte-identity is structural, not copied. snappy/gentle marked un-dialled in code.
+- [ ] Phase 2 — tuner into this repo: ships via `npx morph-sheet add tuner` copy-in (Phase 2 machinery), NOT a package dep. Source is the working 14K page.tsx + CSS in the unversioned `~/Code/_experiments/disc-sheet-consumer/src/app/tune`. Shape dials stay GATED behind child-radius masking.
+- [ ] Phase 3 — examples, all three: media/app-promo card first, then simple list, then form/contact. Tokens from the README table, never PACKAGE-DESIGN §2 (stale).
+- [ ] Phase 4 — `"use client"` runtime guard: a loud, named failure for the RSC trap. Today it is one README sentence and no check in `src/`.
+- [ ] Phase 5 — pin the motion peer: peer says `>=12`, suite has never run against v13, Sean's own consumer resolves v13. Test against v13 and pin to what actually passes. **If v13 fails the suite, STOP and report — do not widen the range to make it green.**
+- [ ] Phase 6 — rebuild the consumer app on :3000 (build:lib -> pack -> reinstall -> rebuild -> restart) so Sean has something to put his hands on. Broken by the rename since 40c0b8c.
+- [ ] **Item 6 PUBLISH is Sean's hands, not mine** — `npm login`, `npm publish`, repo public on GitHub. Outward-facing + needs his auth.
+- [ ] Item 7 site page — NOT overnight work, different repo.
