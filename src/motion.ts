@@ -1,5 +1,9 @@
 import type { Transition } from "motion/react";
-import type { Spring, SharedTransitionByDirection } from "./types";
+import type {
+  MotionPreset,
+  Spring,
+  SharedTransitionByDirection,
+} from "./types";
 
 /**
  * Default springs, verified against the source site's dialed values
@@ -219,10 +223,76 @@ export function isSharedByDirection(
 }
 
 function isSpringShorthand(value: Spring | Transition): value is Spring {
+  if ("type" in value || "duration" in value) return false;
   return (
-    "stiffness" in value &&
-    "damping" in value &&
-    !("type" in value) &&
-    !("duration" in value)
+    ("stiffness" in value && "damping" in value) ||
+    // Motion's {visualDuration, bounce} shorthand — visualDuration is
+    // spring-only, so its presence alone (with neither `type` nor
+    // `duration` above) is enough to identify a spring.
+    "visualDuration" in value
   );
 }
+
+// ── Presets ──────────────────────────────────────────────────────────────
+// `preset` is a named feel: exactly the two fields the /tune panel can
+// actually export (MotionPreset, types.ts). `default` REFERENCES the
+// constants above rather than retyping their numbers, so it is
+// byte-identical to no-preset structurally, not by copy-paste luck — see
+// the vitest `toBe` assertions in motion.test.ts.
+
+const DEFAULT_PRESET: MotionPreset = {
+  transition: {
+    open: DEFAULT_OPEN_SPRING,
+    close: DEFAULT_CLOSE_SPRING,
+    shared: { open: DEFAULT_SHARED_SPRING, close: DEFAULT_SHARED_CLOSE_SPRING },
+  },
+  surfaceCloseLeadDelayMs: SURFACE_CLOSE_LEAD_DELAY_MS,
+};
+
+/**
+ * STRAWMEN, not dialled. Every spring below is DEFAULT_PRESET's frequency-
+ * scaled by k = 1.15 (stiffness * k^2, damping * k, mass untouched — the
+ * same trick DEFAULT_SHARED_CLOSE_SPRING's comment walks through: it
+ * preserves the damping RATIO, so the CHARACTER of the motion is unchanged
+ * and only its rate moves). `surfaceCloseLeadDelayMs` scales inversely
+ * (35 / 1.15 ~= 30.4, rounded to 30ms) so the lead stays proportional to a
+ * faster close. Nobody has looked at this by eye — Sean re-dials it on the
+ * tuner (Phase 2) and it becomes a one-line values swap when he does.
+ */
+const SNAPPY_PRESET: MotionPreset = {
+  transition: {
+    open: { stiffness: 495.94, damping: 48.88, mass: 1.75 },
+    close: { stiffness: 495.94, damping: 36.8, mass: 1 },
+    shared: {
+      open: { stiffness: 661.25, damping: 51.75 },
+      close: { stiffness: 449.65, damping: 34.5, mass: 1 },
+    },
+  },
+  surfaceCloseLeadDelayMs: 30,
+};
+
+/**
+ * STRAWMEN, not dialled. Every spring below is DEFAULT_PRESET's frequency-
+ * scaled by k = 0.85 (same k^2/k/untouched-mass trick as `snappy` above,
+ * run the other direction). `surfaceCloseLeadDelayMs` scales inversely
+ * (35 / 0.85 ~= 41.2, rounded to 41ms). Nobody has looked at this by eye —
+ * Sean re-dials it on the tuner (Phase 2) and it becomes a one-line values
+ * swap when he does.
+ */
+const GENTLE_PRESET: MotionPreset = {
+  transition: {
+    open: { stiffness: 270.94, damping: 36.13, mass: 1.75 },
+    close: { stiffness: 270.94, damping: 27.2, mass: 1 },
+    shared: {
+      open: { stiffness: 361.25, damping: 38.25 },
+      close: { stiffness: 245.65, damping: 25.5, mass: 1 },
+    },
+  },
+  surfaceCloseLeadDelayMs: 41,
+};
+
+export const presets = {
+  default: DEFAULT_PRESET,
+  snappy: SNAPPY_PRESET,
+  gentle: GENTLE_PRESET,
+} satisfies Record<"default" | "snappy" | "gentle", MotionPreset>;

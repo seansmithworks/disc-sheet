@@ -47,8 +47,9 @@ export function Root({
   persistKey,
   triggerSize: triggerSizeProp,
   sheetMaxWidth = 480,
+  preset,
   transition,
-  surfaceCloseLeadDelayMs = SURFACE_CLOSE_LEAD_DELAY_MS,
+  surfaceCloseLeadDelayMs: surfaceCloseLeadDelayMsProp,
   reduceMotion: reduceMotionProp,
   id,
   zIndex = 100,
@@ -131,9 +132,21 @@ export function Root({
   // never see a drag on its own).
   const sheetDragY = useMotionValue(0);
 
-  const openTransition = mergeTransition(transition?.open, DEFAULT_OPEN_SPRING);
+  // Per-field precedence: an explicit prop wins over the same field on
+  // `preset`, field by field — not a whole-object override. This is what
+  // lets `preset={presets.snappy} transition={{ open: mySpring }}` keep
+  // snappy's close/shared and take only the caller's open.
+  const surfaceCloseLeadDelayMs =
+    surfaceCloseLeadDelayMsProp ??
+    preset?.surfaceCloseLeadDelayMs ??
+    SURFACE_CLOSE_LEAD_DELAY_MS;
+
+  const openTransition = mergeTransition(
+    transition?.open ?? preset?.transition?.open,
+    DEFAULT_OPEN_SPRING,
+  );
   const closeTransition = mergeTransition(
-    transition?.close,
+    transition?.close ?? preset?.transition?.close,
     DEFAULT_CLOSE_SPRING,
     reduceMotion ? undefined : surfaceCloseLeadDelayMs / 1000,
   );
@@ -145,7 +158,11 @@ export function Root({
   // morph's layout animation is created and already false when the close
   // morph's is, so reading it here picks the right spring by construction.
   // See DEFAULT_SHARED_CLOSE_SPRING for the derivation of the close default.
-  const sharedProvided = transition?.shared;
+  // Whole-field precedence for `shared`, not a deep merge: it can be a
+  // Spring, a Transition, or a directional {open, close} object, and those
+  // three shapes shallow-spread into nonsense together. The caller's
+  // `shared` wins outright over the preset's if present at all.
+  const sharedProvided = transition?.shared ?? preset?.transition?.shared;
   const sharedForDirection =
     sharedProvided && isSharedByDirection(sharedProvided)
       ? open

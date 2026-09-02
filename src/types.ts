@@ -4,11 +4,23 @@ import type { AnchorId } from "./anchors";
 
 export type { AnchorId };
 
-export interface Spring {
+export interface StiffnessSpring {
   stiffness: number;
   damping: number;
   mass?: number;
 }
+
+/** Motion's designer-legible spring shorthand — two numbers instead of
+ * stiffness/damping. `visualDuration` is spring-only in Motion (a tween
+ * never carries it), which is what lets mergeTransition tell this apart
+ * from a full Transition without a `type` key on either shape. */
+export interface DurationSpring {
+  visualDuration: number;
+  bounce: number;
+  mass?: number;
+}
+
+export type Spring = StiffnessSpring | DurationSpring;
 
 /** Per-direction override for <MorphSheet.Shared>. Either key may be omitted;
  * the package default for that direction is used instead. */
@@ -35,6 +47,18 @@ export interface MorphTransition {
    *           close { stiffness: 340, damping: 30, mass: 1 }.
    */
   shared?: Spring | Transition | SharedTransitionByDirection;
+}
+
+/**
+ * A named feel, carrying exactly the two fields the tuner can actually
+ * export ({@link MorphTransition} and the surface close lead delay —
+ * `triggerSize` is a separate geometry prop, not part of a feel). Explicit
+ * `transition`/`surfaceCloseLeadDelayMs` props on Root win over a preset,
+ * field by field — see RootProps.preset.
+ */
+export interface MotionPreset {
+  transition?: MorphTransition;
+  surfaceCloseLeadDelayMs?: number;
 }
 
 export interface RootProps {
@@ -71,6 +95,13 @@ export interface RootProps {
   sheetMaxWidth?: number;
 
   // Motion
+  /**
+   * A named feel from `presets` (or a hand-built {@link MotionPreset}).
+   * `transition` and `surfaceCloseLeadDelayMs` below win over it field by
+   * field — pass `preset={presets.snappy} transition={{ open: mySpring }}`
+   * to take snappy's close/shared and override only open.
+   */
+  preset?: MotionPreset;
   transition?: MorphTransition;
   /**
    * Delay (ms) before the surface box begins its close FLIP, so the shared

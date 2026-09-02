@@ -38,6 +38,7 @@ export const MorphSheet = {
 };
 
 export { useMorphSheet } from "./context";
+export { presets } from "./motion";
 
 export type {
   AnchorId,
@@ -48,6 +49,7 @@ export type {
   ItemProps,
   Labelled,
   MorphTransition,
+  MotionPreset,
   Rect,
   RootProps,
   SharedProps,

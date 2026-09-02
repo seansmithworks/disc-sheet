@@ -296,6 +296,40 @@ or `surfaceCloseLeadDelayMs` and re-dial `shared.close` to match on the
 with the box: too fast and it parks early, too slow and it trails, and a
 trailing shared element spills past the round trigger's 2px border.
 
+### Presets
+
+```tsx
+import { MorphSheet, presets } from "@seansmithworks/morph-sheet";
+
+<MorphSheet.Root preset={presets.snappy}>
+```
+
+`presets` carries three named feels, each a `{ transition?, surfaceCloseLeadDelayMs? }`
+object — the same two fields above, bundled so a stranger can change how the
+component feels without typing spring numbers. `default` is exactly what
+ships when you pass no preset at all, so `preset={presets.default}` changes
+nothing. `snappy` and `gentle` are un-dialled strawmen (frequency-scaled off
+`default`, not judged by eye) — expect Sean to re-dial their actual values on
+the `/tune` panel; that's a one-line change per preset, not an API change.
+
+An explicit `transition` or `surfaceCloseLeadDelayMs` prop on `Root` always
+wins over the same field on `preset`, field by field:
+
+```tsx
+<MorphSheet.Root preset={presets.snappy} transition={{ open: mySpring }}>
+```
+
+keeps `snappy`'s `close` and `shared`, taking only `mySpring` for `open`.
+
+### `{ visualDuration, bounce }`
+
+Every spring prop also accepts Motion's designer-legible shorthand — two
+numbers instead of `stiffness`/`damping`/`mass`:
+
+```tsx
+<MorphSheet.Root transition={{ open: { visualDuration: 0.4, bounce: 0.2 } }}>
+```
+
 ## Accessibility
 
 - Real `<button type="button">` trigger, `aria-haspopup="dialog"`,
