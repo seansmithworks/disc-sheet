@@ -113,7 +113,7 @@ hand-translation. This repo runs the same file live at
 
 - `react` >=19
 - `react-dom` >=19
-- `motion` >=12
+- `motion` >=12 <14 (full suite run green against both 12.43.0 and 13.1.1)
 
 None are bundled. Install them yourself if your app doesn't already have
 them.
