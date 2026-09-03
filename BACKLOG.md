@@ -292,3 +292,23 @@ Also unverified and worth a pass later: motion 12.x (the peer range floor — on
 - **Values (Figma has no `color-mix`, so these are pre-resolved):** list accent `#2f6b4f`, A-wash `#E2EAE6`; contact accent `#6d4aff`, A-wash `#EBE6FF`; both sheets `#ffffff`, list page `#faf9f6`, contact page `#f7f5fb`. Circle 92px. Glyph 44% of circle at stroke 2 (list), 42% at stroke 1.6 (contact).
 - ⚠️ **Drift warning, stated to Sean:** a Figma file rebuilt from shipped CSS is a second source of truth and does not flow back to code. Tweaks there must be hand-ported. Treat as sketchpad, not spec.
 - [ ] **Correction to an earlier note:** `scratchpad/variant-b.diff` will NOT `git apply` any more — it was cut against the original white ground and its context lines stopped matching once variant A was committed at `f4a4a72`. Variant B is two lines: icon `background: var(--morph-sheet-accent)` and glyph `stroke: #ffffff`, in both `example/list/list.css` and `example/contact/contact.css`.
+
+## PARKED — corner-spark micro-detail (research complete 2026-09-02, OFF the locked objective)
+
+Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the corner opposite the disc. **Research only — `src/` untouched, nothing built.** This is a v0.2 idea against a release-ready package; it is parked deliberately, not carried.
+
+**Live research artifact (the deliverable — this URL is the only copy):**
+`https://claude.ai/code/artifact/75282297-73f7-4030-9d3c-cbce78ddb2ab`
+
+- [ ] **Sean has not picked a mark.** Five candidates, all live and replayable in the artifact: emanata, kirakira star, dites/glint, Kirby Krackle, impact ticks.
+- **Vocabulary (do not re-derive):** the mark is **emanata** — Mort Walker, *The Lexicon of Comicana*, 1980. Web motion-design vocabulary has NO term for it; the whole taxonomy is borrowed from comics. Per-fire variation is **line boil**. Manga twinkle is **kirakira**. Sean's references: Spider-Verse and KPop Demon Hunters, both Sony, both 2D accents composited over 3D.
+- **Two corrections from Sean, both now reflected in the artifact.** (1) The mark must sit OUTSIDE the sheet silhouette — inside it stops being emanation and becomes texture. (2) It must never draw the same twice; a fixed SVG repeated on every open is what makes a micro-detail wear out.
+- **Measured this session on the real dialled open spring (375/42.5/1.75):** settles at **638ms**, overshoot peaks at **392ms**. Damping ratio 0.83, matching the 0.826 documented in `motion.ts` — so the artifact's rig is running the real spring, not an easing approximation. **A negative delay (~-240ms, landing on the overshoot peak) is the promising setting**; the last ~250ms of that spring is invisible micro-settling, so firing at true rest reads late.
+- **⚠️ Architectural blocker, verified in source.** `.sheet` carries `overflow: hidden` (`src/styles.module.css:159`), so the mark CANNOT be a child of the sheet — it would be clipped at the exact edge it must cross. It has to be a sibling. And only half the sheet's box is knowable from CSS: left comes from `--morph-sheet-sheet-left` with a `bottom: 16px` default, but `src/Sheet.tsx:211-218` overrides `top`/`bottom`/`maxHeight` inline when the trigger anchors high, and height is content-driven under `max-height: 88dvh`. **The top corners are not derivable from CSS at all**, and they are usually the corner wanted. Way through, no portal needed: one `getBoundingClientRect()` at settle, then a fixed-position sibling. The mark fires once and is gone, so a single measurement suffices.
+- **Do NOT add Rough.js.** It is the obvious library (~9kB, seeded randomness) and it is the wrong call — the generator is ~30 lines, and this package ships zero runtime dependencies with a deliberately tight peer range.
+- **Corner is a lookup, not a constant** — six trigger anchors. Both centre anchors have no true opposite and need an arbitrary pick (defaulted right; taste, not derivation).
+- [ ] **Four open decisions, all Sean's:** which mark · every open vs first-open-per-session · reduced-motion (drop or show static) · opt-in prop vs on by default. Recommendation on the last: **opt-in** — comic emanata are a strong personality choice for a generic primitive.
+
+## Carried at wrap-continue — 2026-09-02
+
+- [ ] **Variant A vs B for the list/contact icon ground.** A (14% accent wash) is applied and committed at `f4a4a72`; B (solid accent, white glyph) was shown and not chosen. A stands as the default — this is not blocking. B is two lines: icon `background: var(--morph-sheet-accent)` and glyph `stroke: #ffffff` in both example CSS files.
