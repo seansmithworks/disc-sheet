@@ -338,6 +338,6 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 
 ## Glow palettes for social clips — 2026-09-11
 
-- [ ] Step 1 — palette presets in the example demo (Rainbow/Mono/Midnight Purple/Neon Gold) via DialKit's native select control, wired to the existing dials
-- [ ] Step 2 — recordings: 8 clips + 2 comparison grids, light and dark backgrounds
-- [ ] Step 3 — report to Sean: SHAs, final values, gate summaries, clip paths, frame notes
+- [x] Step 1 — palette presets in the example demo (Rainbow/Mono/Midnight Purple/Neon Gold) via DialKit's native select control, wired to the existing dials (`3cbac96`)
+- [x] Step 2 — recordings: 8 clips + 2 comparison grids, light and dark backgrounds (scratchpad, not committed — see report)
+- [x] Step 3 — report to Sean: SHAs, final values, gate summaries, clip paths, frame notes
