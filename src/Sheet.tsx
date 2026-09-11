@@ -71,10 +71,13 @@ export function Sheet({
     if (open) sheetDragY.jump(0);
   }, [open, sheetDragY]);
 
-  // data-morph-sheet-settled gates the sheet's own box-shadow (see .sheet in
-  // styles.module.css): present once the open has finished — the same
-  // threshold <Close> reveals on — and dropped the moment a close starts.
-  // Written to the DOM directly, and only on change, so the per-frame
+  // data-morph-sheet-settled no longer gates any style of ours — the sheet
+  // paints no box-shadow of its own (Shadow.tsx is the single painter, see
+  // .sheet in styles.module.css), and <Close> tracks its own reveal off
+  // collapseProgress directly rather than this attribute. It's kept as a DOM
+  // marker at the same CLOSE_REVEAL_PROGRESS threshold for consumers/tests to
+  // hook: present once the open has settled, dropped the moment a close
+  // starts. Written to the DOM directly, and only on change, so the per-frame
   // collapseProgress ticks never re-render or re-style the sheet.
   useEffect(() => {
     // Seeded from the DOM, not false: this effect re-runs when `open` flips,
