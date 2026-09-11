@@ -341,3 +341,16 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [x] Step 1 — palette presets in the example demo (Rainbow/Mono/Midnight Purple/Neon Gold) via DialKit's native select control, wired to the existing dials (`3cbac96`)
 - [x] Step 2 — recordings: 8 clips + 2 comparison grids, light and dark backgrounds (scratchpad, not committed — see report)
 - [x] Step 3 — report to Sean: SHAs, final values, gate summaries, clip paths, frame notes
+
+## Center anchor — 2026-09-11
+
+- [x] `src/anchors.ts` — two-axis alignment model (`ANCHOR_AXES`), new `"center"` id, `AnchorEdge` → `AnchorVertical`
+- [x] `src/anchors.test.ts` — hard-coded pins for the six existing anchors, center coverage, boundary/round-trip tests
+- [x] `src/Sheet.tsx` — always write inline top/bottom
+- [x] `src/styles.module.css` `.sheet` — margin-block/fit-content centring, max-height formula
+- [x] `src/index.ts` — export renamed `AnchorVertical` type
+- [x] `example/geometry.spec.ts` — center-anchor geometry gate (own centre-offset assertion, not the bottom-edge one)
+- [x] Docs — README "six"→"seven", `docs/PACKAGE-DESIGN.md` §1, `example/main.tsx` copy
+- [x] Visual proof clip (agent-browser, Neon Gold, center anchor) + report to Sean
+
+**Edge-aware ripple (Sean, 2026-09-11):** when the sheet sits against a viewport edge/corner, the dither shadow's ripple reflects off that edge and flows back, blending with the continuing outward wave — like ripples off a pool wall. surface-fx's ripple is an analytic annulus band (presets.ts), so reflection is likely mirrored virtual sources across nearby edges (inferred, not verified). Consumer-side via `<MorphSheet.Shadow asChild>` + useMorphSheet() anchor/rects. Decorative clock — flag against DESIGN.md §4.1 before building.
