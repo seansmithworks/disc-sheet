@@ -101,6 +101,25 @@ const WAIT_TIMEOUT_MS = valueOf("wait-for-quiet-timeout", 20 * 60 * 1000);
 // DESIGN.md springs settle in ~640ms; 900ms leaves margin.
 const WINDOW_MS = 900;
 const CLICK_MARK = "perf-morph:click";
+const WINDOW_NAMES = ["open", "close"];
+
+// Instrument floor, per window: frames cc reported in ANY state (presented,
+// partial, dropped). Presented frames can't be the floor: a real regression
+// collapses them (--inject-jank presents 27 in a close window, --inject-gpu
+// about 23), and that must score as FAIL, not as an instrument error.
+// Reported frames follow the 120Hz clock instead: healthy windows report 106
+// (open) and 74 (close — the morph settles sooner), and every injection
+// reports at least 73 (measured 2026-09-11). A window under 50 lost its
+// trace events and would otherwise score a perfect 0 dropped / 0ms.
+const MIN_REPORTED_PER_WINDOW = 50;
+
+// Test-only hook: PERF_DROP_WINDOW=open|close discards that window's
+// PipelineReporter events before analysis, standing in for a lost trace
+// buffer, so the floor above can be proven to fire. Never set in normal use.
+const DROP_WINDOW = process.env.PERF_DROP_WINDOW || null;
+if (DROP_WINDOW && !WINDOW_NAMES.includes(DROP_WINDOW)) {
+  throw new Error(`PERF_DROP_WINDOW must be "open" or "close", got "${DROP_WINDOW}"`);
+}
 
 // --- machine-quiet gate ------------------------------------------------
 //
@@ -376,10 +395,49 @@ async function injectUnrelatedAnimation(page) {
   });
 }
 
+// Proves --inject-jank / --inject-block actually ran inside this cycle's
+// scored windows, on the page clock, using the same trusted clicks that place
+// the trace windows. A no-op injection would otherwise read as a clean PASS.
+// Jank runs 20ms slices once per frame: 44 start inside each 900ms window
+// (measured 2026-09-11), so 20 leaves room without accepting a no-op.
+const JANK_MIN_SLICES_PER_WINDOW = 20;
+async function verifyInjections(page) {
+  const rec = await page.evaluate(() => window.__perfMorph);
+  if (rec.clicks.length !== 2) {
+    throw new Error(`instrument error: page recorded ${rec.clicks.length} trusted clicks in the cycle, expected 2`);
+  }
+  const windows = rec.clicks.map((c) => [c, c + WINDOW_MS]);
+  const startsIn = ([start], [a, b]) => start >= a && start < b;
+  const notes = [];
+  if (INJECT_JANK) {
+    const counts = windows.map((w) => rec.jank.filter((slice) => startsIn(slice, w)).length);
+    counts.forEach((n, w) => {
+      if (n < JANK_MIN_SLICES_PER_WINDOW) {
+        throw new Error(
+          `--inject-jank self-check: ${n} busy slices started in the ${WINDOW_NAMES[w]} window ` +
+            `(need >= ${JANK_MIN_SLICES_PER_WINDOW}) — the injection didn't run while scored`,
+        );
+      }
+    });
+    notes.push(`jank slices open/close ${counts.join("/")}`);
+  }
+  if (INJECT_BLOCK) {
+    const hit = rec.block.find((slice) => slice[1] - slice[0] >= 140 && startsIn(slice, windows[0]));
+    if (!hit) {
+      throw new Error(
+        `--inject-block self-check: no >=140ms busy period started inside the open window ` +
+          `(recorded ${rec.block.length}) — the injection didn't run while scored`,
+      );
+    }
+    notes.push(`block ${(hit[1] - hit[0]).toFixed(0)}ms at +${(hit[0] - windows[0][0]).toFixed(0)}ms`);
+  }
+  return notes.join(", ");
+}
+
 // --- trace analysis --------------------------------------------------------
 
 // Scores one traced cycle. Throws (rather than returning a number) when the
-// trace can't be trusted: wrong marker count, or no presented frames at all.
+// trace can't be trusted: wrong marker count, or a window below the floor.
 function analyzeCycle(events) {
   const marks = events.filter(
     (e) => e.name === "TimeStamp" && e.args?.data?.message === CLICK_MARK,
@@ -403,8 +461,10 @@ function analyzeCycle(events) {
   // once a reporter ends, so pair each begin with the next end on its id.
   const open = new Map();
   const reporters = [];
+  const dropIndex = WINDOW_NAMES.indexOf(DROP_WINDOW);
   const pipeline = events
     .filter((e) => e.name === "PipelineReporter" && e.pid === pid)
+    .filter((e) => dropIndex === -1 || windowOf(e.ts) !== dropIndex)
     .sort((a, b) => a.ts - b.ts);
   for (const e of pipeline) {
     const key = e.id2?.local ?? e.id;
@@ -428,6 +488,17 @@ function analyzeCycle(events) {
       .map((r) => `${r.frame.frame_source}:${r.frame.frame_sequence}`),
   ).size;
 
+  const reportedPerWindow = windows.map((_, w) => scored.filter((r) => windowOf(r.begin) === w).length);
+  reportedPerWindow.forEach((reported, w) => {
+    if (reported < MIN_REPORTED_PER_WINDOW) {
+      throw new Error(
+        `instrument error: the ${WINDOW_NAMES[w]} window reported ${reported} frames ` +
+          `(floor ${MIN_REPORTED_PER_WINDOW}; healthy ~106 open, ~74 close) — its trace events are ` +
+          `missing, refusing to score it as a perfect window`,
+      );
+    }
+  });
+
   let presented = 0;
   let longestIntervalMs = 0;
   const intervals = [];
@@ -443,10 +514,7 @@ function analyzeCycle(events) {
       longestIntervalMs = Math.max(longestIntervalMs, gap);
     }
   }
-  if (presented === 0) {
-    throw new Error("instrument error: no presented frames in the motion windows — PipelineReporter missing from trace");
-  }
-  return { rasterMs, dropped, longestIntervalMs, presented, intervals };
+  return { rasterMs, dropped, longestIntervalMs, presented, intervals, reportedPerWindow };
 }
 
 // --- measurement -------------------------------------------------------
@@ -465,7 +533,17 @@ async function measureLaunch(cycles) {
     await page.addInitScript(
       ({ inject, mark }) => {
         localStorage.setItem("morph-sheet-example:iridescent", inject ? "1" : "0");
-        addEventListener("click", (e) => e.isTrusted && console.timeStamp(mark), true);
+        // Page-clock record of each cycle, read back by verifyInjections.
+        window.__perfMorph = { clicks: [], jank: [], block: [] };
+        addEventListener(
+          "click",
+          (e) => {
+            if (!e.isTrusted) return;
+            console.timeStamp(mark);
+            window.__perfMorph.clicks.push(performance.now());
+          },
+          true,
+        );
       },
       { inject: INJECT_GLOW, mark: CLICK_MARK },
     );
@@ -508,6 +586,7 @@ async function measureLaunch(cycles) {
                 while (performance.now() - start < 150) {
                   /* intentional busy-block */
                 }
+                window.__perfMorph.block.push([start, performance.now()]);
               }, 200),
             { capture: true, once: true },
           );
@@ -532,6 +611,7 @@ async function measureLaunch(cycles) {
           while (performance.now() - start < 20) {
             /* intentional busy-block */
           }
+          window.__perfMorph.jank.push([start, performance.now()]);
           requestAnimationFrame(tick);
         }
         tick();
@@ -539,7 +619,15 @@ async function measureLaunch(cycles) {
     }
 
     const cdp = await ctx.newCDPSession(page);
-    const perCycle = { rasterMs: [], dropped: [], longestIntervalMs: [], presented: [], intervals: [] };
+    const perCycle = {
+      rasterMs: [],
+      dropped: [],
+      longestIntervalMs: [],
+      presented: [],
+      intervals: [],
+      reportedPerWindow: [],
+      selfCheck: [],
+    };
 
     for (let i = 0; i < cycles; i++) {
       const events = [];
@@ -550,6 +638,9 @@ async function measureLaunch(cycles) {
           "disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.frame,devtools.timeline,blink",
         options: "sampling-frequency=10000",
       });
+      await page.evaluate(() => {
+        window.__perfMorph = { clicks: [], jank: [], block: [] };
+      });
       await cycle(true);
       await new Promise((resolve) => {
         cdp.once("Tracing.tracingComplete", resolve);
@@ -557,7 +648,10 @@ async function measureLaunch(cycles) {
       });
       cdp.off("Tracing.dataCollected", onTraceData);
 
+      // Before scoring: an injection that didn't run must be named, not scored.
+      perCycle.selfCheck.push(await verifyInjections(page));
       const result = analyzeCycle(events);
+      perCycle.reportedPerWindow.push(result.reportedPerWindow.join("/"));
       perCycle.rasterMs.push(result.rasterMs);
       perCycle.dropped.push(result.dropped);
       perCycle.longestIntervalMs.push(result.longestIntervalMs);
@@ -730,6 +824,12 @@ async function main() {
     ["longest interval ms", ...fmt(longestInterval), result.longestIntervalMs.map((n) => n.toFixed(1)).join(", ")],
     ["presented (info)", ...fmt(presented, 0), result.presented.join(", ")],
   ]);
+  console.log(
+    `  frames reported per window, open/close (floor ${MIN_REPORTED_PER_WINDOW}): ${result.reportedPerWindow.join(", ")}`,
+  );
+  if (INJECT_JANK || INJECT_BLOCK) {
+    console.log(`  injection self-check: PASS in every cycle (${result.selfCheck.join(" | ")})`);
+  }
 
   if (!existsSync(BASELINE_PATH)) {
     console.error("");

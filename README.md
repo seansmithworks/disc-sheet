@@ -529,6 +529,13 @@ shell renders on SwiftShader (software); new headless mode
 renderer and the GPU feature status, prints the renderer, stores it in the
 baseline, and exits 1 on a software renderer. No window opens.
 
+**It refuses to score a trace it can't trust.** Each window must report at
+least 50 frames in any state (healthy: ~106 open, ~74 close); fewer means its
+trace events went missing, and the run throws instead of scoring a perfect 0.
+`--inject-jank` and `--inject-block` read back page-side records and throw
+unless the injection ran inside the scored windows. `PERF_DROP_WINDOW=open`
+or `=close` discards one window's events to prove the floor fires.
+
 **Baseline and sensitivity** (headless, M1 Pro, 2026-09-11, 20 pooled cycles
 at load1 2.5–2.8): raster 55.7ms, 1 dropped frame, 16.7ms longest interval.
 Judged on the median of 5 cycles, the gate fails when raster passes 93.3ms
