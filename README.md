@@ -555,6 +555,24 @@ masked by a wide observed spread).
 
 Needs a real, visible GPU display — **not part of `prepublishOnly` or CI.**
 
+**`--inject-gpu` blind spot, not yet closed.** In the gate's own Playwright
+harness on this machine (Apple M1 Pro, ANGLE Metal), stacking 4 full-viewport
+`backdrop-filter: blur(120px)` layers is compositor-cheap: raster ms, frame
+count, and longest gap all PASS, and a deeper CDP `PipelineReporter` check
+(dropped-frame state, `has_high_latency`, and raw cycle wall time) shows no
+regression either — frames are scheduled and presented on time. But a real
+Chrome recording of the same injected condition via `agent-browser`
+(headed, `ffmpeg -vf mpdecimate` distinct-frame count) showed a severe,
+reproducible collapse under load — as much as 1 distinct frame across 3 full
+open/close cycles, versus 7 for the same 3 cycles with no injection — and
+the wall-clock time for the same click sequence inflated 3-7x. That gap
+never reproduced inside the isolated Playwright harness, only with an actual
+screen recording running concurrently, so it looks like GPU+capture
+contention specific to real Chrome, not a property of the app's own
+rendering that this gate's harness can ever observe. Left open rather than
+gated on an unproven metric — see AGENT_NOTES or ask before landing a fix
+here.
+
 
 
 MIT. See `LICENSE` for the full text.

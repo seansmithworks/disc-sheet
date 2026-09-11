@@ -5,20 +5,34 @@
     "height": 800
   },
   "date": "2026-09-11",
-  "commit": "da2897c",
+  "commit": "9bc85d2",
   "cycles": 5,
+  "baselineLaunches": 5,
+  "load1PerLaunch": [
+    2.6806640625,
+    3.46533203125,
+    3.32568359375,
+    3.37109375,
+    3.896484375
+  ],
   "raster": {
-    "median": 137.643,
-    "min": 80.518,
-    "max": 222.033
+    "median": 44.843999999999994,
+    "min": 26.314,
+    "max": 55.975
   },
   "frames": {
-    "median": 117,
-    "min": 97,
-    "max": 121
+    "median": 90,
+    "min": 89,
+    "max": 91
+  },
+  "longestGap": {
+    "median": 23.380615234375,
+    "min": 19.705810546875,
+    "max": 34.065185546875
   },
   "tolerance": {
-    "rasterPct": 0.35,
-    "framesPct": 0.15
+    "rasterPct": 0.3723240567299976,
+    "framesPct": 0.03,
+    "longestGapPct": 0.685476207879541
   }
 }
