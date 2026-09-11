@@ -102,18 +102,34 @@ const QUIET_LOAD_FACTOR = 0.5; // loadavg(1min) must be below this * core count
 const CORES = cpus().length;
 const QUIET_THRESHOLD = CORES * QUIET_LOAD_FACTOR;
 
+// Test-only hook (see README "Measuring smoothness"): PERF_FAKE_LOAD_SEQUENCE
+// feeds a fixed, comma-separated sequence of loadavg(1min) values instead of
+// reading the real machine, one value per call to currentLoad(). This is how
+// the per-launch quiet gate below is proven to fire on a specific launch
+// (e.g. "1,1,99" makes launch 3 see load) without needing the real machine to
+// spike on cue. Never set in normal use.
+const fakeLoadSequence = process.env.PERF_FAKE_LOAD_SEQUENCE
+  ? process.env.PERF_FAKE_LOAD_SEQUENCE.split(",").map(Number)
+  : null;
+let fakeLoadIndex = 0;
+
 function currentLoad() {
+  if (fakeLoadSequence) {
+    const v = fakeLoadSequence[Math.min(fakeLoadIndex, fakeLoadSequence.length - 1)];
+    fakeLoadIndex += 1;
+    return v;
+  }
   return loadavg()[0];
 }
 
-function isQuiet() {
-  return currentLoad() < QUIET_THRESHOLD;
+function isQuiet(load) {
+  return load < QUIET_THRESHOLD;
 }
 
 async function waitForQuiet() {
   const start = Date.now();
   let load = currentLoad();
-  while (load >= QUIET_THRESHOLD) {
+  while (!isQuiet(load)) {
     if (Date.now() - start > WAIT_TIMEOUT_MS) {
       return { quiet: false, load };
     }
@@ -124,6 +140,39 @@ async function waitForQuiet() {
     load = currentLoad();
   }
   return { quiet: true, load };
+}
+
+// Checks the machine is quiet before ONE specific launch (called fresh for
+// every baseline launch, not once before the whole loop) — a load spike
+// mid-run, which easily takes minutes across BASELINE_LAUNCHES launches,
+// would otherwise silently contaminate later launches. Returns the load1
+// used for this launch on success; returns null (and writes nothing) on
+// refusal, deciding between "abort" and "poll" per --wait-for-quiet exactly
+// like the old one-shot check did.
+async function requireQuietForLaunch(launchNum, total) {
+  let load = currentLoad();
+  if (isQuiet(load)) return load;
+  if (WAIT_FOR_QUIET) {
+    const result = await waitForQuiet();
+    if (!result.quiet) {
+      console.error("");
+      console.error(
+        `Machine did not quiet down before launch ${launchNum}/${total} within ` +
+          `${Math.round(WAIT_TIMEOUT_MS / 60000)}min (load1=${result.load.toFixed(2)}, need < ` +
+          `${QUIET_THRESHOLD.toFixed(1)} on ${CORES} cores). Refusing to write a baseline captured under load.`,
+      );
+      return null;
+    }
+    return result.load;
+  }
+  console.error("");
+  console.error(
+    `Refusing to start baseline launch ${launchNum}/${total}: load1=${load.toFixed(2)} >= ` +
+      `${QUIET_THRESHOLD.toFixed(1)} (0.5 * ${CORES} cores) — the machine isn't quiet, so raster/frame ` +
+      `numbers would bake in someone else's CPU load, not the morph. Re-run when idle, or pass ` +
+      `--wait-for-quiet to poll (default timeout ${Math.round(WAIT_TIMEOUT_MS / 60000)}min).`,
+  );
+  return null;
 }
 
 function median(nums) {
@@ -264,7 +313,10 @@ async function injectGpuLoad(page) {
   });
 }
 
-async function assertGpuLoadAnimating(page) {
+// `label` identifies which measured motion window this check ran inside
+// ("open" or "close") so a failure names the window that wasn't actually
+// contending, not just "sometime in the cycle".
+async function assertGpuLoadAnimating(page, label) {
   const info = await page.evaluate(() => {
     const layers = Array.from(document.querySelectorAll("[data-perf-gpu-load]"));
     const before = layers.map((el) => getComputedStyle(el).transform);
@@ -274,19 +326,22 @@ async function assertGpuLoadAnimating(page) {
           const after = layers.map((el) => getComputedStyle(el).transform);
           const opacities = layers.map((el) => Number(getComputedStyle(el).opacity));
           resolve({ count: layers.length, before, after, opacities });
-        }, 120);
+        }, 60);
       });
     });
   });
   if (info.count !== 4) {
-    throw new Error(`--inject-gpu: expected 4 layers mounted, found ${info.count}`);
+    throw new Error(`--inject-gpu (${label} window): expected 4 layers mounted, found ${info.count}`);
   }
   if (info.opacities.some((o) => !(o > 0))) {
-    throw new Error(`--inject-gpu: a layer is not visible (opacity 0): ${info.opacities}`);
+    throw new Error(`--inject-gpu (${label} window): a layer is not visible (opacity 0): ${info.opacities}`);
   }
   const changed = info.before.some((t, i) => t !== info.after[i]);
   if (!changed) {
-    throw new Error("--inject-gpu: layers mounted but transform did not change — not animating");
+    throw new Error(
+      `--inject-gpu (${label} window): layers mounted but transform did not change during the measured ` +
+        `motion window — not contending while the morph is actually scored`,
+    );
   }
 }
 
@@ -343,19 +398,29 @@ async function measureLaunch(cycles) {
     // — nothing paints while the sheet sits still, so that idle hold itself
     // produces an ~850ms "gap" on every healthy run, drowning out any real
     // stall the metric is meant to catch.
+    //
+    // With --inject-gpu, each 900ms motion window is split so the
+    // contention check runs AT the midpoint of that same window, not in the
+    // idle hold after it — proving the injected layers are live while the
+    // morph is actually being scored, not just live somewhere in the cycle.
     const cycle = async (frames) => {
       await page.mouse.click(cx, cy);
       const openStart = frames ? frames.length : 0;
-      await page.waitForTimeout(900); // motion window, measured
+      await page.waitForTimeout(450); // first half of the open motion window
+      if (INJECT_GPU) {
+        await assertGpuLoadAnimating(page, "open");
+      }
+      await page.waitForTimeout(450); // second half of the open motion window
       const openEnd = frames ? frames.length : 0;
       await page.waitForTimeout(800); // remaining hold before next action
-      if (INJECT_GPU) {
-        await assertGpuLoadAnimating(page);
-      }
       const closeBox = await page.locator('[data-morph-sheet-part="close"]').boundingBox();
       await page.mouse.click(closeBox.x + closeBox.width / 2, closeBox.y + closeBox.height / 2);
       const closeStart = frames ? frames.length : 0;
-      await page.waitForTimeout(900); // motion window, measured
+      await page.waitForTimeout(450); // first half of the close motion window
+      if (INJECT_GPU) {
+        await assertGpuLoadAnimating(page, "close");
+      }
+      await page.waitForTimeout(450); // second half of the close motion window
       const closeEnd = frames ? frames.length : 0;
       await page.waitForTimeout(700); // remaining hold
       return [
@@ -443,6 +508,20 @@ async function measureLaunch(cycles) {
   }
 }
 
+// Test-only, reachable only when PERF_FAKE_LOAD_SEQUENCE is set: stands in
+// for measureLaunch() so the per-launch quiet gate can be proven to fire on
+// a specific launch without paying for a real (headed, GPU) browser launch
+// per iteration. Never runs in normal use.
+function fakeMeasureLaunch(cycles) {
+  const n = Array.from({ length: cycles }, () => 1);
+  return {
+    gpu: "fake (PERF_FAKE_LOAD_SEQUENCE)",
+    rasterMsPerCycle: n.map(() => 10),
+    frameCountPerCycle: n.map(() => 30),
+    longestGapPerCycle: n.map(() => 20),
+  };
+}
+
 function summarize(nums) {
   return { median: median(nums), min: Math.min(...nums), max: Math.max(...nums) };
 }
@@ -480,37 +559,21 @@ async function main() {
   const commit = await sh(["rev-parse", "--short", "HEAD"]);
 
   if (UPDATE_BASELINE) {
-    let load = currentLoad();
-    if (!isQuiet()) {
-      if (WAIT_FOR_QUIET) {
-        const result = await waitForQuiet();
-        load = result.load;
-        if (!result.quiet) {
-          console.error("");
-          console.error(
-            `Machine did not quiet down within ${Math.round(WAIT_TIMEOUT_MS / 60000)}min ` +
-              `(load1=${load.toFixed(2)}, need < ${QUIET_THRESHOLD.toFixed(1)} on ${CORES} cores). ` +
-              `Refusing to write a baseline captured under load.`,
-          );
-          return 1;
-        }
-      } else {
-        console.error("");
-        console.error(
-          `Refusing to update the baseline: load1=${load.toFixed(2)} >= ${QUIET_THRESHOLD.toFixed(1)} ` +
-            `(0.5 * ${CORES} cores) — the machine isn't quiet, so raster/frame numbers would bake in ` +
-            `someone else's CPU load, not the morph. Re-run when idle, or pass --wait-for-quiet to poll ` +
-            `(default timeout ${Math.round(WAIT_TIMEOUT_MS / 60000)}min).`,
-        );
-        return 1;
-      }
-    }
-    console.log(`machine quiet: load1=${load.toFixed(2)} (threshold < ${QUIET_THRESHOLD.toFixed(1)}, ${CORES} cores)\n`);
-
     const launches = [];
+    const load1PerLaunch = [];
     for (let i = 0; i < BASELINE_LAUNCHES; i++) {
-      console.log(`baseline launch ${i + 1}/${BASELINE_LAUNCHES}...`);
-      const result = await measureLaunch(CYCLES);
+      // Checked fresh before EACH launch, not once before the loop — a
+      // launch takes minutes, and a load spike between launches would
+      // otherwise contaminate a later launch under a check that already
+      // passed. See requireQuietForLaunch.
+      const load = await requireQuietForLaunch(i + 1, BASELINE_LAUNCHES);
+      if (load == null) return 1;
+      load1PerLaunch.push(load);
+      console.log(
+        `baseline launch ${i + 1}/${BASELINE_LAUNCHES} (load1=${load.toFixed(2)}, threshold < ` +
+          `${QUIET_THRESHOLD.toFixed(1)}, ${CORES} cores)...`,
+      );
+      const result = fakeLoadSequence ? fakeMeasureLaunch(CYCLES) : await measureLaunch(CYCLES);
       launches.push(result);
       printTable([
         ["metric", "median", "min", "max"],
@@ -559,7 +622,7 @@ async function main() {
       commit,
       cycles: CYCLES,
       baselineLaunches: BASELINE_LAUNCHES,
-      load1AtCapture: load,
+      load1PerLaunch,
       raster,
       frames,
       longestGap,

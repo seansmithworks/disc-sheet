@@ -525,15 +525,20 @@ frames). The script exits non-zero if any of the three falls outside its
 limit. Tolerances aren't hand-picked — `--update-baseline` derives them from
 the actual spread observed at rebaseline time (see below).
 
-**Rebaselining requires a quiet machine.** Both raster ms and frame count
-are absolute measurements: another test browser, a heavy background app, or
-just system load contaminate them exactly like a real regression would.
-`--update-baseline` checks `os.loadavg()[0]` against `0.5 * cpu count` and
-**refuses to write** a baseline if the machine isn't quiet — pass
-`--wait-for-quiet` to poll instead (default timeout 20 minutes). A plain
-`npm run perf` (the gate, not the rebaseline) prints a warning instead of
-refusing, since it's meant to run ad hoc during a dev loop; treat a FAIL
-under that warning as suspect until re-run quiet.
+**Rebaselining requires a quiet machine, checked before every launch.** Both
+raster ms and frame count are absolute measurements: another test browser, a
+heavy background app, or just system load contaminate them exactly like a
+real regression would. `--update-baseline` checks `os.loadavg()[0]` against
+`0.5 * cpu count` **before each of the 5 baseline launches**, not once
+before the whole run — a launch takes minutes, so a load spike between
+launches would otherwise silently contaminate a later one under a check
+that already passed. Any launch that isn't quiet **refuses to write** a
+baseline (no partial baseline is ever written) — pass `--wait-for-quiet` to
+poll instead (default timeout 20 minutes) — and each launch's load1 at the
+moment it started is recorded in `perf/baseline.json` under
+`load1PerLaunch`. A plain `npm run perf` (the gate, not the rebaseline)
+prints a warning instead of refusing, since it's meant to run ad hoc during
+a dev loop; treat a FAIL under that warning as suspect until re-run quiet.
 
 **Baseline model — warm steady state, not one cold sample.** The first open
 after browser launch renders roughly half the distinct frames of a later
