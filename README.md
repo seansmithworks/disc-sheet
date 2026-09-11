@@ -245,11 +245,31 @@ package renders correctly out of the box:
 | `--morph-sheet-sheet-padding` | `24px` |
 | `--morph-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
 | `--morph-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |
+| `--morph-sheet-sheet-shadow-fade-start` | `0` |
+| `--morph-sheet-sheet-shadow-fade-end` | `0.25` |
 | `--morph-sheet-z` | `100` |
 
+`--morph-sheet-sheet-shadow-fade-start`/`-fade-end` are unitless
+`collapseProgress` fractions (0 = open at rest, 1 = closed at rest) marking
+where `<MorphSheet.Shadow>` crossfades from the heavy `--morph-sheet-sheet-shadow`
+look to the thin `--morph-sheet-shadow` look — see "Two shadows, one painter"
+below.
+
 The package writes `--morph-sheet-trigger-size`, `--morph-sheet-trigger-x/-y`,
-`--morph-sheet-sheet-left/-top`, `--morph-sheet-collapse`, and
-`--morph-sheet-shadow-x/-y/-w/-h/-radius`; read these, don't set them.
+`--morph-sheet-sheet-left/-top`, `--morph-sheet-collapse`,
+`--morph-sheet-shadow-x/-y/-w/-h/-radius`, and
+`--morph-sheet-shadow-opacity`/`--morph-sheet-sheet-shadow-opacity` (the live
+crossfade values, in [0, 1]); read these, don't set them.
+
+### Two shadows, one painter
+
+`<MorphSheet.Shadow>` paints both shadow looks on its one silhouette,
+crossfaded by opacity as `collapseProgress` moves — nothing else in the
+package paints a shadow. If you don't render `<MorphSheet.Shadow>`, there is
+no shadow at all. An `asChild` swap receives
+`--morph-sheet-shadow-opacity`/`--morph-sheet-sheet-shadow-opacity` as custom
+properties on the cloned element so a replacement layer (e.g. a
+`@seansmithworks/surface-fx` dither) can reproduce the same crossfade.
 
 `npm run audit:vars` checks this table against `src/styles.module.css` and
 `src/`: any `--morph-sheet-*` variable the CSS reads must be either written by
@@ -286,8 +306,9 @@ present only while a close is in flight (removed once the sheet has fully
 closed).
 
 `sheet` additionally carries `data-morph-sheet-settled` (empty string), present
-only once the open has finished and removed as soon as a close starts. The
-sheet's own `--morph-sheet-sheet-shadow` is applied only while it is present.
+only once the open has finished and removed as soon as a close starts. This
+gates `<MorphSheet.Close>`'s reveal, not any shadow — the sheet element paints
+no box-shadow of its own; see "Two shadows, one painter" above.
 
 ## Motion
 

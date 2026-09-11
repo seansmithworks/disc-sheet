@@ -149,24 +149,19 @@
    * which never gets an inline value at all (its render branch passes no
    * borderRadius) and previously rendered with square corners. */
   border-radius: var(--morph-sheet-sheet-radius, 32px);
-  /* No shadow of its own during the morph: Motion draws the growing sheet
-   * scaled down (~37% on the first open frame), which squashed this shadow
-   * into a dark, tight edge that then lightened as the box grew. The
-   * <Shadow> layer is sized, not scaled, and covers the morph; this one
-   * fades in once Sheet.tsx marks the open settled. */
+  /* No shadow of its own, ever: Motion draws the growing sheet scaled down
+   * (~37% on the first open frame), which squashed a sheet-painted shadow
+   * into a dark, tight edge that then lightened as the box grew. Both looks
+   * (the thin disc shadow and the sheet's heavier resting shadow) are
+   * painted, and crossfaded, by <MorphSheet.Shadow> alone (Shadow.tsx,
+   * .shadow::before/::after below) — one painter, one clock (DESIGN.md
+   * §4.1). This element used to fade its own box-shadow in via
+   * `[data-morph-sheet-settled]`, which was a second clock and produced a
+   * one-frame pop when a demo mask clipped it at the phase boundary. */
   box-shadow: none;
-  transition: box-shadow 240ms cubic-bezier(0.23, 1, 0.32, 1);
   max-height: 88dvh;
   overflow: hidden;
   color: var(--morph-sheet-text, #1a1610);
-}
-
-.sheet[data-morph-sheet-settled] {
-  box-shadow: var(
-    --morph-sheet-sheet-shadow,
-    0 8px 48px rgba(0, 0, 0, 0.24),
-    0 2px 8px rgba(0, 0, 0, 0.12)
-  );
 }
 
 .sheet:focus {
@@ -215,11 +210,39 @@
 
 .shadow {
   border-radius: var(--morph-sheet-shadow-radius, 9999px);
+}
+
+/* Two shadow looks on one silhouette, crossfaded by opacity (Shadow.tsx sets
+ * both --morph-sheet-shadow-opacity and --morph-sheet-sheet-shadow-opacity
+ * every collapseProgress tick). Only opacity animates here — never blur or
+ * spread (DESIGN.md §4.3). .shadow is itself `position: fixed`, so it is
+ * already a positioning context for these; no extra `position: relative`
+ * needed. */
+.shadow::before,
+.shadow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.shadow::before {
   box-shadow: var(
     --morph-sheet-shadow,
     0 1px 4px rgba(26, 22, 16, 0.14),
     0 6px 24px rgba(0, 0, 0, 0.15)
   );
+  opacity: var(--morph-sheet-shadow-opacity, 1);
+}
+
+.shadow::after {
+  box-shadow: var(
+    --morph-sheet-sheet-shadow,
+    0 8px 48px rgba(0, 0, 0, 0.24),
+    0 2px 8px rgba(0, 0, 0, 0.12)
+  );
+  opacity: var(--morph-sheet-sheet-shadow-opacity, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {
