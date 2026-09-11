@@ -3,7 +3,7 @@
  * perf-morph.mjs — the morph-smoothness gate (docs/plans/motion-craft-audit.html,
  * item 3; DESIGN.md §4.8 "judge with the instrument, not memory").
  *
- * Turns "does the morph feel smooth?" into two numbers, checked against a
+ * Turns "does the morph feel smooth?" into three numbers, checked against a
  * checked-in baseline:
  *
  *   1. raster ms   — CDP `Tracing` totals for RasterTask (+ paint) durations
@@ -19,6 +19,10 @@
  *      here — no new dependency (ffmpeg is not a repo dependency) and no
  *      decimation heuristic needed. Both signals are pulled from the same
  *      cycle window in a single pass.
+ *   3. longest frame gap — the single largest interval between two
+ *      consecutive screencast frames in a cycle. A main-thread stall can
+ *      hide inside a healthy median (fewer, but evenly-spaced frames) while
+ *      still reading as a visible hitch; this catches that shape.
  *
  * Runs its OWN vite server on a fixed port (never :5180, which Sean uses)
  * and tears it down on exit, including on failure/SIGINT.
@@ -28,11 +32,28 @@
  *   npm run perf -- --update-baseline
  *   npm run perf -- --cycles=8
  *   npm run perf -- --inject-glow   # AC3 only: prove the gate fires on a real regression
+ *   npm run perf -- --inject-jank   # AC3 only: main-thread-starvation proxy regression
+ *   npm run perf -- --inject-gpu    # AC3 only: compositor/GPU-load proxy regression
+ *
+ * Baseline model (--update-baseline): a single cold launch is not steady
+ * state — the first open after browser launch renders roughly half the
+ * distinct frames of any later open (reference_measuring-smoothness.md).
+ * To anchor the baseline to warm steady state instead of a lucky or
+ * unlucky single sample, `--update-baseline` runs BASELINE_LAUNCHES
+ * separate browser launches of CYCLES cycles each, throws away the first
+ * launch *entirely* (not just its in-page warm-up cycles — a whole cold
+ * launch, post-idle warm-up), and also discards each remaining launch's own
+ * 2 in-page warm-up cycles. The baseline's median/spread come from the
+ * pooled per-cycle samples of the remaining launches only. Tolerances are
+ * then derived from that pooled spread (see deriveTolerance below) instead
+ * of being hand-picked, so they track whatever this machine's real
+ * run-to-run variance is on the day of rebaseline.
  */
 import { spawn } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadavg, cpus } from "node:os";
 import { chromium } from "@playwright/test";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -50,6 +71,7 @@ const valueOf = (name, fallback) => {
 
 const UPDATE_BASELINE = flag("update-baseline");
 const CYCLES = valueOf("cycles", 5);
+const BASELINE_LAUNCHES = valueOf("baseline-launches", 5);
 const INJECT_GLOW = flag("inject-glow"); // AC3 only — proves the gate fires
 // AC3 only: on this machine's GPU (Apple Silicon/Metal), the demo's
 // animated-blur glow is compositor-only and doesn't load the main-thread
@@ -58,6 +80,51 @@ const INJECT_GLOW = flag("inject-glow"); // AC3 only — proves the gate fires
 // main thread with a real, observable-in-both-metrics regression instead
 // (see README "Measuring smoothness").
 const INJECT_JANK = flag("inject-jank");
+// AC3 only: heavier, run-time-only GPU/compositor load than --inject-glow —
+// several stacked full-viewport layers with large backdrop-filter blur,
+// animated independently of the app — used to check whether the gate's two
+// metrics are compositor/GPU-blind (see README).
+const INJECT_GPU = flag("inject-gpu");
+const WAIT_FOR_QUIET = flag("wait-for-quiet");
+const WAIT_TIMEOUT_MS = valueOf("wait-for-quiet-timeout", 20 * 60 * 1000);
+
+// --- machine-quiet gate ------------------------------------------------
+//
+// Raster ms and frame counts are absolute wall-clock/compositor numbers —
+// contention from unrelated processes (another test browser, Spotlight
+// indexing, another heavy app) inflates raster time and starves the
+// compositor exactly like a real regression would, so a baseline or gate
+// run captured under load is not measuring the morph. Refuse to measure
+// (baseline) or measure with a loud warning (gate) rather than silently
+// producing numbers that look like a regression, or a baseline that bakes
+// in someone else's CPU spike.
+const QUIET_LOAD_FACTOR = 0.5; // loadavg(1min) must be below this * core count
+const CORES = cpus().length;
+const QUIET_THRESHOLD = CORES * QUIET_LOAD_FACTOR;
+
+function currentLoad() {
+  return loadavg()[0];
+}
+
+function isQuiet() {
+  return currentLoad() < QUIET_THRESHOLD;
+}
+
+async function waitForQuiet() {
+  const start = Date.now();
+  let load = currentLoad();
+  while (load >= QUIET_THRESHOLD) {
+    if (Date.now() - start > WAIT_TIMEOUT_MS) {
+      return { quiet: false, load };
+    }
+    console.log(
+      `  waiting for quiet machine: load1=${load.toFixed(2)} (need < ${QUIET_THRESHOLD.toFixed(1)}, ${CORES} cores)...`,
+    );
+    await new Promise((r) => setTimeout(r, 15000));
+    load = currentLoad();
+  }
+  return { quiet: true, load };
+}
 
 function median(nums) {
   const s = [...nums].sort((a, b) => a - b);
@@ -156,9 +223,81 @@ process.on("SIGTERM", () => {
   process.exit(143);
 });
 
+// --- GPU/compositor-load injection (AC3 only, run time only) ---------------
+
+// Several stacked full-viewport layers with a large backdrop-filter blur,
+// each animated by its own CSS animation (not tied to the app's rAF loop),
+// so a compositor-blind gate would see nothing while ground truth
+// (agent-browser recording + distinct-frame count) can still show real
+// frame loss. Injected as a style tag + DOM nodes at run time only — no
+// app file is touched.
+async function injectGpuLoad(page) {
+  await page.addStyleTag({
+    content: `
+      .perf-gpu-load-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        pointer-events: none;
+        mix-blend-mode: multiply;
+        backdrop-filter: blur(120px) saturate(3);
+        -webkit-backdrop-filter: blur(120px) saturate(3);
+        animation: perf-gpu-load-spin 1.1s linear infinite;
+        opacity: 0.9;
+      }
+      .perf-gpu-load-layer:nth-child(2) { animation-duration: 0.7s; animation-direction: reverse; }
+      .perf-gpu-load-layer:nth-child(3) { animation-duration: 1.6s; }
+      .perf-gpu-load-layer:nth-child(4) { animation-duration: 0.5s; animation-direction: reverse; }
+      @keyframes perf-gpu-load-spin {
+        from { transform: scale(1.4) rotate(0deg); }
+        to { transform: scale(1.4) rotate(360deg); }
+      }
+    `,
+  });
+  await page.evaluate(() => {
+    for (let i = 0; i < 4; i++) {
+      const el = document.createElement("div");
+      el.className = "perf-gpu-load-layer";
+      el.dataset.perfGpuLoad = "true";
+      document.body.appendChild(el);
+    }
+  });
+}
+
+async function assertGpuLoadAnimating(page) {
+  const info = await page.evaluate(() => {
+    const layers = Array.from(document.querySelectorAll("[data-perf-gpu-load]"));
+    const before = layers.map((el) => getComputedStyle(el).transform);
+    return new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          const after = layers.map((el) => getComputedStyle(el).transform);
+          const opacities = layers.map((el) => Number(getComputedStyle(el).opacity));
+          resolve({ count: layers.length, before, after, opacities });
+        }, 120);
+      });
+    });
+  });
+  if (info.count !== 4) {
+    throw new Error(`--inject-gpu: expected 4 layers mounted, found ${info.count}`);
+  }
+  if (info.opacities.some((o) => !(o > 0))) {
+    throw new Error(`--inject-gpu: a layer is not visible (opacity 0): ${info.opacities}`);
+  }
+  const changed = info.before.some((t, i) => t !== info.after[i]);
+  if (!changed) {
+    throw new Error("--inject-gpu: layers mounted but transform did not change — not animating");
+  }
+}
+
 // --- measurement -------------------------------------------------------
 
-async function measure() {
+// One full browser launch: 2 discarded in-page warm-up cycles (the first
+// open after any launch renders ~half the distinct frames of a later one —
+// reference_measuring-smoothness.md) followed by `cycles` measured cycles.
+// Returns raw per-cycle arrays only; the caller decides how to pool/summarize
+// across launches.
+async function measureLaunch(cycles) {
   const browser = await chromium.launch({ headless: false });
   try {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
@@ -180,6 +319,10 @@ async function measure() {
       throw new Error(".iri-shadow is mounted with glow OFF — the demo toggle did not apply");
     }
 
+    if (INJECT_GPU) {
+      await injectGpuLoad(page);
+    }
+
     const gpu = await page.evaluate(() => {
       const c = document.createElement("canvas").getContext("webgl");
       const dbg = c && c.getExtension("WEBGL_debug_renderer_info");
@@ -191,12 +334,34 @@ async function measure() {
     const cx = triggerBox.x + triggerBox.width / 2;
     const cy = triggerBox.y + triggerBox.height / 2;
 
-    const cycle = async () => {
+    // `frames` (only passed during measured cycles, not warm-up) is the
+    // in-flight screencastFrames array for this cycle. `cycle` snapshots its
+    // length right after each click and again after a fixed 900ms motion
+    // window (DESIGN.md springs settle in ~640ms; 900ms leaves margin) so
+    // callers can compute the longest inter-frame gap *during the morph
+    // only*. Without this, the gap spans the whole open/close hold as well
+    // — nothing paints while the sheet sits still, so that idle hold itself
+    // produces an ~850ms "gap" on every healthy run, drowning out any real
+    // stall the metric is meant to catch.
+    const cycle = async (frames) => {
       await page.mouse.click(cx, cy);
-      await page.waitForTimeout(1700); // open settle, per reference script
+      const openStart = frames ? frames.length : 0;
+      await page.waitForTimeout(900); // motion window, measured
+      const openEnd = frames ? frames.length : 0;
+      await page.waitForTimeout(800); // remaining hold before next action
+      if (INJECT_GPU) {
+        await assertGpuLoadAnimating(page);
+      }
       const closeBox = await page.locator('[data-morph-sheet-part="close"]').boundingBox();
       await page.mouse.click(closeBox.x + closeBox.width / 2, closeBox.y + closeBox.height / 2);
-      await page.waitForTimeout(1600); // close settle
+      const closeStart = frames ? frames.length : 0;
+      await page.waitForTimeout(900); // motion window, measured
+      const closeEnd = frames ? frames.length : 0;
+      await page.waitForTimeout(700); // remaining hold
+      return [
+        [openStart, openEnd],
+        [closeStart, closeEnd],
+      ];
     };
 
     // Warm-up: discard 2 cycles. The first open after launch renders ~half
@@ -226,7 +391,7 @@ async function measure() {
     const frameCountPerCycle = [];
     const longestGapPerCycle = [];
 
-    for (let i = 0; i < CYCLES; i++) {
+    for (let i = 0; i < cycles; i++) {
       const traceEvents = [];
       const screencastFrames = [];
       const onTraceData = (d) => traceEvents.push(...d.value);
@@ -243,7 +408,7 @@ async function measure() {
       });
       await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 });
 
-      await cycle();
+      const motionWindows = await cycle(screencastFrames);
 
       await cdp.send("Page.stopScreencast");
       await new Promise((resolve) => {
@@ -260,9 +425,14 @@ async function measure() {
       rasterMsPerCycle.push(rasterTotal);
       frameCountPerCycle.push(screencastFrames.length);
 
+      // Longest gap is scoped to the motion windows only (see `cycle`
+      // above) — not the whole cycle, which includes an idle hold that
+      // paints nothing and would otherwise dominate this metric.
       let longestGap = 0;
-      for (let j = 1; j < screencastFrames.length; j++) {
-        longestGap = Math.max(longestGap, screencastFrames[j] - screencastFrames[j - 1]);
+      for (const [start, end] of motionWindows) {
+        for (let j = start + 1; j < end; j++) {
+          longestGap = Math.max(longestGap, screencastFrames[j] - screencastFrames[j - 1]);
+        }
       }
       longestGapPerCycle.push(longestGap);
     }
@@ -284,50 +454,161 @@ function printTable(rows) {
   }
 }
 
+// Derives a one-sided tolerance fraction from a pooled sample's spread
+// around its median, with a floor (so normal run-to-run noise doesn't
+// flake the gate) and a ceiling strictly below the regression size we need
+// to catch (so that regression is never masked by a wide observed spread).
+// margin widens the observed spread by 50% as a safety margin over the
+// exact sample seen at rebaseline time.
+//
+// `direction` picks which side of the median the metric regresses toward:
+// "high" for ceiling metrics (raster ms, longest gap — regression means a
+// bigger number) uses the high-side spread (max - median); "low" for floor
+// metrics (frames — regression means a smaller number) uses the low-side
+// spread (median - min). Using the wrong side silently produces a
+// tolerance that ignores the exact outliers it exists to size against.
+function deriveTolerance(summary, { floor, ceiling, margin = 1.5, direction }) {
+  const spreadPct =
+    direction === "low"
+      ? (summary.median - summary.min) / summary.median
+      : (summary.max - summary.median) / summary.median;
+  return Math.min(ceiling, Math.max(floor, spreadPct * margin));
+}
+
 async function main() {
   await startVite();
   const commit = await sh(["rev-parse", "--short", "HEAD"]);
-  const { gpu, rasterMsPerCycle, frameCountPerCycle, longestGapPerCycle } = await measure();
-
-  const raster = summarize(rasterMsPerCycle);
-  const frames = summarize(frameCountPerCycle);
-  const longestGap = Math.max(...longestGapPerCycle);
-
-  console.log("morph-sheet perf");
-  console.log(`  gpu:        ${gpu}`);
-  console.log(`  cycles:     ${CYCLES} (+2 warm-up, discarded)`);
-  console.log(`  glow:       ${INJECT_GLOW ? "ON (--inject-glow)" : "off"}`);
-  console.log(`  jank:       ${INJECT_JANK ? "ON (--inject-jank)" : "off"}`);
-  console.log("");
-  printTable([
-    ["metric", "median", "min", "max"],
-    ["raster ms/cycle", raster.median.toFixed(1), raster.min.toFixed(1), raster.max.toFixed(1)],
-    ["frames/cycle", String(frames.median), String(frames.min), String(frames.max)],
-  ]);
-  console.log(`  longest frame gap: ${longestGap.toFixed(1)}ms`);
-  console.log(`  per-cycle raster:  ${rasterMsPerCycle.map((n) => n.toFixed(1)).join(", ")}`);
-  console.log(`  per-cycle frames:  ${frameCountPerCycle.join(", ")}`);
 
   if (UPDATE_BASELINE) {
+    let load = currentLoad();
+    if (!isQuiet()) {
+      if (WAIT_FOR_QUIET) {
+        const result = await waitForQuiet();
+        load = result.load;
+        if (!result.quiet) {
+          console.error("");
+          console.error(
+            `Machine did not quiet down within ${Math.round(WAIT_TIMEOUT_MS / 60000)}min ` +
+              `(load1=${load.toFixed(2)}, need < ${QUIET_THRESHOLD.toFixed(1)} on ${CORES} cores). ` +
+              `Refusing to write a baseline captured under load.`,
+          );
+          return 1;
+        }
+      } else {
+        console.error("");
+        console.error(
+          `Refusing to update the baseline: load1=${load.toFixed(2)} >= ${QUIET_THRESHOLD.toFixed(1)} ` +
+            `(0.5 * ${CORES} cores) — the machine isn't quiet, so raster/frame numbers would bake in ` +
+            `someone else's CPU load, not the morph. Re-run when idle, or pass --wait-for-quiet to poll ` +
+            `(default timeout ${Math.round(WAIT_TIMEOUT_MS / 60000)}min).`,
+        );
+        return 1;
+      }
+    }
+    console.log(`machine quiet: load1=${load.toFixed(2)} (threshold < ${QUIET_THRESHOLD.toFixed(1)}, ${CORES} cores)\n`);
+
+    const launches = [];
+    for (let i = 0; i < BASELINE_LAUNCHES; i++) {
+      console.log(`baseline launch ${i + 1}/${BASELINE_LAUNCHES}...`);
+      const result = await measureLaunch(CYCLES);
+      launches.push(result);
+      printTable([
+        ["metric", "median", "min", "max"],
+        ["  raster ms/cycle", ...Object.values(summarize(result.rasterMsPerCycle)).map((n) => n.toFixed(1))],
+        ["  frames/cycle", ...Object.values(summarize(result.frameCountPerCycle)).map(String)],
+        ["  longest gap ms", ...Object.values(summarize(result.longestGapPerCycle)).map((n) => n.toFixed(1))],
+      ]);
+    }
+
+    // Discard the first launch entirely (cold-start, not steady state).
+    const steadyLaunches = launches.slice(1);
+    console.log(
+      `\ndiscarding launch 1/${BASELINE_LAUNCHES} entirely (cold start); ` +
+        `baseline built from launches 2-${BASELINE_LAUNCHES} (${steadyLaunches.length} launches, ` +
+        `each with its own 2 discarded in-page warm-up cycles).`,
+    );
+
+    const pooledRaster = steadyLaunches.flatMap((l) => l.rasterMsPerCycle);
+    const pooledFrames = steadyLaunches.flatMap((l) => l.frameCountPerCycle);
+    const pooledLongestGap = steadyLaunches.flatMap((l) => l.longestGapPerCycle);
+
+    const raster = summarize(pooledRaster);
+    const frames = summarize(pooledFrames);
+    const longestGap = summarize(pooledLongestGap);
+
+    // Raster is noisier run-to-run than frame count; longest-gap sits
+    // between the two. Floors keep the gate from flaking across normal
+    // runs; ceilings keep a real regression (2x raster, >=15% frame drop)
+    // from ever being masked by a wide observed spread. See README.
+    const rasterPct = deriveTolerance(raster, { floor: 0.2, ceiling: 0.9, direction: "high" });
+    const framesPct = deriveTolerance(frames, { floor: 0.03, ceiling: 0.12, direction: "low" });
+    const longestGapPct = deriveTolerance(longestGap, { floor: 0.3, ceiling: 0.9, direction: "high" });
+
+    console.log(`\npooled steady-state samples: raster n=${pooledRaster.length}, frames n=${pooledFrames.length}`);
+    printTable([
+      ["metric", "median", "min", "max", "derived tolerance"],
+      ["raster ms", raster.median.toFixed(1), raster.min.toFixed(1), raster.max.toFixed(1), `+${(rasterPct * 100).toFixed(0)}% ceiling`],
+      ["frames", String(frames.median), String(frames.min), String(frames.max), `-${(framesPct * 100).toFixed(0)}% floor`],
+      ["longest gap ms", longestGap.median.toFixed(1), longestGap.min.toFixed(1), longestGap.max.toFixed(1), `+${(longestGapPct * 100).toFixed(0)}% ceiling`],
+    ]);
+
     const baseline = {
-      gpu,
+      gpu: steadyLaunches[0].gpu,
       viewport: { width: 1280, height: 800 },
       date: new Date().toISOString().slice(0, 10),
       commit,
       cycles: CYCLES,
+      baselineLaunches: BASELINE_LAUNCHES,
+      load1AtCapture: load,
       raster,
       frames,
-      // Tolerances derived from run-to-run variance observed across 3
-      // consecutive `npm run perf` runs on this machine (see README +
-      // report): raster ms varies more than frame count run-to-run, so it
-      // gets a looser band.
-      tolerance: { rasterPct: 0.35, framesPct: 0.15 },
+      longestGap,
+      // One-sided: raster and longestGap are ceilings only (regression =
+      // more raster / a bigger stall), frames is a floor only (regression =
+      // fewer composited frames). Derived from this rebaseline's pooled
+      // steady-state spread across launches 2-N, not hand-picked — see
+      // deriveTolerance above and the README "Measuring smoothness"
+      // section for the resulting sensitivity.
+      tolerance: { rasterPct, framesPct, longestGapPct },
     };
     writeFileSync(BASELINE_PATH, JSON.stringify(baseline, null, 2) + "\n");
     console.log("");
     console.log(`baseline written -> ${BASELINE_PATH}`);
     return 0;
   }
+
+  const gateLoad = currentLoad();
+  if (gateLoad >= QUIET_THRESHOLD) {
+    console.error(
+      `warning: load1=${gateLoad.toFixed(2)} >= ${QUIET_THRESHOLD.toFixed(1)} (0.5 * ${CORES} cores) — ` +
+        `this run may read as a false regression. Results below are not refused, but treat a FAIL ` +
+        `under this warning as suspect until re-run quiet.`,
+    );
+  }
+
+  const { gpu, rasterMsPerCycle, frameCountPerCycle, longestGapPerCycle } = await measureLaunch(CYCLES);
+
+  const raster = summarize(rasterMsPerCycle);
+  const frames = summarize(frameCountPerCycle);
+  const longestGap = summarize(longestGapPerCycle);
+
+  console.log("morph-sheet perf");
+  console.log(`  load1:      ${gateLoad.toFixed(2)} (quiet threshold < ${QUIET_THRESHOLD.toFixed(1)}, ${CORES} cores)`);
+  console.log(`  gpu:        ${gpu}`);
+  console.log(`  cycles:     ${CYCLES} (+2 warm-up, discarded)`);
+  console.log(`  glow:       ${INJECT_GLOW ? "ON (--inject-glow)" : "off"}`);
+  console.log(`  jank:       ${INJECT_JANK ? "ON (--inject-jank)" : "off"}`);
+  console.log(`  gpu-load:   ${INJECT_GPU ? "ON (--inject-gpu)" : "off"}`);
+  console.log("");
+  printTable([
+    ["metric", "median", "min", "max"],
+    ["raster ms/cycle", raster.median.toFixed(1), raster.min.toFixed(1), raster.max.toFixed(1)],
+    ["frames/cycle", String(frames.median), String(frames.min), String(frames.max)],
+    ["longest gap ms", longestGap.median.toFixed(1), longestGap.min.toFixed(1), longestGap.max.toFixed(1)],
+  ]);
+  console.log(`  per-cycle raster:      ${rasterMsPerCycle.map((n) => n.toFixed(1)).join(", ")}`);
+  console.log(`  per-cycle frames:      ${frameCountPerCycle.join(", ")}`);
+  console.log(`  per-cycle longest gap: ${longestGapPerCycle.map((n) => n.toFixed(1)).join(", ")}`);
 
   if (!existsSync(BASELINE_PATH)) {
     console.error("");
@@ -340,6 +621,25 @@ async function main() {
 
   const rasterPass = raster.median <= rasterCeiling;
   const framesPass = frames.median >= framesFloor;
+
+  // An older baseline.json (pre-longestGap gating) won't have this field or
+  // its tolerance. Skip the check with a visible warning rather than
+  // crashing on `baseline.longestGap.median` — and rather than silently
+  // treating it as passed, which would look identical to an actually-run
+  // check in the table below.
+  const hasLongestGapBaseline = baseline.longestGap != null && baseline.tolerance.longestGapPct != null;
+  let longestGapPass = true;
+  let longestGapCeiling = null;
+  if (hasLongestGapBaseline) {
+    longestGapCeiling = baseline.longestGap.median * (1 + baseline.tolerance.longestGapPct);
+    longestGapPass = longestGap.median <= longestGapCeiling;
+  } else {
+    console.log("");
+    console.log(
+      `warning: baseline.json has no "longestGap" field (pre-dates that gate) — SKIPPING the longest-gap ` +
+        `check. Rebaseline with --update-baseline on a quiet machine to enable it.`,
+    );
+  }
 
   console.log("");
   console.log(`vs baseline (commit ${baseline.commit}, ${baseline.date}):`);
@@ -359,9 +659,16 @@ async function main() {
       `>= ${framesFloor.toFixed(1)}`,
       framesPass ? "PASS" : "FAIL",
     ],
+    [
+      "longest gap ms",
+      hasLongestGapBaseline ? baseline.longestGap.median.toFixed(1) : "n/a",
+      longestGap.median.toFixed(1),
+      hasLongestGapBaseline ? `<= ${longestGapCeiling.toFixed(1)}` : "n/a",
+      hasLongestGapBaseline ? (longestGapPass ? "PASS" : "FAIL") : "SKIPPED",
+    ],
   ]);
 
-  return rasterPass && framesPass ? 0 : 1;
+  return rasterPass && framesPass && longestGapPass ? 0 : 1;
 }
 
 main()

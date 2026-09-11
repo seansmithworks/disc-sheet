@@ -256,7 +256,7 @@ look to the thin `--morph-sheet-shadow` look — see "Two shadows, one painter"
 below.
 
 The package writes `--morph-sheet-trigger-size`, `--morph-sheet-trigger-x/-y`,
-`--morph-sheet-sheet-left/-top`, `--morph-sheet-collapse`,
+`--morph-sheet-sheet-left`, `--morph-sheet-collapse`,
 `--morph-sheet-shadow-x/-y/-w/-h/-radius`, and
 `--morph-sheet-shadow-opacity`/`--morph-sheet-sheet-shadow-opacity` (the live
 crossfade values, in [0, 1]); read these, don't set them.
@@ -494,15 +494,16 @@ code.
 ### Measuring smoothness
 
 ```bash
-npm run perf                    # measure vs perf/baseline.json
-npm run perf -- --update-baseline
+npm run perf                          # measure vs perf/baseline.json
+npm run perf -- --update-baseline     # rebaseline (needs a quiet machine)
+npm run perf -- --update-baseline --wait-for-quiet   # poll for quiet, then rebaseline
 ```
 
 "Does the morph feel smooth?" checked against a number instead of memory.
 `scripts/perf-morph.mjs` opens its own vite server on `:5190` (never
 `:5180`), drives 5 warm open+close cycles of the example in **headed**
 Chromium (headless is software raster and gives meaningless numbers), and
-reports two things per cycle:
+reports three things per cycle:
 
 - **raster ms** — CDP trace total for `RasterTask` durations.
 - **frames** — count of `Page.screencastFrame` events, i.e. how many
@@ -510,12 +511,42 @@ reports two things per cycle:
   fixed-fps recording because it's driven by Chromium's own frame
   producer — a starved compositor directly emits fewer of these, no
   decimation heuristic or extra dependency needed.
+- **longest frame gap** — the single largest interval between two
+  consecutive composited frames, scoped to a 900ms motion window right
+  after each click (not the whole cycle — the idle hold between settle and
+  the next click paints nothing and would otherwise dominate this number
+  with a fake ~850ms "gap" on every healthy run). Catches a stall that
+  hides inside an otherwise-healthy median frame count.
 
-Both are compared to the medians in `perf/baseline.json` with a tolerance
-(raster ±35%, frames ±15%, sized to this machine's observed run-to-run
-variance); the script exits non-zero if either falls outside it. Rebaseline
-with `--update-baseline` after an intentional motion or DOM change, on the
-same machine, GPU idle.
+All three are compared to `perf/baseline.json` with a **one-sided**
+tolerance: raster ms and longest gap have a ceiling only (regression = a
+bigger number), frames has a floor only (regression = fewer composited
+frames). The script exits non-zero if any of the three falls outside its
+limit. Tolerances aren't hand-picked — `--update-baseline` derives them from
+the actual spread observed at rebaseline time (see below).
+
+**Rebaselining requires a quiet machine.** Both raster ms and frame count
+are absolute measurements: another test browser, a heavy background app, or
+just system load contaminate them exactly like a real regression would.
+`--update-baseline` checks `os.loadavg()[0]` against `0.5 * cpu count` and
+**refuses to write** a baseline if the machine isn't quiet — pass
+`--wait-for-quiet` to poll instead (default timeout 20 minutes). A plain
+`npm run perf` (the gate, not the rebaseline) prints a warning instead of
+refusing, since it's meant to run ad hoc during a dev loop; treat a FAIL
+under that warning as suspect until re-run quiet.
+
+**Baseline model — warm steady state, not one cold sample.** The first open
+after browser launch renders roughly half the distinct frames of a later
+one, so a single launch is not steady state. `--update-baseline` runs 5
+separate browser launches of 5 cycles each, discards the *entire first
+launch* (not just its in-page warm-up — a whole cold launch), and pools the
+per-cycle samples from the remaining launches. The baseline's median/min/max
+come from that pool; each metric's tolerance is derived from the pooled
+spread on the regression side that matters for that metric (high side for
+raster/longest-gap ceilings, low side for the frames floor), with a floor
+(so normal run-to-run noise doesn't flake the gate) and a ceiling strictly
+under the regression size it needs to catch (so real regressions can't be
+masked by a wide observed spread).
 
 Needs a real, visible GPU display — **not part of `prepublishOnly` or CI.**
 
