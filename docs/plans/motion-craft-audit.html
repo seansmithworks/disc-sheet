@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Motion craft audit — disc-sheet</title>
+    <link rel="stylesheet" href="http://localhost:4849/assets/plan.css" />
+  </head>
+  <body>
+    <h1>Motion craft audit</h1>
+
+    <div class="doc-meta">
+      <span>Project: disc-sheet</span>
+      <span>2026-09-10</span>
+      <span class="badge badge--draft">Findings</span>
+    </div>
+
+    <div class="summary" data-anchor-id="verdict">
+      <strong>Verdict</strong>
+      <p>
+        The morph did not get slower today. The glow did the damage: it makes
+        Chrome repaint a 40px blur every frame, nine times the paint work of the
+        plain shadow, and it keeps painting while the sheet sits open. The flare
+        is the same layer at its first frames, spread wide around a still-tiny
+        shape.
+      </p>
+      <p>
+        Side-by-side against Aug 30 (before the close retune) and this morning,
+        glow off, 60fps agent-browser clips: all three render the same number of
+        distinct frames per open+close once the browser is warm (62–72). The
+        first recording after a browser launch renders half as many (34) on any
+        version. "Smoother in the past" is cold-start and machine load, not a
+        code change.
+      </p>
+      <p>
+        The pop you saw on all three builds was a duplicate shadow: the resting
+        disc painted the silhouette shadow twice, and the open's first frame
+        dropped one. Fixed in <code>.triggerSurface</code>. The glow is a
+        recording aid, not a fixture, so it is not worth rebuilding. Judge
+        smoothness with it off; make smoothness a number the tuner shows, so
+        this never comes down to memory again.
+      </p>
+    </div>
+
+    <h2 id="findings">Findings</h2>
+    <ul>
+      <li>
+        <strong>Today's library changes cost nothing measurable.</strong> Same
+        open+close on this morning's commit vs now, glow off: paint work 399ms
+        vs 347ms, one ~50ms stall on the sheet's first frame in both. The X spin
+        and the gated sheet shadow run after the morph settles.
+      </li>
+      <li>
+        <strong>The glow is the jank.</strong> Glow on, same run: paint work
+        3070ms. It never shows in frame-callback timing (which is why I reported
+        120fps earlier — wrong instrument): blur is painted off the main thread
+        and starves the compositor instead. Your clip shows it: a 150ms hole
+        mid-open and 333ms + 267ms holes while the sheet sat open doing nothing
+        but spinning the glow.
+      </li>
+      <li>
+        <strong>The flare is proportion, not opacity.</strong> Spread is fixed
+        pixels (56 length + 40 blur ≈ 100px halo). At frame 3 of the open that
+        is a ~360px halo around a 160px shape, and opacity is already climbing.
+        The sheet then grows into its own glow.
+      </li>
+      <li>
+        <strong>Two Emil rules broken at once.</strong> Only transform and
+        opacity should animate; the glow animates a filter blur on an element
+        that changes size every frame, plus a gradient angle via
+        <code>@property</code>. Both force a full repaint per frame.
+      </li>
+    </ul>
+
+    <details>
+      <summary>Evidence</summary>
+      <table>
+        <thead>
+          <tr>
+            <th>Run (open + close, 1808×1292 @2x)</th>
+            <th>Paint work</th>
+            <th>Main-thread stalls</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Baseline 46b55f3, plain shadow</td>
+            <td>399ms</td>
+            <td>1 (58ms, first frame)</td>
+          </tr>
+          <tr>
+            <td>Current 09eea2b, glow off</td>
+            <td>347ms</td>
+            <td>1 (42ms, first frame)</td>
+          </tr>
+          <tr>
+            <td>Current 09eea2b, glow on</td>
+            <td>3070ms</td>
+            <td>1 (34ms, first frame)</td>
+          </tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>
+          Trace ran in headless Chrome on software raster, so absolute numbers
+          are pessimistic; the 9× ratio is the finding.
+        </li>
+        <li>
+          Distinct rendered frames per open+close, 60fps agent-browser clips,
+          glow off, warm browser: Aug 30 efafe57 = 62 / 72, this morning 46b55f3
+          = 66 / 65, current 09eea2b = 62. First clip after browser launch on
+          current = 34, second = 52: cold start, not code.
+        </li>
+        <li>
+          Your 11:02 PM clip: 518 frames over 12.1s, average 22.6ms apart, 56
+          gaps over 20ms, longest 733ms.
+        </li>
+        <li>
+          First open in that clip, frame gaps in ms:
+          <code>17 33 17 17 17 17 17 150 17 … 333 267 100 50 33</code>.
+        </li>
+        <li>
+          Glow sampled per frame on open: at 114ms the shadow box is 158×146px,
+          glow opacity 0.04, sheet at 33% scale; the halo extends ~100px beyond
+          that box.
+        </li>
+      </ul>
+    </details>
+
+    <h2 id="plan">Going forward</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Change</th>
+          <th>Where</th>
+          <th>Why it works</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>
+            <strong>Paint the glow once, then only transform it.</strong> One
+            layer sized to the open sheet plus spread, blurred at rest. Drive
+            position and scale from <code>collapseProgress</code> as a
+            transform; spin an oversized square child with
+            <code>rotate</code> instead of animating the gradient angle.
+          </td>
+          <td>Demo only (<code>example.css</code>, <code>main.tsx</code>)</td>
+          <td>
+            Blur rasterizes one time; every frame after is GPU compositing.
+            Paint work should return near the 347ms baseline.
+          </td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>
+            <strong>Kill the flare inside #1.</strong> Because the spread is now
+            scaled with the silhouette, it stays proportional. Ease opacity in
+            on <code>(1 − p)²</code> so the first third of the open shows almost
+            nothing.
+          </td>
+          <td>Same files</td>
+          <td>
+            The halo grows with the shape instead of arriving full-size around
+            the trigger.
+          </td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>
+            <strong>Make smoothness a number.</strong> Add
+            <code>npm run perf</code>: Playwright trace of one open+close
+            reporting paint ms and dropped frames, with baseline numbers checked
+            in and a threshold that fails.
+          </td>
+          <td><code>scripts/</code>, <code>package.json</code></td>
+          <td>
+            Ends "I could have sworn it was smoother." Same principle as the
+            close tuner: build the instrument before dialling by feel.
+          </td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>
+            <strong>Run one trace on your GPU.</strong> Headed Chrome on your
+            Mac, same script, to get real dropped-frame counts.
+          </td>
+          <td>Two minutes, Chrome MCP or headed Playwright</td>
+          <td>
+            Headless is software raster; this confirms the fix at the numbers
+            you actually see.
+          </td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>
+            <strong>Done: the shadow pop.</strong> The resting disc painted two
+            stacked shadows (trigger surface + Shadow layer); the open's first
+            frame unmounted one, halving the shadow in a step. Removed from
+            <code>.triggerSurface</code>; 76/76 geometry, audit PASS.
+          </td>
+          <td><code>src/styles.module.css</code></td>
+          <td>
+            One painter for the shadow, per DESIGN.md §4.1. The stall is
+            first-open-after-load only on the GPU (headed Chrome: run 1 longest
+            50ms, runs 2–4 longest 18ms, zero frames over 20ms). Parked.
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <details>
+      <summary>What shipped today, and which of it touches the morph</summary>
+      <ul>
+        <li>
+          <strong>X placement fix (library, 5b0cdae):</strong> Close moved out
+          of Content so it stops jumping 166px. Real bug; README and all demos
+          updated.
+        </li>
+        <li>
+          <strong>X spin reveal + reversed close (library):</strong> runs after
+          the morph settles; measured, no effect on the morph.
+        </li>
+        <li>
+          <strong>Sheet shadow gated to settled (library, 09eea2b):</strong>
+          removes the dark squashed shadow at open start. Paints less during the
+          morph, not more.
+        </li>
+        <li>
+          <strong
+            >Neutral palette, glow toggle, DialKit 2 sliders (demo):</strong
+          >
+          the glow is the only item that changed how the morph feels.
+        </li>
+      </ul>
+    </details>
+
+    <h2 id="decisions">Decisions</h2>
+    <ul>
+      <li>
+        <strong>Rebuild the glow as a transform-only layer (#1, #2)?</strong>
+        Recommended yes; it is the fix.
+      </li>
+      <li>
+        <strong>Keep the spin?</strong> Recommended keep, as a rotate transform.
+        Drop it only if #4 still shows drops.
+      </li>
+      <li>
+        <strong>Add the perf gate (#3) now or after the glow rebuild?</strong>
+        Recommended now, so the rebuild is measured against a checked-in
+        baseline.
+      </li>
+    </ul>
+  </body>
+</html>

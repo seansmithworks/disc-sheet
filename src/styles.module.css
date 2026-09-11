@@ -63,11 +63,10 @@
    * expose exactly this ring; the two must agree or the ring reads as
    * lopsided. */
   border: 2px solid var(--morph-sheet-surface-border, #e6dfd2);
-  box-shadow: var(
-    --morph-sheet-shadow,
-    0 1px 4px rgba(26, 22, 16, 0.14),
-    0 6px 24px rgba(0, 0, 0, 0.15)
-  );
+  /* No box-shadow here: <MorphSheet.Shadow> paints the silhouette shadow
+   * (docs/PACKAGE-DESIGN.md §4). This surface used to carry the same shadow
+   * too, so the resting disc painted it twice and the first frame of every
+   * open — when this element unmounts — halved the shadow in one step. */
   overflow: hidden;
 }
 
