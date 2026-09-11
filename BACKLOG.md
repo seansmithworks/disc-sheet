@@ -319,7 +319,8 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 
 ## Carried at wrap-continue — 2026-09-11 (thread DiskSheet)
 
-- [ ] **carried — Sean re-records and judges the shadow-pop fix** (`4a975d5`, glow OFF). The pop was a duplicate shadow on `.triggerSurface`; the resting disc is lighter now by design (one shadow). If it still reads wrong, the next candidate is not the clocks (they start together — verified) but the sheet's own shadow fading in 240ms after settle (`data-morph-sheet-settled`, `09eea2b`).
+- [x] **carried — Sean re-records and judges the shadow-pop fix** (`4a975d5`, glow OFF). The pop was a duplicate shadow on `.triggerSurface`; the resting disc is lighter now by design (one shadow). Judged on a6ebc97 clips 2026-09-11: "much better".
+- [ ] **carried — `npm run perf` gate still open (deferred for glow palettes)**
 - [ ] **carried — `npm run perf` gate** (audit item 3): Playwright/agent-browser script reporting distinct rendered frames per open+close and trace raster ms, baseline numbers checked in (warm: 62–72 distinct frames; raster ~350ms glow off), threshold that fails. Judged glow OFF; warm the browser with one throwaway open first (cold first open renders ~half the frames on any build).
 - [ ] **carried — audit doc review**: `docs/plans/motion-craft-audit.html` is open in html-review (session `sess_1e7f46c0`); Sean has not commented yet.
 - [ ] **parked — Close X scale-from-0 spin** is a deliberate deviation from "start at 0.9+" (DESIGN.md §4.5); revisit only if it reads as popping in a recording.
@@ -334,3 +335,9 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [x] Step 4 — opacity values exposed as `--morph-sheet-*` custom properties for `asChild` consumers; documented in README. (`2aab652`)
 - [x] Step 5 — `example/CloseMask.tsx` fixed at the root: derive "closing" from `open === false`, not `getVelocity()` sign (velocity is positive during an open's overshoot rebound too). (`0b1ab42`)
 - [x] Step 6 — docs: README theming table + DOM contract prose, DESIGN.md §3/§4.1. (`2aab652`)
+
+## Glow palettes for social clips — 2026-09-11
+
+- [ ] Step 1 — palette presets in the example demo (Rainbow/Mono/Midnight Purple/Neon Gold) via DialKit's native select control, wired to the existing dials
+- [ ] Step 2 — recordings: 8 clips + 2 comparison grids, light and dark backgrounds
+- [ ] Step 3 — report to Sean: SHAs, final values, gate summaries, clip paths, frame notes
