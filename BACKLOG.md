@@ -323,3 +323,14 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 - [ ] **carried — `npm run perf` gate** (audit item 3): Playwright/agent-browser script reporting distinct rendered frames per open+close and trace raster ms, baseline numbers checked in (warm: 62–72 distinct frames; raster ~350ms glow off), threshold that fails. Judged glow OFF; warm the browser with one throwaway open first (cold first open renders ~half the frames on any build).
 - [ ] **carried — audit doc review**: `docs/plans/motion-craft-audit.html` is open in html-review (session `sess_1e7f46c0`); Sean has not commented yet.
 - [ ] **parked — Close X scale-from-0 spin** is a deliberate deviation from "start at 0.9+" (DESIGN.md §4.5); revisit only if it reads as popping in a recording.
+
+## Shadow-pop root fix — dispatched 2026-09-11 (one painter, one clock)
+
+Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settled]`) plus `example/CloseMask.tsx` inferring "closing" from `getVelocity()` sign, which the open spring's overshoot rebound also satisfies — mask clips the sheet's box-shadow for one frame at settle.
+
+- [ ] Step 1 — `<MorphSheet.Shadow>` paints both looks (disc + sheet shadow), crossfaded by opacity derived from `collapseProgress`, clamped 0..1.
+- [ ] Step 2 — crossfade window exposed as a dial (CSS custom properties, read via `readVarPx`), example DialKit slider added.
+- [ ] Step 3 — remove `.sheet[data-morph-sheet-settled]`'s own box-shadow; keep the attribute (Close reveal depends on it).
+- [ ] Step 4 — opacity values exposed as `--morph-sheet-*` custom properties for `asChild` consumers; documented in README.
+- [ ] Step 5 — `example/CloseMask.tsx` fixed at the root: derive "closing" from `open === false`, not `getVelocity()` sign (velocity is positive during an open's overshoot rebound too).
+- [ ] Step 6 — docs: README theming table + DOM contract prose, DESIGN.md §3/§4.1.
