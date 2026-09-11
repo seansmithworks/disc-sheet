@@ -491,6 +491,34 @@ default config instead, silently runs zero tests, and still exits 0. Always
 use the npm script, and check the reported test count, not just the exit
 code.
 
-## License
+### Measuring smoothness
+
+```bash
+npm run perf                    # measure vs perf/baseline.json
+npm run perf -- --update-baseline
+```
+
+"Does the morph feel smooth?" checked against a number instead of memory.
+`scripts/perf-morph.mjs` opens its own vite server on `:5190` (never
+`:5180`), drives 5 warm open+close cycles of the example in **headed**
+Chromium (headless is software raster and gives meaningless numbers), and
+reports two things per cycle:
+
+- **raster ms** — CDP trace total for `RasterTask` durations.
+- **frames** — count of `Page.screencastFrame` events, i.e. how many
+  distinct frames Chromium actually composited. Chosen over decoding a
+  fixed-fps recording because it's driven by Chromium's own frame
+  producer — a starved compositor directly emits fewer of these, no
+  decimation heuristic or extra dependency needed.
+
+Both are compared to the medians in `perf/baseline.json` with a tolerance
+(raster ±35%, frames ±15%, sized to this machine's observed run-to-run
+variance); the script exits non-zero if either falls outside it. Rebaseline
+with `--update-baseline` after an intentional motion or DOM change, on the
+same machine, GPU idle.
+
+Needs a real, visible GPU display — **not part of `prepublishOnly` or CI.**
+
+
 
 MIT. See `LICENSE` for the full text.

@@ -1,0 +1,24 @@
+{
+  "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "date": "2026-09-11",
+  "commit": "da2897c",
+  "cycles": 5,
+  "raster": {
+    "median": 137.643,
+    "min": 80.518,
+    "max": 222.033
+  },
+  "frames": {
+    "median": 117,
+    "min": 97,
+    "max": 121
+  },
+  "tolerance": {
+    "rasterPct": 0.35,
+    "framesPct": 0.15
+  }
+}
