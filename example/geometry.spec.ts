@@ -996,6 +996,92 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
 });
 
 /**
+ * Frame-samples every element inside the trigger root or the sheet (both
+ * subtrees, every descendant) for a computed `box-shadow` other than
+ * `none`, for `durationMs`, via an in-page rAF loop. `[data-morph-sheet-
+ * part="shadow"]` and its descendants are excluded — that element (and only
+ * that element, via its ::before/::after) is the one documented painter
+ * (DESIGN.md §4.1) — but it is never a descendant of trigger-root or sheet
+ * in this example (Shadow, Trigger, and Sheet are siblings under
+ * MorphSheet.Root), so the exclusion here only matters if a future example
+ * nests it. Returns the first offending element found (tag + its
+ * data-morph-sheet-part, if any, + the box-shadow value) or null.
+ */
+async function sampleForStrayBoxShadow(page: Page, durationMs: number) {
+  return page.evaluate((duration) => {
+    return new Promise<{
+      tag: string;
+      part: string | null;
+      boxShadow: string;
+    } | null>((resolve) => {
+      let found: {
+        tag: string;
+        part: string | null;
+        boxShadow: string;
+      } | null = null;
+      const start = performance.now();
+      function tick() {
+        if (!found) {
+          const nodes = document.querySelectorAll(
+            '[data-morph-sheet-part="trigger-root"], ' +
+              '[data-morph-sheet-part="trigger-root"] *, ' +
+              '[data-morph-sheet-part="sheet"], ' +
+              '[data-morph-sheet-part="sheet"] *',
+          );
+          for (const el of Array.from(nodes)) {
+            if (el.closest('[data-morph-sheet-part="shadow"]')) continue;
+            const bs = getComputedStyle(el).boxShadow;
+            if (bs && bs !== "none") {
+              found = {
+                tag: el.tagName.toLowerCase(),
+                part: el.getAttribute("data-morph-sheet-part"),
+                boxShadow: bs,
+              };
+              break;
+            }
+          }
+        }
+        if (performance.now() - start < duration) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve(found);
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }, durationMs);
+}
+
+/**
+ * Frame-samples the sheet's computed `mask-image` for `durationMs`. Used to
+ * assert the sheet never carries a mask while `open` is true, including
+ * through an interrupted close (CloseMask.tsx's contract — see its own
+ * comment on why `open`, not collapseProgress.getVelocity(), is the correct
+ * flag). Returns the first non-"none" value seen, or "".
+ */
+async function sampleForStrayMask(page: Page, durationMs: number) {
+  return page.evaluate((duration) => {
+    return new Promise<string>((resolve) => {
+      let firstNonNone = "";
+      const start = performance.now();
+      function tick() {
+        const sheet = document.querySelector('[data-morph-sheet-part="sheet"]');
+        if (sheet) {
+          const mi = getComputedStyle(sheet).maskImage;
+          if (mi && mi !== "none" && !firstNonNone) firstNonNone = mi;
+        }
+        if (performance.now() - start < duration) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve(firstNonNone);
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }, durationMs);
+}
+
+/**
  * (p) Regression gate for the shadow-pop fix: one painter, one clock
  * (DESIGN.md §4.1). Before the fix, `.sheet[data-morph-sheet-settled]`
  * painted its own `--morph-sheet-sheet-shadow` box-shadow starting 240ms
@@ -1076,5 +1162,110 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     expect(restState.sheetBoxShadow).toBe("none");
     expect(["none", null]).toContain(restState.sheetMaskImage);
     expect(Number(restState.sheetShadowOpacity)).toBeGreaterThan(0.95);
+  });
+
+  /**
+   * (p2) Hardens (p) against the MECHANISM, not just the one instance: (p)
+   * only ever looked at the sheet element's own box-shadow. This checks
+   * every element inside the trigger root or the sheet, across open, settle,
+   * rest, AND close — a stray painter anywhere else in the component (e.g. a
+   * revived box-shadow on .triggerSurface, which (p) never touches at all)
+   * would pass (p) while still producing a shadow pop.
+   *
+   * Deliberately broken to confirm this test can fail: added
+   * `box-shadow: 0 0 0 1px red;` to `.triggerSurface` in styles.module.css —
+   * turned red at the CLOSE-phase sample (line ~1187 below, the
+   * `expect(closeBoxShadow, ...)` assertion), reporting
+   * `{"tag":"div","part":"trigger-surface","boxShadow":"rgb(255, 0, 0) 0px 0px 0px 1px"}`
+   * — then reverted (git diff shows only this test file changed).
+   */
+  test("(p2) no element inside the trigger or sheet paints a box-shadow, open through close", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+    await trigger.click();
+
+    const openBoxShadow = await sampleForStrayBoxShadow(page, 1200);
+    console.log(
+      `[geometry] (p2) open->settle stray box-shadow: ${
+        openBoxShadow
+          ? JSON.stringify(openBoxShadow)
+          : "none at any sampled element/frame"
+      }`,
+    );
+    expect(openBoxShadow, "open->settle").toBeNull();
+
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    await waitForStableWidth(page, sheet);
+
+    const restBoxShadow = await sampleForStrayBoxShadow(page, 200);
+    console.log(
+      `[geometry] (p2) rest stray box-shadow: ${
+        restBoxShadow
+          ? JSON.stringify(restBoxShadow)
+          : "none at any sampled element/frame"
+      }`,
+    );
+    expect(restBoxShadow, "rest").toBeNull();
+
+    await page.keyboard.press("Escape");
+    const closeBoxShadow = await sampleForStrayBoxShadow(page, 1200);
+    console.log(
+      `[geometry] (p2) close stray box-shadow: ${
+        closeBoxShadow
+          ? JSON.stringify(closeBoxShadow)
+          : "none at any sampled element/frame"
+      }`,
+    );
+    expect(closeBoxShadow, "close").toBeNull();
+  });
+
+  /**
+   * (p3) Hardens (p)'s mask-image check against the MECHANISM
+   * (CloseMask.tsx's `open` flag), not just an open that runs to
+   * completion: starts a close, re-opens before it finishes (the exact
+   * shape a fast double-tap produces — see test (n) above), and asserts the
+   * sheet carries no mask-image through that re-open or at its eventual
+   * rest.
+   *
+   * Deliberately broken to confirm this test can fail: reverted
+   * CloseMask.tsx's guard from `if (open)` back to the prior (wrong)
+   * `collapseProgress.getVelocity() > 0` inference — turned red at the
+   * `expect(maskDuringReopen, ...)` assertion (line ~1225 below), reporting
+   * a non-"none" `linear-gradient(...)` value during the re-open — then
+   * reverted (git diff shows only this test file changed).
+   */
+  test("(p3) sheet carries no mask-image through a close interrupted by a re-open", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+    await trigger.click();
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    await sheet.waitFor();
+    await waitForStableWidth(page, sheet);
+
+    await page.keyboard.press("Escape");
+    // Mid-close, well before the close spring/hold settles — CloseMask is
+    // legitimately painting a mask here (open === false). Not sampled.
+    await page.waitForTimeout(150);
+    await trigger.click();
+
+    const maskDuringReopen = await sampleForStrayMask(page, 1200);
+    console.log(
+      `[geometry] (p3) mask-image through interrupted-close re-open: ${
+        maskDuringReopen || "none at every sampled frame"
+      }`,
+    );
+    expect(maskDuringReopen, "re-open").toBe("");
+
+    await waitForStableWidth(page, sheet);
+    const maskAtRest = await page.evaluate(() => {
+      const sheetEl = document.querySelector('[data-morph-sheet-part="sheet"]');
+      return sheetEl ? getComputedStyle(sheetEl).maskImage : null;
+    });
+    console.log(`[geometry] (p3) mask-image at rest: ${maskAtRest}`);
+    expect(["none", null]).toContain(maskAtRest);
   });
 });
