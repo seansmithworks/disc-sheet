@@ -328,9 +328,9 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 
 Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settled]`) plus `example/CloseMask.tsx` inferring "closing" from `getVelocity()` sign, which the open spring's overshoot rebound also satisfies — mask clips the sheet's box-shadow for one frame at settle.
 
-- [ ] Step 1 — `<MorphSheet.Shadow>` paints both looks (disc + sheet shadow), crossfaded by opacity derived from `collapseProgress`, clamped 0..1.
-- [ ] Step 2 — crossfade window exposed as a dial (CSS custom properties, read via `readVarPx`), example DialKit slider added.
-- [ ] Step 3 — remove `.sheet[data-morph-sheet-settled]`'s own box-shadow; keep the attribute (Close reveal depends on it).
-- [ ] Step 4 — opacity values exposed as `--morph-sheet-*` custom properties for `asChild` consumers; documented in README.
-- [ ] Step 5 — `example/CloseMask.tsx` fixed at the root: derive "closing" from `open === false`, not `getVelocity()` sign (velocity is positive during an open's overshoot rebound too).
-- [ ] Step 6 — docs: README theming table + DOM contract prose, DESIGN.md §3/§4.1.
+- [x] Step 1 — `<MorphSheet.Shadow>` paints both looks (disc + sheet shadow), crossfaded by opacity derived from `collapseProgress`, clamped 0..1. (`2aab652`)
+- [x] Step 2 — crossfade window exposed as a dial (CSS custom properties, read via `readVarPx`), example DialKit slider added. (`09c3daa`)
+- [x] Step 3 — remove `.sheet[data-morph-sheet-settled]`'s own box-shadow; keep the attribute (Close reveal depends on it). (`2aab652`)
+- [x] Step 4 — opacity values exposed as `--morph-sheet-*` custom properties for `asChild` consumers; documented in README. (`2aab652`)
+- [x] Step 5 — `example/CloseMask.tsx` fixed at the root: derive "closing" from `open === false`, not `getVelocity()` sign (velocity is positive during an open's overshoot rebound too). (`0b1ab42`)
+- [x] Step 6 — docs: README theming table + DOM contract prose, DESIGN.md §3/§4.1. (`2aab652`)
