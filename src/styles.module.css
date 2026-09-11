@@ -169,11 +169,10 @@
    * `[data-morph-sheet-settled]`, which was a second clock and produced a
    * one-frame pop when a demo mask clipped it at the phase boundary. */
   box-shadow: none;
-  /* Above ~267px of viewport height this is identical to the old flat
-   * `88dvh`; below it, `100dvh - 32px` (the two 16px top/bottom margins)
-   * takes over so a both-pinned (center) sheet never overlaps either edge on
-   * a very short viewport. */
-  max-height: min(88dvh, calc(100dvh - 32px));
+  /* SSR/pre-hydration fallback only — Sheet.tsx always writes an inline
+   * max-height derived per anchor (anchors.ts `sheetMaxHeight`), which wins
+   * over this. Matches the default anchor (bottom-center). */
+  max-height: 88dvh;
   overflow: hidden;
   color: var(--morph-sheet-text, #1a1610);
 }

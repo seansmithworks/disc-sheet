@@ -232,18 +232,18 @@ export function Sheet({
         )
       : sheetPlacement(anchor, 1440, 900, triggerSize, sheetMaxWidth);
 
-  // Always written (never conditionally), both properties, as direct
+  // Always written (never conditionally), all three properties, as direct
   // inline properties rather than a var — that's what lets a top-pinned,
   // bottom-pinned, or both-pinned (center) anchor all resolve correctly
-  // regardless of cascade order, with no per-anchor branch here. Max-height
-  // is no longer computed per anchor: .sheet's own `min(88dvh, calc(100dvh -
-  // 32px))` (styles.module.css) already accounts for both a top and a
-  // bottom margin uniformly.
+  // regardless of cascade order, with no per-anchor branch here. maxHeight
+  // is derived per anchor by sheetPlacement (anchors.ts) — the CSS default
+  // in .sheet only covers the pre-hydration/SSR fallback.
   const placementStyle: Record<string, string> = {
     ["--morph-sheet-sheet-left" as string]: `${placement.anchorX}px`,
     top: placement.topPx !== undefined ? `${placement.topPx}px` : "auto",
     bottom:
       placement.bottomPx !== undefined ? `${placement.bottomPx}px` : "auto",
+    maxHeight: placement.maxHeight,
   };
 
   function handleDragEnd(

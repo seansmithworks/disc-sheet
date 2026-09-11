@@ -218,3 +218,31 @@ describe("sheetPlacement", () => {
     expect(Number.isFinite(placement.anchorX)).toBe(true);
   });
 });
+
+describe("sheetPlacement — maxHeight (regression: top-pinned lost its 100dvh-32px cap when the center anchor's shared CSS rule replaced the per-anchor override)", () => {
+  // Hard-coded against the d020d91 formulas: top-pinned was
+  // `calc(100dvh - anchorTopPx - 16px)` with anchorTopPx always 16, i.e.
+  // `calc(100dvh - 32px)`; bottom-pinned was the flat CSS default `88dvh`.
+  // Center has no d020d91 precedent (introduced in f55cb3d) and keeps its
+  // own `min(88dvh, calc(100dvh - 32px))` cap.
+  const TOP_PINNED_MAX_HEIGHT = "calc(100dvh - 32px)";
+  const BOTTOM_PINNED_MAX_HEIGHT = "88dvh";
+  const CENTER_MAX_HEIGHT = "min(88dvh, calc(100dvh - 32px))";
+
+  const cases: [AnchorId, string][] = [
+    ["top-left", TOP_PINNED_MAX_HEIGHT],
+    ["top-center", TOP_PINNED_MAX_HEIGHT],
+    ["top-right", TOP_PINNED_MAX_HEIGHT],
+    ["bottom-left", BOTTOM_PINNED_MAX_HEIGHT],
+    ["bottom-center", BOTTOM_PINNED_MAX_HEIGHT],
+    ["bottom-right", BOTTOM_PINNED_MAX_HEIGHT],
+    ["center", CENTER_MAX_HEIGHT],
+  ];
+
+  for (const [anchor, expected] of cases) {
+    it(`resolves "${anchor}" to "${expected}"`, () => {
+      const placement = sheetPlacement(anchor, 1440, 900, 96, 480);
+      expect(placement.maxHeight).toBe(expected);
+    });
+  }
+});

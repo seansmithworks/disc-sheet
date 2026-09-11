@@ -202,6 +202,35 @@ export interface SheetPlacement {
   /** Sheet's pinned bottom offset in viewport px, or undefined ("auto") when
    * the sheet's bottom edge is not pinned. */
   bottomPx: number | undefined;
+  /** CSS max-height value for this anchor. See `sheetMaxHeight`. */
+  maxHeight: string;
+}
+
+/**
+ * CSS max-height for a given anchor's vertical alignment.
+ *
+ * - top-only (grows downward from a pinned top edge): the sheet may use the
+ *   full viewport below the pinned top edge, minus that edge's own 16px
+ *   margin and a matching 16px margin at the bottom —
+ *   `calc(100dvh - 32px)`. There is no separate 88dvh cap: nothing pins the
+ *   bottom edge, so 88dvh would cut the sheet short for no reason (this was
+ *   the exact regression introduced when a single shared `.sheet` rule
+ *   replaced this per-anchor override — see d020d91 vs f55cb3d).
+ * - bottom-only (grows upward from a pinned bottom edge): unchanged from
+ *   the original six-anchor model, `88dvh` flat.
+ * - middle (center anchor, both edges pinned): needs both caps, since
+ *   nothing else stops the fit-content box from touching either margin on
+ *   a very short viewport — `min(88dvh, calc(100dvh - 32px))`.
+ */
+function sheetMaxHeight(anchor: AnchorId): string {
+  const vertical = ANCHOR_AXES[anchor].vertical;
+  if (vertical === "top") {
+    return `calc(100dvh - ${EDGE_MARGIN * 2}px)`;
+  }
+  if (vertical === "middle") {
+    return `min(88dvh, calc(100dvh - ${EDGE_MARGIN * 2}px))`;
+  }
+  return "88dvh";
 }
 
 /**
@@ -242,5 +271,10 @@ export function sheetPlacement(
     verticalAlignment < 1 ? Math.max(SHEET_MARGIN, EDGE_MARGIN) : undefined;
   const bottomPx = verticalAlignment > 0 ? SHEET_MARGIN : undefined;
 
-  return { anchorX: clampedAnchorX, topPx, bottomPx };
+  return {
+    anchorX: clampedAnchorX,
+    topPx,
+    bottomPx,
+    maxHeight: sheetMaxHeight(anchor),
+  };
 }

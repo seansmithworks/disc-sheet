@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { ALL_ANCHORS, type AnchorId } from "../src/anchors";
 
 /**
  * geometry.spec.ts — the gate the review says was missing entirely: real
@@ -1611,3 +1612,91 @@ test.describe("center anchor", () => {
     expect(fallbackBox.y + fallbackBox.height).toBeGreaterThan(800 - 32 - 16); // pinned to the bottom edge, like bottom-center
   });
 });
+
+/**
+ * (q) Regression gate for the max-height model change (anchors.ts
+ * `sheetMaxHeight`, replacing the single shared `.sheet` CSS cap that
+ * shortened every top-pinned sheet by ~64px — see git history around
+ * f55cb3d/28ab824). Hard-coded against the d020d91 formulas: top-pinned was
+ * `calc(100dvh - 32px)`, bottom-pinned the flat `88dvh`; center has no
+ * d020d91 precedent and keeps `min(88dvh, calc(100dvh - 32px))`.
+ *
+ * Sets the persisted anchor directly via localStorage (the same key
+ * `usePersistedAnchor` reads, `morph-sheet-anchor`) rather than simulating a
+ * drag — anchor selection isn't under test here, only the resulting
+ * max-height. Injects a 3000px-tall filler node into the sheet's content
+ * after opening so the cap is actually load-bearing (a short sheet would
+ * pass this test even with the regression reapplied, since nothing would
+ * be there to clip).
+ */
+for (const viewport of [
+  { width: 1280, height: 800 },
+  { width: 1700, height: 1000 },
+] as const) {
+  test.describe(`${viewport.width}x${viewport.height} — normal — max-height per anchor (q)`, () => {
+    test.use({ viewport });
+
+    const TOP_PINNED_PX = viewport.height - 32;
+    const BOTTOM_PINNED_PX = viewport.height * 0.88;
+    const CENTER_PX = Math.min(BOTTOM_PINNED_PX, TOP_PINNED_PX);
+
+    const EXPECTED: Record<AnchorId, number> = {
+      "top-left": TOP_PINNED_PX,
+      "top-center": TOP_PINNED_PX,
+      "top-right": TOP_PINNED_PX,
+      "bottom-left": BOTTOM_PINNED_PX,
+      "bottom-center": BOTTOM_PINNED_PX,
+      "bottom-right": BOTTOM_PINNED_PX,
+      center: CENTER_PX,
+    };
+
+    for (const anchor of ALL_ANCHORS) {
+      test(`anchor "${anchor}" caps at ${EXPECTED[anchor].toFixed(1)}px`, async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          (a) => window.localStorage.setItem("morph-sheet-anchor", a),
+          anchor,
+        );
+        await page.goto("/");
+        await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+        await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+
+        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+        await sheet.waitFor();
+        await waitForStableWidth(page, sheet);
+
+        // Force real overflow so the cap is load-bearing, not just declared.
+        await page.evaluate(() => {
+          const content = document.querySelector(
+            '[data-morph-sheet-part="content"]',
+          );
+          const filler = document.createElement("div");
+          filler.style.height = "3000px";
+          content?.appendChild(filler);
+        });
+        await page.waitForTimeout(50);
+
+        const measured = await sheet.evaluate((el) => ({
+          computedMaxHeight: Number.parseFloat(
+            getComputedStyle(el).maxHeight || "0",
+          ),
+          renderedHeight: el.getBoundingClientRect().height,
+        }));
+
+        console.log(
+          `[geometry] ${viewport.width}x${viewport.height} anchor=${anchor}: ` +
+            `computed max-height=${measured.computedMaxHeight.toFixed(1)}px, ` +
+            `expected=${EXPECTED[anchor].toFixed(1)}px, ` +
+            `rendered height=${measured.renderedHeight.toFixed(1)}px`,
+        );
+
+        // 1px tolerance for dvh/vh rounding in headless Chrome.
+        expect(measured.computedMaxHeight).toBeCloseTo(EXPECTED[anchor], 0);
+        expect(measured.renderedHeight).toBeLessThanOrEqual(
+          EXPECTED[anchor] + 1,
+        );
+      });
+    }
+  });
+}
