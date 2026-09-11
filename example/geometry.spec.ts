@@ -276,7 +276,9 @@ for (const viewport of VIEWPORTS) {
         expect(maxWidth).toBe("600px");
 
         // And it must actually reach the rendered layers, not just the var.
-        const triggerRoot = page.locator('[data-morph-sheet-part="trigger-root"]');
+        const triggerRoot = page.locator(
+          '[data-morph-sheet-part="trigger-root"]',
+        );
         const triggerZ = await triggerRoot.evaluate(
           (el) => getComputedStyle(el).zIndex,
         );
@@ -990,5 +992,89 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
     // 1280 pre-fix.
     expect(midDelay!.top).toBeLessThan(10);
     expect(midDelay!.bottom).toBeLessThan(10);
+  });
+});
+
+/**
+ * (p) Regression gate for the shadow-pop fix: one painter, one clock
+ * (DESIGN.md §4.1). Before the fix, `.sheet[data-morph-sheet-settled]`
+ * painted its own `--morph-sheet-sheet-shadow` box-shadow starting 240ms
+ * after settle — a second painter/second clock that a demo close-mask
+ * (driven by collapseProgress velocity, itself a symptom of the same
+ * "second clock" class of bug) could clip for one frame. Deliberately broken
+ * to confirm this test can fail: restoring that CSS rule (uncommented,
+ * `[data-morph-sheet-settled] { box-shadow: var(--morph-sheet-sheet-shadow, ...) }`)
+ * turned this red — the sheet's computed box-shadow was no longer "none"
+ * once settled — then reverted, both checked in the shadow-pop-fix commit.
+ */
+test.describe("1280x800 — normal — shadow crossfade (single painter)", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("(p) sheet paints no box-shadow through open->settle, Shadow's sheet-shadow opacity is ~1 at open rest", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+    await trigger.click();
+
+    // Frame-sample the sheet's COMPUTED box-shadow (not the inline style —
+    // this must catch a shadow painted by any CSS rule, including a
+    // resurrected `[data-morph-sheet-settled]` one) for 1.2s, covering the
+    // open spring's settle. Any non-"none" value at any sampled frame fails.
+    const seenBoxShadow = await page.evaluate((duration) => {
+      return new Promise<string>((resolve) => {
+        let firstNonNone = "";
+        const start = performance.now();
+        function tick() {
+          const sheet = document.querySelector(
+            '[data-morph-sheet-part="sheet"]',
+          );
+          if (sheet) {
+            const bs = getComputedStyle(sheet).boxShadow;
+            if (bs && bs !== "none" && !firstNonNone) firstNonNone = bs;
+          }
+          if (performance.now() - start < duration) {
+            requestAnimationFrame(tick);
+          } else {
+            resolve(firstNonNone);
+          }
+        }
+        requestAnimationFrame(tick);
+      });
+    }, 1200);
+
+    console.log(
+      `[geometry] (p) open->settle sheet box-shadow: ${
+        seenBoxShadow || "none at every sampled frame"
+      }`,
+    );
+    expect(seenBoxShadow).toBe("");
+
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    await waitForStableWidth(page, sheet);
+
+    const restState = await page.evaluate(() => {
+      const sheetEl = document.querySelector('[data-morph-sheet-part="sheet"]');
+      const shadowEl = document.querySelector(
+        '[data-morph-sheet-part="shadow"]',
+      );
+      return {
+        sheetBoxShadow: sheetEl ? getComputedStyle(sheetEl).boxShadow : null,
+        sheetMaskImage: sheetEl ? getComputedStyle(sheetEl).maskImage : null,
+        sheetShadowOpacity: shadowEl
+          ? getComputedStyle(shadowEl)
+              .getPropertyValue("--morph-sheet-sheet-shadow-opacity")
+              .trim()
+          : null,
+      };
+    });
+    console.log(
+      `[geometry] (p) at open rest: box-shadow=${restState.sheetBoxShadow}, ` +
+        `mask-image=${restState.sheetMaskImage}, ` +
+        `--morph-sheet-sheet-shadow-opacity=${restState.sheetShadowOpacity}`,
+    );
+    expect(restState.sheetBoxShadow).toBe("none");
+    expect(["none", null]).toContain(restState.sheetMaskImage);
+    expect(Number(restState.sheetShadowOpacity)).toBeGreaterThan(0.95);
   });
 });
