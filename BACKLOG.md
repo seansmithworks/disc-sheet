@@ -319,8 +319,8 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 
 ## Carried at wrap-continue — 2026-09-11 (thread DiskSheet)
 
-- [x] **carried — Sean re-records and judges the shadow-pop fix** (`4a975d5`, glow OFF). The pop was a duplicate shadow on `.triggerSurface`; the resting disc is lighter now by design (one shadow). Judged on a6ebc97 clips 2026-09-11: "much better".
-- [x] **carried — `npm run perf` gate still open (deferred for glow palettes)** (`2616d49`)
+- [x] **closed — shadow pop.** Sean re-recorded and judged the fix (`4a975d5`, glow OFF): "much better" on a6ebc97 clips, then "overall it is looking a lot smoother". Root fix `2aab652`/`0b1ab42`, write-up `docs/solutions/ui-bugs/shadow-pop-two-painters-velocity-inferred-mask.md`.
+- [x] **closed — `npm run perf` gate.** Headless GPU gate (PipelineReporter dropped frames + longest interval + raster, load gate, per-window trace floor, injection self-checks), baseline `f6239aa`, fixes `ea585c8`. Orchestrator re-ran plain (PASS), `--inject-block` (exit 1) and `PERF_DROP_WINDOW=open` (instrument error, exit 1). Known limit: GPU cost that only appears on the real display path passes headless (README).
 - [x] **carried — `npm run perf` gate** (audit item 3): `scripts/perf-morph.mjs` — own vite server on :5190, headed Chromium, 5 warm cycles, CDP RasterTask ms + `Page.screencastFrame` count, `perf/baseline.json` checked in, tolerance-based pass/fail. Judged glow OFF; 2 warm-up cycles discarded. Gate proven to fire on injected main-thread jank (`--inject-jank`); the demo's glow toggle turned out compositor-only on this GPU and does not move either metric — noted in the report, not treated as a gate defect. (`2616d49`)
 - [ ] **carried — audit doc review**: `docs/plans/motion-craft-audit.html` is open in html-review (session `sess_1e7f46c0`); Sean has not commented yet.
 - [ ] **parked — Close X scale-from-0 spin** is a deliberate deviation from "start at 0.9+" (DESIGN.md §4.5); revisit only if it reads as popping in a recording.
@@ -365,3 +365,10 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [x] 3 plain `npm run perf` stability runs PASS (raster 43.2 / 65.5 / 44.5ms, dropped 1, longest 16.7ms) (`f6239aa`)
 - [x] Firing against the new baseline: `--inject-jank` dropped 106 FAIL, `--inject-block` 150ms FAIL, `--inject-gpu` dropped 148 FAIL, each exit 1 (`f6239aa`). Combos with `--inject-animation` measured before the rebaseline only (111 dropped / 150ms)
 - [x] README "Measuring smoothness": limits, sensitivity and exit codes (`f6239aa`)
+
+## Carried at wrap-continue — 2026-09-11 (evening, thread DiskSheet)
+
+- [ ] **carried — DECIDE: rename the package.** Sean: "morph-sheet sucks as a name." Breaking changes are free until publish (not on npm). Strawman next step: run the `brand-naming` skill seeded with what the component does (a disc that blooms into a sheet and folds back; a draggable anchor; one-clock spring morph), with npm + GitHub availability checks. A rename touches package.json name, README, the `MorphSheet` namespace/`useMorphSheet` exports, `--morph-sheet-*` CSS vars, `data-morph-sheet-*` attributes, the audit script and docs, so it should be one structural pass, not a find-replace.
+- [ ] **parked — Dia toolbar picks up the glow colour.** With the sheet anchored top and the demo glow on, Dia's toolbar tints to the glow (purple with Midnight Purple, amber with Neon Gold). Sean's screenshots: `~/.claude/image-cache/71b27934-0eab-423c-8584-d9f5d1fceee1/1.png`, `2.png`. Mechanism inferred, not verified: the browser samples the page's top-edge colour when no `theme-color` is set. Strawman: leave it in the demo (it reads as a delight on recordings), and add one README line telling consumers that a `<meta name="theme-color">` pins the toolbar if they don't want it. Demo-only; the package paints no glow.
+- [ ] **carried — eyeball CloseMask's top-down fade when closing from `center`.** The center build's agent sampled frames but missed the ~600ms close; the mask gradient is in the sheet's local box so it should read the same (inferred).
+- [ ] **parked — duplicate geometry test label "(k)"** in example/geometry.spec.ts (two tests share it). Rename one; cosmetic.
