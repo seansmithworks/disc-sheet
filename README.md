@@ -529,16 +529,25 @@ shell renders on SwiftShader (software); new headless mode
 renderer and the GPU feature status, prints the renderer, stores it in the
 baseline, and exits 1 on a software renderer. No window opens.
 
-**Proof each gate fires** (headless, M1 Pro, 2026-09-11, median of 5 cycles;
-plain: 1 dropped, 16.7ms longest interval):
+**Baseline and sensitivity** (headless, M1 Pro, 2026-09-11, 20 pooled cycles
+at load1 2.5–2.8): raster 55.7ms, 1 dropped frame, 16.7ms longest interval.
+Judged on the median of 5 cycles, the gate fails when raster passes 93.3ms
+(+67%), dropped frames reach 4, or the longest interval reaches 41.7ms (the
+first frame-quantized step past the 33.3ms limit, at headless's 120Hz).
+Headless raster runs about 24% above the old headed baseline (44.8ms), so
+don't compare numbers across modes; rebaseline instead.
 
-| Injection | What it does | Dropped | Longest interval |
-| --- | --- | --- | --- |
-| `--inject-jank` | 20ms busy block every rAF | 108 | 33.3ms |
-| `--inject-block` | one 150ms block, 200ms into each open | 18 | 150ms |
-| `--inject-gpu` | 48 static full-viewport `backdrop-filter` layers | 142 | 41.7ms |
-| `--inject-jank --inject-animation` | jank plus an unrelated CSS animation | 111 | 25ms |
-| `--inject-block --inject-animation` | block plus the same animation | 16 | 150ms |
+**Proof each gate fires** (against that baseline):
+
+| Injection | What it does | Dropped (≤ 3) | Longest interval (≤ 33.3ms) | Exit |
+| --- | --- | --- | --- | --- |
+| `--inject-jank` | 20ms busy block every rAF | 106 FAIL | 25ms | 1 |
+| `--inject-block` | one 150ms block, 200ms into each open | 17 FAIL | 150ms FAIL | 1 |
+| `--inject-gpu` | 48 static full-viewport `backdrop-filter` layers | 148 FAIL | 41.7ms FAIL | 1 |
+
+With an unrelated CSS animation added (`--inject-animation`), jank still read
+111 dropped and the block 150ms (measured the same day, before this
+rebaseline).
 
 **Rebaselining requires a quiet machine, checked before every launch.** Raster
 ms and frame presentation are absolute measurements: another test browser, a

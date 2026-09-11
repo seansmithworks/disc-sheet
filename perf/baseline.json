@@ -1,38 +1,45 @@
 {
   "gpu": "ANGLE (Apple, ANGLE Metal Renderer: Apple M1 Pro, Unspecified Version)",
+  "mode": "headless (new), channel chromium",
   "viewport": {
     "width": 1280,
     "height": 800
   },
   "date": "2026-09-11",
-  "commit": "9bc85d2",
+  "commit": "a99786a",
   "cycles": 5,
   "baselineLaunches": 5,
   "load1PerLaunch": [
-    2.6806640625,
-    3.46533203125,
-    3.32568359375,
-    3.37109375,
-    3.896484375
+    2.77197265625,
+    2.486328125,
+    2.81884765625,
+    2.6240234375,
+    2.6328125
   ],
+  "frameIntervalMs": 8.333,
   "raster": {
-    "median": 44.843999999999994,
-    "min": 26.314,
-    "max": 55.975
+    "median": 55.6845,
+    "min": 27.212,
+    "max": 80.732
   },
-  "frames": {
-    "median": 90,
-    "min": 89,
-    "max": 91
+  "dropped": {
+    "median": 1,
+    "min": 0,
+    "max": 2
   },
-  "longestGap": {
-    "median": 23.380615234375,
-    "min": 19.705810546875,
-    "max": 34.065185546875
+  "longestInterval": {
+    "median": 16.667,
+    "min": 16.667,
+    "max": 25
+  },
+  "presented": {
+    "median": 173,
+    "min": 171,
+    "max": 174
   },
   "tolerance": {
-    "rasterPct": 0.3723240567299976,
-    "framesPct": 0.03,
-    "longestGapPct": 0.685476207879541
+    "rasterPct": 0.6747164830428575,
+    "droppedSlack": 2,
+    "longestIntervalSlackMs": 8.333
   }
 }
