@@ -46,8 +46,9 @@ import { MorphSheet } from "@seansmithworks/morph-sheet";
       <Avatar />
     </MorphSheet.Shared>
 
+    <MorphSheet.Close aria-label="Close" />
+
     <MorphSheet.Content>
-      <MorphSheet.Close aria-label="Close" />
       <MorphSheet.Item>
         <h2 id="sheet-title">Sean Smith</h2>
       </MorphSheet.Item>

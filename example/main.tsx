@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { MorphSheet } from "../src/index";
 import { CloseMask } from "./CloseMask";
@@ -16,7 +17,7 @@ function ColorCircle() {
         width: "100%",
         height: "100%",
         borderRadius: "50%",
-        background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+        background: "linear-gradient(135deg, #48484a 0%, #1d1d1f 100%)",
       }}
     />
   );
@@ -40,9 +41,42 @@ const openDelayOverride = testParams.has("openDelay")
   ? Number(testParams.get("openDelay"))
   : undefined;
 
+// Demo-only: swaps the plain shadow for an iridescent glow while open, so the
+// open/close reads clearly in short screen-recording clips. Persisted so a
+// reload keeps the setting.
+const IRI_KEY = "morph-sheet-example:iridescent";
+function readIri() {
+  try {
+    return localStorage.getItem(IRI_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function App() {
+  const [iri, setIri] = useState(readIri);
+  const toggleIri = () => {
+    const next = !iri;
+    setIri(next);
+    try {
+      localStorage.setItem(IRI_KEY, next ? "1" : "0");
+    } catch {
+      // storage blocked — the toggle still works for this page view
+    }
+  };
+
   return (
     <div className="page">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={iri}
+        className="demo-toggle"
+        onClick={toggleIri}
+      >
+        <span className="demo-toggle-track" aria-hidden="true" />
+        Iridescent shadow
+      </button>
       <h1>morph-sheet</h1>
       <p className="sub">
         A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
@@ -66,7 +100,13 @@ function App() {
             : undefined
         }
       >
-        <MorphSheet.Shadow />
+        {iri ? (
+          <MorphSheet.Shadow asChild>
+            <div className="iri-shadow" />
+          </MorphSheet.Shadow>
+        ) : (
+          <MorphSheet.Shadow />
+        )}
 
         <MorphSheet.Trigger aria-label="Open example sheet">
           <MorphSheet.Shared>
@@ -79,8 +119,9 @@ function App() {
             <ColorCircle />
           </MorphSheet.Shared>
 
+          <MorphSheet.Close aria-label="Close" />
+
           <MorphSheet.Content>
-            <MorphSheet.Close aria-label="Close" />
             <MorphSheet.Item>
               <h2 id="example-sheet-title">Placeholder heading</h2>
               <p>

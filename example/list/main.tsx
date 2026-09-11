@@ -39,9 +39,9 @@ function App() {
             <MenuIcon />
           </MorphSheet.Shared>
 
-          <MorphSheet.Content>
-            <MorphSheet.Close aria-label="Close" />
+          <MorphSheet.Close aria-label="Close" />
 
+          <MorphSheet.Content>
             <MorphSheet.Item>
               <h2 id="list-sheet-title" className="list-title">
                 Quick actions

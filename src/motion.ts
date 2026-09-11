@@ -180,6 +180,41 @@ export const OPEN_CONTENT_REVEAL_DELAY_SEC = 0.2;
 export const CONTENT_FADE_OUT_MS = 80;
 export const CONTENT_FADE_OUT_DELAY_MS = 0;
 
+/** collapseProgress at or below which the open counts as finished, and
+ * <MorphSheet.Close> starts fading in, so the X never paints while the
+ * surface is still scaling. Render Close as a direct child of <Sheet>, not
+ * inside <Content>: Content's reveal transform makes it the X's containing
+ * block, so an absolutely-positioned X jumps when that transform clears. */
+export const CLOSE_REVEAL_PROGRESS = 0.01;
+
+/** <MorphSheet.Close> fade-in duration (s), once the open has finished. Shorter
+ * than the spring below so the X is solid before its turn has landed. */
+export const CLOSE_FADE_IN_SEC = 0.15;
+
+/** <MorphSheet.Close> reveal: scales 0 -> 1 while turning -90deg -> 0 (an X
+ * is symmetric at 90deg, so the turn reads as a spin but lands seamlessly).
+ * Light bounce only — this runs on every open. Movement is dropped under
+ * reduced motion; the fade stays. */
+export const CLOSE_REVEAL_ROTATE_DEG = -90;
+export const CLOSE_REVEAL_SPRING = {
+  type: "spring" as const,
+  duration: 0.45,
+  bounce: 0.25,
+};
+/** <MorphSheet.Close> exit (s): the reveal in reverse — turns back to
+ * CLOSE_REVEAL_ROTATE_DEG and scales to 0. A tween, not the spring, so it
+ * clears fast; opacity is linear over the same span so the turn stays
+ * visible instead of vanishing in the first frames. */
+export const CLOSE_EXIT_SEC = 0.2;
+
+/** Rotation's own spring, bouncier than scale's so the X over-rotates past
+ * rest (~15deg on a 90deg turn) and swings back, without scale wobbling. */
+export const CLOSE_REVEAL_ROTATE_SPRING = {
+  type: "spring" as const,
+  duration: 0.55,
+  bounce: 0.5,
+};
+
 /** Stagger interval (s) between <MorphSheet.Item> children. */
 export const ITEM_STAGGER_INTERVAL_SEC = 0.04;
 

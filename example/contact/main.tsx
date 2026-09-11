@@ -38,9 +38,9 @@ function App() {
             <PencilIcon />
           </MorphSheet.Shared>
 
-          <MorphSheet.Content>
-            <MorphSheet.Close aria-label="Close" />
+          <MorphSheet.Close aria-label="Close" />
 
+          <MorphSheet.Content>
             <MorphSheet.Item>
               <h2 id="contact-sheet-title" className="contact-title">
                 Send a message

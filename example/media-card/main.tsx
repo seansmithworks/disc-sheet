@@ -41,9 +41,9 @@ function App() {
             <AppIcon />
           </MorphSheet.Shared>
 
-          <MorphSheet.Content>
-            <MorphSheet.Close aria-label="Close" />
+          <MorphSheet.Close aria-label="Close" />
 
+          <MorphSheet.Content>
             <MorphSheet.Item>
               <div className="media-header">
                 <div>

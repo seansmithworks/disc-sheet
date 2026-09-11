@@ -101,8 +101,9 @@ function App() {
             <Portrait />
           </MorphSheet.Shared>
 
+          <MorphSheet.Close aria-label="Close" />
+
           <MorphSheet.Content>
-            <MorphSheet.Close aria-label="Close" />
             <MorphSheet.Item>
               <p className="flagship-eyebrow">Open to work · 2026</p>
               <h2 id="flagship-sheet-title" className="flagship-title">

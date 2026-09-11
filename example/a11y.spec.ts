@@ -185,6 +185,23 @@ test.describe("§6 accessibility contract", () => {
     });
   });
 
+  test("close control is transparent mid-open and fades in once the open finishes", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    const close = page.locator('[data-morph-sheet-part="close"]');
+    await close.waitFor({ state: "attached" });
+    expect(await close.evaluate((el) => getComputedStyle(el).opacity)).toBe(
+      "0",
+    );
+    await expect
+      .poll(() => close.evaluate((el) => getComputedStyle(el).opacity), {
+        timeout: 3000,
+      })
+      .toBe("1");
+  });
+
   test("reduced motion: layoutId dropped everywhere (0 data-projection-id nodes)", async ({
     page,
   }) => {
