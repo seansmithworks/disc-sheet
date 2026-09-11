@@ -312,3 +312,7 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 ## Carried at wrap-continue — 2026-09-02
 
 - [ ] **Variant A vs B for the list/contact icon ground.** A (14% accent wash) is applied and committed at `f4a4a72`; B (solid accent, white glyph) was shown and not chosen. A stands as the default — this is not blocking. B is two lines: icon `background: var(--morph-sheet-accent)` and glyph `stroke: #ffffff` in both example CSS files.
+
+## Idea (Sean, 2026-09-11, late) — lean into the "flare": a ripple on open
+
+- [ ] **Turn the open's shadow flare into a deliberate ripple.** The flare itself was a defect (duplicate shadow, fixed `4a975d5`), but a ripple that radiates from the disc as the sheet blooms is a real idea, and the seam already exists: `<MorphSheet.Shadow asChild>` plus `useMorphSheet().collapseProgress`. surface-fx has `sheetBloom` + `useRippleEngine` (`~/Code/surface-fx/src/ripple/`), and the site's ContactSheet does this today. Demo-only first, behind the same toggle as the glow, judged with `DESIGN.md` §4 (transform/opacity only, one clock). Sean's framing: "if this doesn't work we can explore a pivot" — explore only after the current fix has been recorded and judged.
