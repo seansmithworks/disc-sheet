@@ -360,8 +360,8 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [x] Ground truth sanity-checked: plain warm cycle 70 distinct frames headed, 68 headless (old clips were broken: 8 and 1)
 - [x] Gate rewritten: dropped frames + longest presented interval, screencast removed, new headless on ANGLE Metal, software renderer refused (`261653c`)
 - [x] Each metric proven to fire headless: jank 108 dropped, block 150ms, gpu (48 layers) 142 dropped, +unrelated animation 111 / 150ms
-- [ ] Rebaseline on a quiet machine: `npm run perf -- --update-baseline --wait-for-quiet` (refused twice, load 5–16 from other processes)
-- [ ] Confirm headless raster agrees with the headed baseline at quiet load (headed 44.8ms median; headless 61.6ms at load 4.7)
-- [ ] 3 plain `npm run perf` stability runs PASS against the new baseline
-- [ ] Firing runs against the new baseline, table line + exit code each: `--inject-jank`, `--inject-block`, `--inject-gpu`, `--inject-jank --inject-animation`, `--inject-block --inject-animation`
-- [ ] README "Measuring smoothness": add the limits and exit codes from those runs
+- [x] Rebaseline on a quiet machine (load1 2.5–2.8): raster 55.7ms, 1 dropped, 16.7ms longest interval (`f6239aa`)
+- [x] Headless raster vs headed at quiet load: 55.7ms vs 44.8ms, +24%, inside the old headed +37% tolerance; not interchangeable (`f6239aa`)
+- [x] 3 plain `npm run perf` stability runs PASS (raster 43.2 / 65.5 / 44.5ms, dropped 1, longest 16.7ms) (`f6239aa`)
+- [x] Firing against the new baseline: `--inject-jank` dropped 106 FAIL, `--inject-block` 150ms FAIL, `--inject-gpu` dropped 148 FAIL, each exit 1 (`f6239aa`). Combos with `--inject-animation` measured before the rebaseline only (111 dropped / 150ms)
+- [x] README "Measuring smoothness": limits, sensitivity and exit codes (`f6239aa`)
