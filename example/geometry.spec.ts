@@ -1269,3 +1269,345 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     expect(["none", null]).toContain(maskAtRest);
   });
 });
+
+/**
+ * Center anchor — the seven-anchor model (anchors.ts, 2026-09-11). Uses
+ * localStorage (not defaultAnchor) to set the anchor before load, so the
+ * mount-time restore path (usePersistedAnchor) is what's actually
+ * exercised, not just the default-anchor branch.
+ *
+ * Deliberately does NOT reuse BOTTOM_THRESHOLD_PX (the |Δbottom| assertion
+ * from (e)/(f)/etc. above) — that axis is only informative for a
+ * bottom-pinned box, where a healthy desync leaves the bottom edge
+ * algebraically invariant. The center anchor pins BOTH top and bottom, so
+ * bottom isn't a distinguishing axis here; centre-offset is.
+ */
+const ANCHOR_STORAGE_KEY = "morph-sheet-anchor";
+
+async function gotoWithAnchor(page: Page, anchor: string, path = "/") {
+  await page.addInitScript(
+    ([key, value]) => {
+      window.localStorage.setItem(key, value);
+    },
+    [ANCHOR_STORAGE_KEY, anchor] as [string, string],
+  );
+  await page.goto(path);
+  await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+}
+
+/** Same rAF sampling loop as sampleShadowSurfaceDelta, plus the two
+ * centre-offset axes the center anchor needs: shadow-vs-surface centre
+ * distance, and surface-centre-vs-viewport-midpoint distance. */
+async function sampleCenterAnchorDelta(page: Page, durationMs: number) {
+  return page.evaluate((duration) => {
+    return new Promise<{
+      worstTop: number;
+      worstHeight: number;
+      worstShadowSurfaceCenter: number;
+      worstSurfaceViewportCenter: number;
+    }>((resolve) => {
+      let worstTop = 0;
+      let worstHeight = 0;
+      let worstShadowSurfaceCenter = 0;
+      let worstSurfaceViewportCenter = 0;
+      const start = performance.now();
+      function tick() {
+        const surface = document.querySelector(
+          '[data-morph-sheet-part="sheet"], [data-morph-sheet-part="trigger-surface"]',
+        );
+        const shadow = document.querySelector(
+          '[data-morph-sheet-part="shadow"]',
+        );
+        if (surface && shadow) {
+          const s = surface.getBoundingClientRect();
+          const sh = shadow.getBoundingClientRect();
+          worstTop = Math.max(worstTop, Math.abs(sh.top - s.top));
+          worstHeight = Math.max(worstHeight, Math.abs(sh.height - s.height));
+          const sCenterX = s.left + s.width / 2;
+          const sCenterY = s.top + s.height / 2;
+          const shCenterX = sh.left + sh.width / 2;
+          const shCenterY = sh.top + sh.height / 2;
+          worstShadowSurfaceCenter = Math.max(
+            worstShadowSurfaceCenter,
+            Math.hypot(sCenterX - shCenterX, sCenterY - shCenterY),
+          );
+          const vpMidX = window.innerWidth / 2;
+          const vpMidY = window.innerHeight / 2;
+          worstSurfaceViewportCenter = Math.max(
+            worstSurfaceViewportCenter,
+            Math.hypot(sCenterX - vpMidX, sCenterY - vpMidY),
+          );
+        }
+        if (performance.now() - start < duration) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve({
+            worstTop,
+            worstHeight,
+            worstShadowSurfaceCenter,
+            worstSurfaceViewportCenter,
+          });
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }, durationMs);
+}
+
+test.describe("center anchor", () => {
+  const CENTER_VIEWPORTS = [
+    { width: 375, height: 812 },
+    { width: 1280, height: 800 },
+    { width: 1700, height: 1000 },
+  ] as const;
+
+  for (const viewport of CENTER_VIEWPORTS) {
+    test(`(q) trigger rests at viewport centre at ${viewport.width}x${viewport.height} (AC1)`, async ({
+      page,
+    }) => {
+      test.info().annotations.push({
+        type: "viewport",
+        description: `${viewport.width}x${viewport.height}`,
+      });
+      await page.setViewportSize(viewport);
+      await gotoWithAnchor(page, "center");
+
+      const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+      await waitForStableWidth(page, trigger);
+      const box = (await trigger.boundingBox())!;
+      const cx = box.x + box.width / 2;
+      const cy = box.y + box.height / 2;
+      console.log(
+        `[geometry] (q) ${viewport.width}x${viewport.height} trigger centre: ` +
+          `(${cx.toFixed(2)}, ${cy.toFixed(2)}), viewport mid: ` +
+          `(${(viewport.width / 2).toFixed(2)}, ${(viewport.height / 2).toFixed(2)})`,
+      );
+      expect(Math.abs(cx - viewport.width / 2)).toBeLessThanOrEqual(0.5);
+      expect(Math.abs(cy - viewport.height / 2)).toBeLessThanOrEqual(0.5);
+    });
+  }
+
+  test("(r) open sheet is centred within 1px and >=16px from both edges on a short viewport with scrolling content (AC3)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 800, height: 280 });
+    // flagship.html — a photo, a five-row nav, a real type ramp — so the
+    // sheet's content genuinely overflows the height-capped box and
+    // scrolls, rather than fitting and making the height cap moot.
+    await gotoWithAnchor(page, "center", "/flagship.html");
+
+    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+    await trigger.click();
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    await sheet.waitFor();
+    await waitForStableWidth(page, sheet);
+
+    const metrics = await page.evaluate(() => {
+      const sheetEl = document.querySelector(
+        '[data-morph-sheet-part="sheet"]',
+      )!;
+      const box = sheetEl.getBoundingClientRect();
+      const content = sheetEl.querySelector(
+        '[data-morph-sheet-part="content"]',
+      ) as HTMLElement | null;
+      return {
+        top: box.top,
+        bottom: box.bottom,
+        centerY: box.top + box.height / 2,
+        viewportHeight: window.innerHeight,
+        scrollHeight: content?.scrollHeight ?? 0,
+        clientHeight: content?.clientHeight ?? 0,
+      };
+    });
+    console.log(
+      `[geometry] (r) 800x280 sheet: top=${metrics.top.toFixed(1)}, ` +
+        `bottom=${metrics.bottom.toFixed(1)}, centerY=${metrics.centerY.toFixed(1)}, ` +
+        `scrollHeight=${metrics.scrollHeight}, clientHeight=${metrics.clientHeight}`,
+    );
+    expect(
+      metrics.scrollHeight,
+      "content must actually overflow its box for this test to exercise the height cap",
+    ).toBeGreaterThan(metrics.clientHeight);
+    expect(Math.abs(metrics.centerY - metrics.viewportHeight / 2)).toBeLessThan(
+      1,
+    );
+    expect(metrics.top).toBeGreaterThanOrEqual(16 - 0.5);
+    expect(metrics.viewportHeight - metrics.bottom).toBeGreaterThanOrEqual(
+      16 - 0.5,
+    );
+  });
+
+  const CENTER_OPEN_THRESHOLD_PX = 8;
+  const CENTER_CLOSE_THRESHOLD_PX = 6;
+  const CENTER_CENTER_OFFSET_PX = 2;
+
+  test("(s) same clock at center: open, Escape close, swipe close (AC4)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoWithAnchor(page, "center");
+    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+
+    // Open.
+    await trigger.click();
+    const openResult = await sampleCenterAnchorDelta(page, 1200);
+    console.log(
+      `[geometry] (s) center open: worst |Δtop|=${openResult.worstTop.toFixed(1)}px, ` +
+        `worst |Δheight|=${openResult.worstHeight.toFixed(1)}px, ` +
+        `worst shadow-surface centre=${openResult.worstShadowSurfaceCenter.toFixed(1)}px, ` +
+        `worst surface-viewport centre=${openResult.worstSurfaceViewportCenter.toFixed(1)}px`,
+    );
+    expect(openResult.worstTop).toBeLessThan(CENTER_OPEN_THRESHOLD_PX);
+    expect(openResult.worstHeight).toBeLessThan(CENTER_OPEN_THRESHOLD_PX);
+    expect(openResult.worstShadowSurfaceCenter).toBeLessThan(
+      CENTER_CENTER_OFFSET_PX,
+    );
+    expect(openResult.worstSurfaceViewportCenter).toBeLessThan(
+      CENTER_CENTER_OFFSET_PX,
+    );
+
+    // Escape close.
+    await page.keyboard.press("Escape");
+    const escapeResult = await sampleCenterAnchorDelta(page, 1200);
+    console.log(
+      `[geometry] (s) center Escape close: worst |Δtop|=${escapeResult.worstTop.toFixed(1)}px, ` +
+        `worst |Δheight|=${escapeResult.worstHeight.toFixed(1)}px, ` +
+        `worst shadow-surface centre=${escapeResult.worstShadowSurfaceCenter.toFixed(1)}px`,
+    );
+    expect(escapeResult.worstTop).toBeLessThan(CENTER_CLOSE_THRESHOLD_PX);
+    expect(escapeResult.worstHeight).toBeLessThan(CENTER_CLOSE_THRESHOLD_PX);
+    expect(escapeResult.worstShadowSurfaceCenter).toBeLessThan(
+      CENTER_CENTER_OFFSET_PX,
+    );
+
+    // Swipe close.
+    await trigger.click();
+    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    await sheet.waitFor();
+    await waitForStableWidth(page, sheet);
+    const box = (await sheet.boundingBox())!;
+    const startX = box.x + box.width / 2;
+    const startY = box.y + 8;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY + 220, { steps: 6 });
+    await page.mouse.up();
+    const swipeResult = await sampleCenterAnchorDelta(page, 1200);
+    console.log(
+      `[geometry] (s) center swipe close: worst |Δtop|=${swipeResult.worstTop.toFixed(1)}px, ` +
+        `worst |Δheight|=${swipeResult.worstHeight.toFixed(1)}px, ` +
+        `worst shadow-surface centre=${swipeResult.worstShadowSurfaceCenter.toFixed(1)}px`,
+    );
+    expect(swipeResult.worstTop).toBeLessThan(CENTER_CLOSE_THRESHOLD_PX);
+    expect(swipeResult.worstHeight).toBeLessThan(CENTER_CLOSE_THRESHOLD_PX);
+    expect(swipeResult.worstShadowSurfaceCenter).toBeLessThan(
+      CENTER_CENTER_OFFSET_PX,
+    );
+  });
+
+  test("(t) trigger rests as a circle after closing at center (AC5)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoWithAnchor(page, "center");
+    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+    await trigger.click();
+    await page.waitForTimeout(900);
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(1600);
+
+    const r = await page.evaluate(() => {
+      const el = document.querySelector(
+        '[data-morph-sheet-part="trigger-surface"]',
+      ) as HTMLElement | null;
+      if (!el) return null;
+      const box = el.getBoundingClientRect();
+      return {
+        computed: getComputedStyle(el).borderTopLeftRadius,
+        width: box.width,
+        height: box.height,
+      };
+    });
+    expect(
+      r,
+      "trigger surface must be mounted and measurable at rest",
+    ).not.toBeNull();
+    const half = Math.min(r!.width, r!.height) / 2;
+    const isCircular = (value: string) =>
+      value.trim().endsWith("%")
+        ? parseFloat(value) >= 50
+        : parseFloat(value) >= half - 0.5;
+    console.log(
+      `[geometry] (t) center resting trigger radius computed=${r!.computed} ` +
+        `box=${r!.width.toFixed(0)}x${r!.height.toFixed(0)}`,
+    );
+    expect(isCircular(r!.computed)).toBe(true);
+  });
+
+  test("(u) center persists across reload; a persisted top-right restores; an invalid persisted anchor falls back to bottom-center (AC6)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // Drag the trigger to the exact viewport centre and release, so the
+    // real drag-end -> nearestAnchor -> setAnchor -> persist path is what
+    // writes localStorage, not a manual seed of it.
+    await gotoExample(page, false);
+    const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+    const startBox = (await trigger.boundingBox())!;
+    const startX = startBox.x + startBox.width / 2;
+    const startY = startBox.y + startBox.height / 2;
+    const targetX = 640;
+    const targetY = 400;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(targetX, targetY, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(900); // let the snap spring settle
+
+    const persisted = await page.evaluate(() =>
+      window.localStorage.getItem("morph-sheet-anchor"),
+    );
+    expect(persisted).toBe("center");
+
+    await page.reload();
+    await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+    const restoredTrigger = page.locator('[data-morph-sheet-part="trigger"]');
+    await waitForStableWidth(page, restoredTrigger);
+    const restoredBox = (await restoredTrigger.boundingBox())!;
+    expect(
+      Math.abs(restoredBox.x + restoredBox.width / 2 - 640),
+    ).toBeLessThanOrEqual(0.5);
+    expect(
+      Math.abs(restoredBox.y + restoredBox.height / 2 - 400),
+    ).toBeLessThanOrEqual(0.5);
+
+    // A legitimate persisted non-center anchor still restores correctly.
+    await gotoWithAnchor(page, "top-right");
+    const topRightTrigger = page.locator('[data-morph-sheet-part="trigger"]');
+    await waitForStableWidth(page, topRightTrigger);
+    const topRightBox = (await topRightTrigger.boundingBox())!;
+    expect(topRightBox.x + topRightBox.width).toBeGreaterThan(1280 - 32 - 16);
+    expect(topRightBox.y).toBeLessThan(32);
+
+    // An invalid persisted value (the old six-anchor model plus a bogus
+    // "middle-center" someone could hand-edit into localStorage) is
+    // rejected by usePersistedAnchor's isAnchorId guard and falls back to
+    // DEFAULT_ANCHOR ("bottom-center"), never to the invalid value itself.
+    await gotoWithAnchor(page, "middle-center");
+    const fallbackTrigger = page.locator('[data-morph-sheet-part="trigger"]');
+    await waitForStableWidth(page, fallbackTrigger);
+    const fallbackBox = (await fallbackTrigger.boundingBox())!;
+    // bottom-center IS horizontally centered too (same as the real center
+    // anchor) — the distinguishing axis is vertical: bottom-center sits
+    // pinned near the bottom edge, not at the vertical midpoint (400) the
+    // way a restored "center" would.
+    expect(
+      Math.abs(fallbackBox.x + fallbackBox.width / 2 - 640),
+    ).toBeLessThanOrEqual(0.5);
+    expect(
+      Math.abs(fallbackBox.y + fallbackBox.height / 2 - 400),
+    ).toBeGreaterThan(50);
+    expect(fallbackBox.y + fallbackBox.height).toBeGreaterThan(800 - 32 - 16); // pinned to the bottom edge, like bottom-center
+  });
+});
