@@ -320,8 +320,8 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 ## Carried at wrap-continue — 2026-09-11 (thread DiskSheet)
 
 - [x] **carried — Sean re-records and judges the shadow-pop fix** (`4a975d5`, glow OFF). The pop was a duplicate shadow on `.triggerSurface`; the resting disc is lighter now by design (one shadow). Judged on a6ebc97 clips 2026-09-11: "much better".
-- [ ] **carried — `npm run perf` gate still open (deferred for glow palettes)**
-- [ ] **carried — `npm run perf` gate** (audit item 3): Playwright/agent-browser script reporting distinct rendered frames per open+close and trace raster ms, baseline numbers checked in (warm: 62–72 distinct frames; raster ~350ms glow off), threshold that fails. Judged glow OFF; warm the browser with one throwaway open first (cold first open renders ~half the frames on any build).
+- [x] **carried — `npm run perf` gate still open (deferred for glow palettes)** (`2616d49`)
+- [x] **carried — `npm run perf` gate** (audit item 3): `scripts/perf-morph.mjs` — own vite server on :5190, headed Chromium, 5 warm cycles, CDP RasterTask ms + `Page.screencastFrame` count, `perf/baseline.json` checked in, tolerance-based pass/fail. Judged glow OFF; 2 warm-up cycles discarded. Gate proven to fire on injected main-thread jank (`--inject-jank`); the demo's glow toggle turned out compositor-only on this GPU and does not move either metric — noted in the report, not treated as a gate defect. (`2616d49`)
 - [ ] **carried — audit doc review**: `docs/plans/motion-craft-audit.html` is open in html-review (session `sess_1e7f46c0`); Sean has not commented yet.
 - [ ] **parked — Close X scale-from-0 spin** is a deliberate deviation from "start at 0.9+" (DESIGN.md §4.5); revisit only if it reads as popping in a recording.
 
