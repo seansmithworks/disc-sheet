@@ -74,12 +74,29 @@ const IRI_DIALS = {
   },
 };
 
+// The Shadow crossfade window (Shadow.tsx reads these two vars via
+// readVarPx: --morph-sheet-sheet-shadow-fade-start/-fade-end). Seeded so the
+// heavy sheet shadow (`--morph-sheet-sheet-shadow`) is fully in at
+// collapseProgress p=0 (open, at rest) and fully gone by p=0.25 — roughly
+// where the silhouette has shrunk enough that the thin disc shadow
+// (`--morph-sheet-shadow`) alone reads right, rather than a heavy blur on a
+// small shape. Persisted under dialkit:morph-sheet-shadow-crossfade.
+const SHADOW_CROSSFADE_DIALS = {
+  fadeStart: [0, 0, 1, 0.01] as [number, number, number, number],
+  fadeEnd: [0.25, 0, 1, 0.01] as [number, number, number, number],
+};
+
 function App() {
   const [iri, setIri] = useState(readIri);
   const dials = useDialKit("Iridescent shadow", IRI_DIALS, {
     id: "morph-sheet-iridescent",
     persist: true,
   });
+  const shadowCrossfade = useDialKit(
+    "Sheet shadow crossfade",
+    SHADOW_CROSSFADE_DIALS,
+    { id: "morph-sheet-shadow-crossfade", persist: true },
+  );
   const c = dials.colors;
   const iriStyle = {
     "--iri-opacity": dials.opacity,
@@ -90,6 +107,15 @@ function App() {
     "--iri-colors": [c.one, c.two, c.three, c.four, c.five, c.six, c.one].join(
       ", ",
     ),
+  } as CSSProperties;
+  // Consumer-set crossfade dial, plumbed as CSS custom properties on an
+  // ancestor of <MorphSheet.Shadow> — CSS custom properties inherit down the
+  // DOM tree, and .shadow (or an asChild swap) isn't portalled, so Shadow.tsx's
+  // readVarPx(el, ...) picks these up via getComputedStyle the same way it
+  // already reads --morph-sheet-sheet-radius from wherever a consumer set it.
+  const shadowCrossfadeStyle = {
+    "--morph-sheet-sheet-shadow-fade-start": shadowCrossfade.fadeStart,
+    "--morph-sheet-sheet-shadow-fade-end": shadowCrossfade.fadeEnd,
   } as CSSProperties;
   const toggleIri = () => {
     const next = !iri;
@@ -102,7 +128,7 @@ function App() {
   };
 
   return (
-    <div className="page">
+    <div className="page" style={shadowCrossfadeStyle}>
       <button
         type="button"
         role="switch"
@@ -113,6 +139,12 @@ function App() {
         <span className="demo-toggle-track" aria-hidden="true" />
         Iridescent shadow
       </button>
+      {/* Gated on the same toggle as the glow dials (not rendered
+          unconditionally): DialRoot's own "Versions" trigger button overlays
+          the morph trigger at narrow viewports and intercepts its clicks,
+          which broke 20 geometry.spec.ts tests when this was unconditional.
+          The Sheet shadow crossfade panel registered below still shows up
+          here once the iri toggle is on. */}
       {iri && <DialRoot position="bottom-right" />}
       <h1>morph-sheet</h1>
       <p className="sub">
