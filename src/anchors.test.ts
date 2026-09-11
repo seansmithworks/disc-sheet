@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  ALL_ANCHORS,
   EDGE_MARGIN,
+  type AnchorId,
   anchorCenter,
   nearestAnchor,
   restingLeft,
@@ -9,8 +11,15 @@ import {
 } from "./anchors";
 
 describe("nearestAnchor", () => {
-  it("maps the exact center to bottom-center (bottom-inclusive midline)", () => {
-    expect(nearestAnchor(720, 450, 1440, 900)).toBe("bottom-center");
+  // Changed from the pre-center suite: (720, 450) in a 1440x900 viewport is
+  // the exact viewport center, and the center column now splits into thirds
+  // (top-center / center / bottom-center) rather than halves, so the exact
+  // midline falls in the middle third — "center" — not "bottom-center".
+  // This is intentional: it is the acceptance behavior for the center
+  // anchor (AC2), not a regression in the six-anchor pins below, which are
+  // asserted separately against hard-coded numbers.
+  it("maps the exact center to center (the new middle-third region)", () => {
+    expect(nearestAnchor(720, 450, 1440, 900)).toBe("center");
   });
 
   it("maps the top-left region", () => {
@@ -29,30 +38,111 @@ describe("nearestAnchor", () => {
     expect(nearestAnchor(1400, 850, 1440, 900)).toBe("bottom-right");
   });
 
+  // (50, vpH/2) sits in the LEFT column, which still splits into halves
+  // (top vs bottom) rather than thirds — there is no middle-left anchor, so
+  // the exact vertical midline in a side column must still resolve to one
+  // of the two anchors that column actually has.
+  it("maps the vertical midline in a side column to bottom (no middle-left)", () => {
+    expect(nearestAnchor(50, 450, 1440, 900)).toBe("bottom-left");
+  });
+
   it("resolves column boundaries at exact thirds (left-inclusive)", () => {
     const third = 1440 / 3;
     expect(nearestAnchor(third - 1, 50, 1440, 900)).toBe("top-left");
     expect(nearestAnchor(third, 50, 1440, 900)).toBe("top-center");
     expect(nearestAnchor(third * 2, 50, 1440, 900)).toBe("top-right");
   });
+
+  it("resolves the center column's row boundaries at exact thirds (top-inclusive)", () => {
+    const vpH = 900;
+    const rowThird = vpH / 3;
+    // x=720 stays in the center column throughout.
+    expect(nearestAnchor(720, rowThird - 1, 1440, vpH)).toBe("top-center");
+    expect(nearestAnchor(720, rowThird, 1440, vpH)).toBe("center");
+    expect(nearestAnchor(720, rowThird * 2 - 1, 1440, vpH)).toBe("center");
+    expect(nearestAnchor(720, rowThird * 2, 1440, vpH)).toBe("bottom-center");
+  });
+
+  it("center's snap zone is the middle ninth of the viewport", () => {
+    const vpW = 1440;
+    const vpH = 900;
+    // Middle of the middle third on both axes.
+    expect(nearestAnchor(vpW / 2, vpH / 2, vpW, vpH)).toBe("center");
+    // Just inside each edge of the middle-ninth box.
+    expect(nearestAnchor(vpW / 3 + 1, vpH / 3 + 1, vpW, vpH)).toBe("center");
+    expect(nearestAnchor((vpW * 2) / 3 - 1, (vpH * 2) / 3 - 1, vpW, vpH)).toBe(
+      "center",
+    );
+  });
+
+  it("returns a valid anchor id for out-of-range input", () => {
+    expect(ALL_ANCHORS).toContain(nearestAnchor(-500, -500, 1440, 900));
+    expect(ALL_ANCHORS).toContain(nearestAnchor(99999, 99999, 1440, 900));
+    expect(ALL_ANCHORS).toContain(nearestAnchor(NaN, NaN, 1440, 900));
+  });
 });
 
-describe("restingLeft / restingTop", () => {
-  it("insets corner anchors by EDGE_MARGIN", () => {
-    expect(restingLeft("top-left", 1440, 96)).toBe(EDGE_MARGIN);
-    expect(restingLeft("bottom-right", 1440, 96)).toBe(1440 - 96 - EDGE_MARGIN);
-    expect(restingTop("top-right", 900, 96)).toBe(EDGE_MARGIN);
-    expect(restingTop("bottom-left", 900, 96)).toBe(900 - 96 - EDGE_MARGIN);
-  });
+describe("restingLeft / restingTop — hard-coded pins for the six pre-existing anchors", () => {
+  // Hard-coded against the OLD per-case formulas (not by calling
+  // restingLeft/restingTop recursively) at three viewports, so a defect in
+  // the new two-axis alignment model that happens to move one of these six
+  // anchors cannot pass by construction.
+  const VIEWPORTS = [
+    { vpW: 375, vpH: 812 },
+    { vpW: 1280, vpH: 800 },
+    { vpW: 1700, vpH: 1000 },
+  ];
+  const triggerSize = 96;
 
-  it("centers center anchors horizontally", () => {
-    expect(restingLeft("top-center", 1440, 96)).toBe(1440 / 2 - 96 / 2);
-    expect(restingLeft("bottom-center", 1440, 128)).toBe(1440 / 2 - 128 / 2);
-  });
+  for (const { vpW, vpH } of VIEWPORTS) {
+    const oldLeft: Record<string, number> = {
+      "top-left": EDGE_MARGIN,
+      "top-center": vpW / 2 - triggerSize / 2,
+      "top-right": vpW - triggerSize - EDGE_MARGIN,
+      "bottom-left": EDGE_MARGIN,
+      "bottom-center": vpW / 2 - triggerSize / 2,
+      "bottom-right": vpW - triggerSize - EDGE_MARGIN,
+    };
+    const oldTop: Record<string, number> = {
+      "top-left": EDGE_MARGIN,
+      "top-center": EDGE_MARGIN,
+      "top-right": EDGE_MARGIN,
+      "bottom-left": vpH - triggerSize - EDGE_MARGIN,
+      "bottom-center": vpH - triggerSize - EDGE_MARGIN,
+      "bottom-right": vpH - triggerSize - EDGE_MARGIN,
+    };
+
+    for (const anchor of Object.keys(oldLeft) as AnchorId[]) {
+      it(`${anchor} at ${vpW}x${vpH} matches the pre-center formula exactly`, () => {
+        expect(restingLeft(anchor, vpW, triggerSize)).toBe(oldLeft[anchor]);
+        expect(restingTop(anchor, vpH, triggerSize)).toBe(oldTop[anchor]);
+      });
+    }
+  }
 
   it("handles a narrow viewport without going negative for a left anchor", () => {
     expect(restingLeft("top-left", 320, 96)).toBe(EDGE_MARGIN);
   });
+});
+
+describe("restingLeft / restingTop — center anchor", () => {
+  const VIEWPORTS = [
+    { vpW: 375, vpH: 812 },
+    { vpW: 1280, vpH: 800 },
+    { vpW: 1700, vpH: 1000 },
+  ];
+  const triggerSize = 96;
+
+  for (const { vpW, vpH } of VIEWPORTS) {
+    it(`centers the trigger at ${vpW}x${vpH}`, () => {
+      expect(restingLeft("center", vpW, triggerSize)).toBe(
+        vpW / 2 - triggerSize / 2,
+      );
+      expect(restingTop("center", vpH, triggerSize)).toBe(
+        vpH / 2 - triggerSize / 2,
+      );
+    });
+  }
 });
 
 describe("anchorCenter", () => {
@@ -62,32 +152,54 @@ describe("anchorCenter", () => {
     const vpW = 1440;
     const vpH = 900;
     const center = anchorCenter(anchor, vpW, vpH, triggerSize);
-    expect(center.x).toBe(restingLeft(anchor, vpW, triggerSize) + triggerSize / 2);
-    expect(center.y).toBe(restingTop(anchor, vpH, triggerSize) + triggerSize / 2);
+    expect(center.x).toBe(
+      restingLeft(anchor, vpW, triggerSize) + triggerSize / 2,
+    );
+    expect(center.y).toBe(
+      restingTop(anchor, vpH, triggerSize) + triggerSize / 2,
+    );
   });
 
   it("centers a center anchor on the viewport midpoint", () => {
     const center = anchorCenter("bottom-center", 1440, 900, 128);
     expect(center.x).toBe(720);
   });
+
+  // Round-trip: every anchor's own resting point, fed back through
+  // nearestAnchor, must map back to itself — at all 3 viewports.
+  const VIEWPORTS = [
+    { vpW: 375, vpH: 812 },
+    { vpW: 1280, vpH: 800 },
+    { vpW: 1700, vpH: 1000 },
+  ];
+  for (const { vpW, vpH } of VIEWPORTS) {
+    for (const anchor of ALL_ANCHORS) {
+      it(`${anchor}'s resting point round-trips through nearestAnchor at ${vpW}x${vpH}`, () => {
+        const triggerSize = 96;
+        const { x, y } = anchorCenter(anchor, vpW, vpH, triggerSize);
+        expect(nearestAnchor(x, y, vpW, vpH)).toBe(anchor);
+      });
+    }
+  }
 });
 
 describe("sheetPlacement", () => {
-  it("grows downward from a top anchor and upward from a bottom anchor", () => {
-    expect(sheetPlacement("top-left", 1440, 900, 96, 480).anchorEdge).toBe(
-      "top",
-    );
-    expect(sheetPlacement("bottom-right", 1440, 900, 96, 480).anchorEdge).toBe(
-      "bottom",
-    );
+  it("pins only the top edge for a top anchor (grows downward)", () => {
+    const placement = sheetPlacement("top-left", 1440, 900, 96, 480);
+    expect(placement.topPx).toBe(16);
+    expect(placement.bottomPx).toBeUndefined();
   });
 
-  it("sets anchorTopPx only for top-anchored placements", () => {
-    const top = sheetPlacement("top-center", 1440, 900, 96, 480);
-    expect(top.anchorTopPx).toBe(16);
+  it("pins only the bottom edge for a bottom anchor (grows upward)", () => {
+    const placement = sheetPlacement("bottom-right", 1440, 900, 96, 480);
+    expect(placement.topPx).toBeUndefined();
+    expect(placement.bottomPx).toBe(16);
+  });
 
-    const bottom = sheetPlacement("bottom-center", 1440, 900, 96, 480);
-    expect(bottom.anchorTopPx).toBeUndefined();
+  it("pins BOTH edges for the center anchor", () => {
+    const placement = sheetPlacement("center", 1440, 900, 96, 480);
+    expect(placement.topPx).toBe(16);
+    expect(placement.bottomPx).toBe(16);
   });
 
   it("clamps the sheet on-screen when the trigger sits at a viewport edge", () => {

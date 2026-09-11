@@ -69,4 +69,8 @@ export {
   restingTop,
   sheetPlacement,
 } from "./anchors";
-export type { AnchorEdge, AnchorHorizontal, SheetPlacement } from "./anchors";
+export type {
+  AnchorVertical,
+  AnchorHorizontal,
+  SheetPlacement,
+} from "./anchors";
