@@ -501,32 +501,47 @@ npm run perf -- --update-baseline --wait-for-quiet   # poll for quiet, then reba
 
 "Does the morph feel smooth?" checked against a number instead of memory.
 `scripts/perf-morph.mjs` opens its own vite server on `:5190` (never
-`:5180`), drives 5 warm open+close cycles of the example in **headed**
-Chromium (headless is software raster and gives meaningless numbers), and
-reports three things per cycle:
+`:5180`), drives 5 warm open+close cycles of the example in Chromium's
+**new headless mode**, traces each cycle, and gates three numbers. Frame
+numbers come from `PipelineReporter`, Chromium's own per-frame presentation
+record, inside a 900ms window after each click:
 
-- **raster ms** — CDP trace total for `RasterTask` durations.
-- **frames** — count of `Page.screencastFrame` events, i.e. how many
-  distinct frames Chromium actually composited. Chosen over decoding a
-  fixed-fps recording because it's driven by Chromium's own frame
-  producer — a starved compositor directly emits fewer of these, no
-  decimation heuristic or extra dependency needed.
-- **longest frame gap** — the single largest interval between two
-  consecutive composited frames, scoped to a 900ms motion window right
-  after each click (not the whole cycle — the idle hold between settle and
-  the next click paints nothing and would otherwise dominate this number
-  with a fake ~850ms "gap" on every healthy run). Catches a stall that
-  hides inside an otherwise-healthy median frame count.
+- **raster ms** — total `RasterTask` time over the cycle.
+- **dropped frames** — frames that ended dropped or partially presented,
+  i.e. the page's pending update missed its frame.
+- **longest interval ms** — the largest gap between two consecutive fully
+  presented frames. Catches one long stall that a low dropped count hides.
 
-All three are compared to `perf/baseline.json` with a **one-sided**
-tolerance: raster ms and longest gap have a ceiling only (regression = a
-bigger number), frames has a floor only (regression = fewer composited
-frames). The script exits non-zero if any of the three falls outside its
-limit. Tolerances aren't hand-picked — `--update-baseline` derives them from
-the actual spread observed at rebaseline time (see below).
+`presented` is printed for information only. Any unrelated animation raises
+it, which is why it isn't gated (the old screencast frame count went from 90
+to 207 that way). An unrelated animation can't hide the gated numbers: a
+frame that misses the morph's update still counts as partial, and a partial
+frame never closes an interval.
 
-**Rebaselining requires a quiet machine, checked before every launch.** Both
-raster ms and frame count are absolute measurements: another test browser, a
+Limits come from `perf/baseline.json`: raster at most the baseline median
+plus a tolerance derived from its spread (20–90%), dropped frames at most
+the median plus a derived slack of at least 2, longest interval at most the
+worst baseline cycle plus one frame. Exit 1 on any failure.
+
+**It runs on the GPU, and refuses otherwise.** Playwright's default headless
+shell renders on SwiftShader (software); new headless mode
+(`channel: "chromium"`) uses ANGLE Metal. Every launch reads the WebGL
+renderer and the GPU feature status, prints the renderer, stores it in the
+baseline, and exits 1 on a software renderer. No window opens.
+
+**Proof each gate fires** (headless, M1 Pro, 2026-09-11, median of 5 cycles;
+plain: 1 dropped, 16.7ms longest interval):
+
+| Injection | What it does | Dropped | Longest interval |
+| --- | --- | --- | --- |
+| `--inject-jank` | 20ms busy block every rAF | 108 | 33.3ms |
+| `--inject-block` | one 150ms block, 200ms into each open | 18 | 150ms |
+| `--inject-gpu` | 48 static full-viewport `backdrop-filter` layers | 142 | 41.7ms |
+| `--inject-jank --inject-animation` | jank plus an unrelated CSS animation | 111 | 25ms |
+| `--inject-block --inject-animation` | block plus the same animation | 16 | 150ms |
+
+**Rebaselining requires a quiet machine, checked before every launch.** Raster
+ms and frame presentation are absolute measurements: another test browser, a
 heavy background app, or just system load contaminate them exactly like a
 real regression would. `--update-baseline` checks `os.loadavg()[0]` against
 `0.5 * cpu count` **before each of the 5 baseline launches**, not once
@@ -545,33 +560,26 @@ after browser launch renders roughly half the distinct frames of a later
 one, so a single launch is not steady state. `--update-baseline` runs 5
 separate browser launches of 5 cycles each, discards the *entire first
 launch* (not just its in-page warm-up — a whole cold launch), and pools the
-per-cycle samples from the remaining launches. The baseline's median/min/max
-come from that pool; each metric's tolerance is derived from the pooled
-spread on the regression side that matters for that metric (high side for
-raster/longest-gap ceilings, low side for the frames floor), with a floor
-(so normal run-to-run noise doesn't flake the gate) and a ceiling strictly
-under the regression size it needs to catch (so real regressions can't be
-masked by a wide observed spread).
+per-cycle samples from the remaining launches. The baseline's median/min/max,
+and the limits above, come from that pool.
 
-Needs a real, visible GPU display — **not part of `prepublishOnly` or CI.**
+Needs this machine's GPU — **not part of `prepublishOnly` or CI**, where a
+software renderer is refused rather than measured.
 
-**`--inject-gpu` blind spot, not yet closed.** In the gate's own Playwright
-harness on this machine (Apple M1 Pro, ANGLE Metal), stacking 4 full-viewport
-`backdrop-filter: blur(120px)` layers is compositor-cheap: raster ms, frame
-count, and longest gap all PASS, and a deeper CDP `PipelineReporter` check
-(dropped-frame state, `has_high_latency`, and raw cycle wall time) shows no
-regression either — frames are scheduled and presented on time. But a real
-Chrome recording of the same injected condition via `agent-browser`
-(headed, `ffmpeg -vf mpdecimate` distinct-frame count) showed a severe,
-reproducible collapse under load — as much as 1 distinct frame across 3 full
-open/close cycles, versus 7 for the same 3 cycles with no injection — and
-the wall-clock time for the same click sequence inflated 3-7x. That gap
-never reproduced inside the isolated Playwright harness, only with an actual
-screen recording running concurrently, so it looks like GPU+capture
-contention specific to real Chrome, not a property of the app's own
-rendering that this gate's harness can ever observe. Left open rather than
-gated on an unproven metric — see AGENT_NOTES or ask before landing a fix
-here.
+**What the gate can't see (verified 2026-09-11).** Ground truth is a 60fps
+`agent-browser record` clip of one warm open+close, counted with
+`ffmpeg -vf mpdecimate`: 68–73 distinct frames, headed or headless. The old
+"blind spot" rested on broken clips (8 and 1 distinct frames across whole
+recordings), not on the app. GPU load does reach the gate: 48 static
+full-viewport `backdrop-filter` layers cut the headless clip to 39 distinct
+frames, and the gate fails on it. The gap is the real display. 12 such
+layers cost nothing headless (68 distinct frames, no extra dropped frames)
+but cut a headed clip to 42, and a headed trace shows it (25 dropped, a
+150ms interval). A GPU regression that only hurts on a real display passes
+this gate; check one with a headed recording. Two limits of the recording
+itself: distinct-frame counts miss a main-thread stall while compositor
+animations keep changing pixels (a 150ms block still reads 71), and
+visibly blurred content undercounts.
 
 
 
