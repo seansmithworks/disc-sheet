@@ -12,7 +12,7 @@ Source of the extraction: `src/components/chrome/FloatingIdentity.tsx`, `Contact
 
 Three things ship, in this order of priority:
 
-1. **The primitive.** A trigger that lives at one of six viewport anchors, can be dragged and snapped between them, and morphs into a modal sheet. Consumer supplies all content.
+1. **The primitive.** A trigger that lives at one of seven viewport anchors (six corners/edges plus center), can be dragged and snapped between them, and morphs into a modal sheet. Consumer supplies all content.
 2. **The flagship example.** Sean's identity/contact surface, rebuilt on top of the primitive. It is an example app in the repo, not a second entry point in the package.
 3. **The shadow seam.** A slot where a `@seansmith/surface-fx` dither layer drops in. The package never imports surface-fx.
 
@@ -67,7 +67,8 @@ Owns open state, anchor state, the `LayoutGroup`, the shared context, and the re
 ```ts
 type AnchorId =
   | "top-left" | "top-center" | "top-right"
-  | "bottom-left" | "bottom-center" | "bottom-right";
+  | "bottom-left" | "bottom-center" | "bottom-right"
+  | "center";
 
 type Spring = { stiffness: number; damping: number; mass?: number };
 
@@ -137,7 +138,7 @@ interface RootProps {
 }
 ```
 
-**Uncontrolled path.** `<MorphSheet.Root>` with no `open`. The trigger tap toggles internal state, `onOpenChange` fires for telemetry. The anchor is read from `localStorage` at mount, validated against the six legal values, and written back on every settled drag. This is the default and it is what the flagship example uses.
+**Uncontrolled path.** `<MorphSheet.Root>` with no `open`. The trigger tap toggles internal state, `onOpenChange` fires for telemetry. The anchor is read from `localStorage` at mount, validated against the seven legal values, and written back on every settled drag. This is the default and it is what the flagship example uses.
 
 **Controlled path.** Pass `open` and `onOpenChange`. The package calls `onOpenChange(next)` and does nothing else; the surface only changes when `open` changes. All internal triggers route through the same call: trigger tap, Escape, backdrop click, swipe-down past threshold, `<MorphSheet.Close>`. There is no second escape valve, so a consumer holding `open={false}` gets a sheet that genuinely cannot open.
 
@@ -274,11 +275,11 @@ Throws outside `<MorphSheet.Root>`. This hook is the escape hatch for §3 and th
 | Snap spring (`stiffness 700, damping 52, mass 1`) | Deliberately overdamped so the trigger never overshoots past a viewport edge. A softer value is a bug, not a preference. |
 | `radiusHoldFraction`, `openContentRevealDelaySec`, `contentFadeOutMs`, `contentFadeOutDelayMs` | The close choreography. Every one of these exists to suppress a specific artifact. See §3. (`surfaceCloseLeadDelayMs` was promoted OUT of this row and into §3's props table — it is a duration, not a suppressed artifact.) |
 | The trailing-paper mask envelope constants (`FADE_START/PEAK/END`, `MAX_FADE`, `BAND`) | Internal to one artifact fix. See §8, where this is a cut. |
-| The 2x3 anchor region map thresholds | Changing them makes "nearest anchor" not mean nearest. |
+| The anchor region map thresholds (thirds each axis) | Changing them makes "nearest anchor" not mean nearest. |
 | Swipe-to-close thresholds (96px offset, 400px/s velocity) | Platform convention values. |
 | Individual layer z-indices | One `zIndex` base, derived offsets. §2. |
 | The focus-trap selector string | Widening it is how you trap focus on a hidden element. |
-| `anchorEdge` / `anchorTopPx` sheet placement | Derived from the anchor and the viewport, never passed. The consumer choosing these independently is how the sheet ends up off-screen. |
+| `topPx` / `bottomPx` sheet placement | Derived from the anchor and the viewport, never passed. The consumer choosing these independently is how the sheet ends up off-screen. |
 | A `tuning` object mirroring `BloomTuning` | The shortest path and the wrong one. See §7C. |
 
 ---
@@ -509,7 +510,7 @@ morph-sheet/
     ├── Backdrop.tsx          ~45    visual scrim only
     ├── Shadow.tsx            ~95    shadow slot + asChild merge, writes geometry vars per frame
     ├── context.ts            ~70    context type, useMorphSheet, the throw-outside-Root guard
-    ├── anchors.ts           ~180    six-anchor model: nearestAnchor, restingLeft/Top, anchorCenter, sheetPlacement
+    ├── anchors.ts           ~180    seven-anchor model: nearestAnchor, restingLeft/Top, anchorCenter, sheetPlacement
     ├── motion.ts             ~75    default springs, internal choreography constants, transition merge
     ├── useTriggerSize.ts     ~45    resolve the ramp to a number, write --morph-sheet-trigger-size, resize handling
     ├── usePersistedAnchor.ts ~50    localStorage read + validate + write

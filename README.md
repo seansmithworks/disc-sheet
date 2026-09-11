@@ -4,8 +4,8 @@ A draggable trigger that morphs into a modal sheet.
 
 ## What it is
 
-A persistent circular control that sits at one of six viewport anchors (the
-corners plus top-center and bottom-center), can be dragged and re-anchored,
+A persistent circular control that sits at one of seven viewport anchors (the
+corners, top-center and bottom-center, plus dead center), can be dragged and re-anchored,
 and morphs into a modal sheet via a `layoutId` FLIP transition. It is a
 generic React primitive with a compound-component API: you supply all
 content, the package owns the morph.
@@ -175,7 +175,7 @@ export default function ContactTrigger() {
 ```
 
 Pasted as-is, this renders a solid-colored trigger at the bottom-center
-viewport anchor: drag it to re-anchor at any of the six anchors, tap it to
+viewport anchor: drag it to re-anchor at any of the seven anchors, tap it to
 morph it into the sheet shown above.
 
 Nine exports total: eight components (`Root`, `Trigger`, `Sheet`, `Shared`,

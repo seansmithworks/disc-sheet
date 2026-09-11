@@ -269,7 +269,7 @@ function App() {
       <h1>morph-sheet</h1>
       <p className="sub">
         A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
-        default) — drag it to any of the six anchors first if you like.
+        default) — drag it to any of the seven anchors first if you like.
       </p>
 
       <MorphSheet.Root
