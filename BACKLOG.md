@@ -354,3 +354,14 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [x] Visual proof clip (agent-browser, Neon Gold, center anchor) + report to Sean
 
 **Edge-aware ripple (Sean, 2026-09-11):** when the sheet sits against a viewport edge/corner, the dither shadow's ripple reflects off that edge and flows back, blending with the continuing outward wave — like ripples off a pool wall. surface-fx's ripple is an analytic annulus band (presets.ts), so reflection is likely mirrored virtual sources across nearby edges (inferred, not verified). Consumer-side via `<MorphSheet.Shadow asChild>` + useMorphSheet() anchor/rects. Decorative clock — flag against DESIGN.md §4.1 before building.
+
+## Honest perf gate — 2026-09-11 (headless, PipelineReporter)
+
+- [x] Ground truth sanity-checked: plain warm cycle 70 distinct frames headed, 68 headless (old clips were broken: 8 and 1)
+- [x] Gate rewritten: dropped frames + longest presented interval, screencast removed, new headless on ANGLE Metal, software renderer refused (`261653c`)
+- [x] Each metric proven to fire headless: jank 108 dropped, block 150ms, gpu (48 layers) 142 dropped, +unrelated animation 111 / 150ms
+- [ ] Rebaseline on a quiet machine: `npm run perf -- --update-baseline --wait-for-quiet` (refused twice, load 5–16 from other processes)
+- [ ] Confirm headless raster agrees with the headed baseline at quiet load (headed 44.8ms median; headless 61.6ms at load 4.7)
+- [ ] 3 plain `npm run perf` stability runs PASS against the new baseline
+- [ ] Firing runs against the new baseline, table line + exit code each: `--inject-jank`, `--inject-block`, `--inject-gpu`, `--inject-jank --inject-animation`, `--inject-block --inject-animation`
+- [ ] README "Measuring smoothness": add the limits and exit codes from those runs
