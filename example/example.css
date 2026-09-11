@@ -65,7 +65,10 @@
   border-radius: 999px;
   background: #ffffff;
   color: #1d1d1f;
-  font: 500 12px/1 system-ui, -apple-system, sans-serif;
+  font:
+    500 12px/1 system-ui,
+    -apple-system,
+    sans-serif;
   cursor: pointer;
 }
 
@@ -115,24 +118,30 @@
     0 6px 24px rgba(0, 0, 0, 0.15);
 }
 
+/* Every value below is dialled live from main.tsx's DialKit panel. */
 .iri-shadow::before {
   content: "";
   position: absolute;
-  inset: -56px;
-  border-radius: calc(var(--morph-sheet-shadow-radius) + 56px);
+  inset: calc(var(--iri-length, 56px) * -1);
+  border-radius: calc(
+    var(--morph-sheet-shadow-radius) + var(--iri-length, 56px)
+  );
   background: conic-gradient(
     from var(--iri-angle),
-    #ff6ec7,
-    #7cc4ff,
-    #6effc6,
-    #ffe66e,
-    #ff9f6e,
-    #b28bff,
-    #ff6ec7
+    var(
+      --iri-colors,
+      #ff6ec7,
+      #7cc4ff,
+      #6effc6,
+      #ffe66e,
+      #ff9f6e,
+      #b28bff,
+      #ff6ec7
+    )
   );
-  filter: blur(40px) saturate(1.15);
-  opacity: calc((1 - var(--morph-sheet-collapse, 1)) * 0.5);
-  animation: iri-turn 8s linear infinite;
+  filter: blur(var(--iri-blur, 40px)) saturate(var(--iri-saturation, 1.15));
+  opacity: calc((1 - var(--morph-sheet-collapse, 1)) * var(--iri-opacity, 0.5));
+  animation: iri-turn var(--iri-spin, 8s) linear infinite;
 }
 
 @keyframes iri-turn {

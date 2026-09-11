@@ -285,6 +285,10 @@ relying on className precedence.
 present only while a close is in flight (removed once the sheet has fully
 closed).
 
+`sheet` additionally carries `data-morph-sheet-settled` (empty string), present
+only once the open has finished and removed as soon as a close starts. The
+sheet's own `--morph-sheet-sheet-shadow` is applied only while it is present.
+
 ## Motion
 
 Three springs are props (`transition.open` / `.close` / `.shared`), each

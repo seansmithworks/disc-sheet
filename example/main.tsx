@@ -1,5 +1,8 @@
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
+import { DialRoot, useDialKit } from "dialkit";
+import "dialkit/styles.css";
 import { MorphSheet } from "../src/index";
 import { CloseMask } from "./CloseMask";
 import "./example.css";
@@ -53,8 +56,41 @@ function readIri() {
   }
 }
 
+// Live dials for the glow, shown only while the toggle is on. Persisted under
+// dialkit:morph-sheet-iridescent.
+const IRI_DIALS = {
+  opacity: [0.5, 0, 1, 0.01] as [number, number, number, number],
+  length: [56, 0, 240, 1] as [number, number, number, number],
+  blur: [40, 0, 120, 1] as [number, number, number, number],
+  saturation: [1.15, 0, 2, 0.05] as [number, number, number, number],
+  spinSeconds: [8, 1, 30, 0.5] as [number, number, number, number],
+  colors: {
+    one: "#ff6ec7",
+    two: "#7cc4ff",
+    three: "#6effc6",
+    four: "#ffe66e",
+    five: "#ff9f6e",
+    six: "#b28bff",
+  },
+};
+
 function App() {
   const [iri, setIri] = useState(readIri);
+  const dials = useDialKit("Iridescent shadow", IRI_DIALS, {
+    id: "morph-sheet-iridescent",
+    persist: true,
+  });
+  const c = dials.colors;
+  const iriStyle = {
+    "--iri-opacity": dials.opacity,
+    "--iri-length": `${dials.length}px`,
+    "--iri-blur": `${dials.blur}px`,
+    "--iri-saturation": dials.saturation,
+    "--iri-spin": `${dials.spinSeconds}s`,
+    "--iri-colors": [c.one, c.two, c.three, c.four, c.five, c.six, c.one].join(
+      ", ",
+    ),
+  } as CSSProperties;
   const toggleIri = () => {
     const next = !iri;
     setIri(next);
@@ -77,6 +113,7 @@ function App() {
         <span className="demo-toggle-track" aria-hidden="true" />
         Iridescent shadow
       </button>
+      {iri && <DialRoot position="bottom-right" />}
       <h1>morph-sheet</h1>
       <p className="sub">
         A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
@@ -102,7 +139,7 @@ function App() {
       >
         {iri ? (
           <MorphSheet.Shadow asChild>
-            <div className="iri-shadow" />
+            <div className="iri-shadow" style={iriStyle} />
           </MorphSheet.Shadow>
         ) : (
           <MorphSheet.Shadow />

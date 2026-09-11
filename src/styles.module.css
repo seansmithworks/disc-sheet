@@ -150,14 +150,24 @@
    * which never gets an inline value at all (its render branch passes no
    * borderRadius) and previously rendered with square corners. */
   border-radius: var(--morph-sheet-sheet-radius, 32px);
+  /* No shadow of its own during the morph: Motion draws the growing sheet
+   * scaled down (~37% on the first open frame), which squashed this shadow
+   * into a dark, tight edge that then lightened as the box grew. The
+   * <Shadow> layer is sized, not scaled, and covers the morph; this one
+   * fades in once Sheet.tsx marks the open settled. */
+  box-shadow: none;
+  transition: box-shadow 240ms cubic-bezier(0.23, 1, 0.32, 1);
+  max-height: 88dvh;
+  overflow: hidden;
+  color: var(--morph-sheet-text, #1a1610);
+}
+
+.sheet[data-morph-sheet-settled] {
   box-shadow: var(
     --morph-sheet-sheet-shadow,
     0 8px 48px rgba(0, 0, 0, 0.24),
     0 2px 8px rgba(0, 0, 0, 0.12)
   );
-  max-height: 88dvh;
-  overflow: hidden;
-  color: var(--morph-sheet-text, #1a1610);
 }
 
 .sheet:focus {

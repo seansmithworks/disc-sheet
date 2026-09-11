@@ -4,7 +4,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { sheetPlacement } from "./anchors";
 import { SlotContext, useMorphSheetInternal } from "./context";
-import { SWIPE_OFFSET_PX, SWIPE_VELOCITY_PX_S } from "./motion";
+import {
+  CLOSE_REVEAL_PROGRESS,
+  SWIPE_OFFSET_PX,
+  SWIPE_VELOCITY_PX_S,
+} from "./motion";
 import { useCollapseRadius } from "./useCollapseRadius";
 import { useDialogBehavior } from "./useDialogBehavior";
 import type { SheetProps, SheetRect } from "./types";
@@ -66,6 +70,26 @@ export function Sheet({
   useEffect(() => {
     if (open) sheetDragY.jump(0);
   }, [open, sheetDragY]);
+
+  // data-morph-sheet-settled gates the sheet's own box-shadow (see .sheet in
+  // styles.module.css): present once the open has finished — the same
+  // threshold <Close> reveals on — and dropped the moment a close starts.
+  // Written to the DOM directly, and only on change, so the per-frame
+  // collapseProgress ticks never re-render or re-style the sheet.
+  useEffect(() => {
+    // Seeded from the DOM, not false: this effect re-runs when `open` flips,
+    // and a fresh false would match the closing state and skip the removal.
+    let settled =
+      sheetRef.current?.hasAttribute("data-morph-sheet-settled") ?? false;
+    const apply = (v: number) => {
+      const next = open && v <= CLOSE_REVEAL_PROGRESS;
+      if (next === settled) return;
+      settled = next;
+      sheetRef.current?.toggleAttribute("data-morph-sheet-settled", next);
+    };
+    apply(collapseProgress.get());
+    return collapseProgress.on("change", apply);
+  }, [open, collapseProgress]);
 
   useEffect(() => {
     if (
