@@ -17,25 +17,28 @@ import { useMorphSheet } from "../src/index";
  * visibly worse without it.
  *
  * THE FINDING: this component is buildable using ONLY the documented v0.1
- * API — useMorphSheet().collapseProgress, plus that MotionValue's own
- * built-in `getVelocity()` (a real `motion` API, not a package addition) —
- * and one documented DOM contract: the sheet element carries
- * `data-morph-sheet-part="sheet"`. No widening of useMorphSheet() was needed.
+ * API — useMorphSheet().collapseProgress and .open — and one documented DOM
+ * contract: the sheet element carries `data-morph-sheet-part="sheet"`. No
+ * widening of useMorphSheet() was needed.
  *
- * Why getVelocity() is required: collapseProgress sweeps the SAME [0, 1]
- * range on open (1 -> 0) as on close (0 -> 1) — the fade envelope below must
- * apply ONLY during a close, or the open bloom gets masked too (a visible
- * quality loss, the exact bug the source's `closingActive` gate exists to
- * prevent). Reading the MotionValue's sign of velocity — positive while
- * progress is increasing toward 1 — is how you tell "closing" from "opening"
- * without the package exposing a second flag. At rest, velocity is 0, which
- * correctly falls through to "no fade" (solid) on both ends.
+ * Why `open`, not getVelocity(): a prior version inferred "closing" from the
+ * sign of collapseProgress.getVelocity() (positive while progress increases
+ * toward 1). That inference is wrong by construction — the open spring
+ * (375/42.5/1.75) overshoots and rebounds, and during that rebound velocity
+ * is briefly positive too, mid-OPEN. The mask then painted (and, at the
+ * settle boundary, momentarily cleared to an identity gradient) during an
+ * open, clipping whatever the sheet's own box-shadow was doing that frame —
+ * a one-frame shadow pop. `open` is the real flag: it is false for exactly
+ * the duration of a close (button, Escape, backdrop, or a released
+ * swipe-to-dismiss all funnel through the same `setOpen(false)`), and true
+ * for the entire open including its overshoot. The fade envelope below runs
+ * only while `open === false`, never during an open, regardless of velocity.
  *
  * Renders no DOM of its own: it writes `maskImage` directly onto the live
  * sheet element on every collapseProgress tick.
  */
 export function CloseMask() {
-  const { collapseProgress } = useMorphSheet();
+  const { collapseProgress, open } = useMorphSheet();
 
   useEffect(() => {
     const apply = () => {
@@ -44,19 +47,18 @@ export function CloseMask() {
       );
       if (!sheetEl) return;
 
-      const p = collapseProgress.get();
-      const velocity = collapseProgress.getVelocity();
-      const closing = velocity > 0;
-
-      if (!closing) {
-        // No fade at rest or during an open: clear the property rather than
-        // paint a "0% -> 100% solid" gradient. An identity mask is still a
-        // mask — it forces compositing and creates a new containing block on
-        // an element that also runs a FLIP, for zero visual benefit (E3).
+      if (open) {
+        // No fade during an open (including its overshoot) or once settled:
+        // clear the property rather than paint a "0% -> 100% solid"
+        // gradient. An identity mask is still a mask — it forces compositing
+        // and creates a new containing block on an element that also runs a
+        // FLIP, for zero visual benefit (E3).
         sheetEl.style.removeProperty("mask-image");
         sheetEl.style.removeProperty("-webkit-mask-image");
         return;
       }
+
+      const p = collapseProgress.get();
 
       // Envelope window over collapseProgress (0 open -> 1 closed) — the
       // exact constants from ContactSheet.tsx:731-735.
@@ -83,10 +85,12 @@ export function CloseMask() {
       sheetEl.style.setProperty("-webkit-mask-image", mask);
     };
 
+    // Seeded here (not gated on collapseProgress alone) so `apply` re-runs
+    // the instant `open` flips — mirrors the pattern in Sheet.tsx:79-92.
     apply();
     const unsubscribe = collapseProgress.on("change", apply);
     return unsubscribe;
-  }, [collapseProgress]);
+  }, [collapseProgress, open]);
 
   return null;
 }
