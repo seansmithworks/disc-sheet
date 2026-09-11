@@ -41,6 +41,28 @@
       </p>
     </div>
 
+    <div class="summary" data-anchor-id="correction-2026-09-11">
+      <strong>Correction — 2026-09-11</strong>
+      <p>
+        The duplicate <code>.triggerSurface</code> shadow was one of two causes,
+        not the whole story — the pop remained visible after that fix landed.
+        The rest came from the sheet painting its own
+        <code>box-shadow</code> alongside
+        <code>&lt;MorphSheet.Shadow&gt;</code>, plus
+        <code>example/CloseMask.tsx</code> inferring "closing" from spring
+        velocity, which wrote a clipping mask onto the sheet during the open
+        spring's overshoot rebound. Fixed by making
+        <code>&lt;MorphSheet.Shadow&gt;</code> the single shadow painter
+        (<code>2aab652</code>) and deriving CloseMask's state from
+        <code>open</code> instead of velocity (<code>0b1ab42</code>). Full
+        writeup:
+        <a
+          href="../solutions/ui-bugs/shadow-pop-two-painters-velocity-inferred-mask.md"
+          >../solutions/ui-bugs/shadow-pop-two-painters-velocity-inferred-mask.md</a
+        >.
+      </p>
+    </div>
+
     <h2 id="findings">Findings</h2>
     <ul>
       <li>
@@ -195,10 +217,13 @@
         <tr>
           <td>5</td>
           <td>
-            <strong>Done: the shadow pop.</strong> The resting disc painted two
-            stacked shadows (trigger surface + Shadow layer); the open's first
-            frame unmounted one, halving the shadow in a step. Removed from
-            <code>.triggerSurface</code>; 76/76 geometry, audit PASS.
+            <strong
+              >Done (superseded — see correction above): the shadow pop.</strong
+            >
+            The resting disc painted two stacked shadows (trigger surface +
+            Shadow layer); the open's first frame unmounted one, halving the
+            shadow in a step. Removed from <code>.triggerSurface</code>; 76/76
+            geometry, audit PASS.
           </td>
           <td><code>src/styles.module.css</code></td>
           <td>
