@@ -316,3 +316,10 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 ## Idea (Sean, 2026-09-11, late) — lean into the "flare": a ripple on open
 
 - [ ] **Turn the open's shadow flare into a deliberate ripple.** The flare itself was a defect (duplicate shadow, fixed `4a975d5`), but a ripple that radiates from the disc as the sheet blooms is a real idea, and the seam already exists: `<MorphSheet.Shadow asChild>` plus `useMorphSheet().collapseProgress`. surface-fx has `sheetBloom` + `useRippleEngine` (`~/Code/surface-fx/src/ripple/`), and the site's ContactSheet does this today. Demo-only first, behind the same toggle as the glow, judged with `DESIGN.md` §4 (transform/opacity only, one clock). Sean's framing: "if this doesn't work we can explore a pivot" — explore only after the current fix has been recorded and judged.
+
+## Carried at wrap-continue — 2026-09-11 (thread DiskSheet)
+
+- [ ] **carried — Sean re-records and judges the shadow-pop fix** (`4a975d5`, glow OFF). The pop was a duplicate shadow on `.triggerSurface`; the resting disc is lighter now by design (one shadow). If it still reads wrong, the next candidate is not the clocks (they start together — verified) but the sheet's own shadow fading in 240ms after settle (`data-morph-sheet-settled`, `09eea2b`).
+- [ ] **carried — `npm run perf` gate** (audit item 3): Playwright/agent-browser script reporting distinct rendered frames per open+close and trace raster ms, baseline numbers checked in (warm: 62–72 distinct frames; raster ~350ms glow off), threshold that fails. Judged glow OFF; warm the browser with one throwaway open first (cold first open renders ~half the frames on any build).
+- [ ] **carried — audit doc review**: `docs/plans/motion-craft-audit.html` is open in html-review (session `sess_1e7f46c0`); Sean has not commented yet.
+- [ ] **parked — Close X scale-from-0 spin** is a deliberate deviation from "start at 0.9+" (DESIGN.md §4.5); revisit only if it reads as popping in a recording.
