@@ -232,17 +232,19 @@ export function Sheet({
         )
       : sheetPlacement(anchor, 1440, 900, triggerSize, sheetMaxWidth);
 
+  // Always written (never conditionally), both properties, as direct
+  // inline properties rather than a var — that's what lets a top-pinned,
+  // bottom-pinned, or both-pinned (center) anchor all resolve correctly
+  // regardless of cascade order, with no per-anchor branch here. Max-height
+  // is no longer computed per anchor: .sheet's own `min(88dvh, calc(100dvh -
+  // 32px))` (styles.module.css) already accounts for both a top and a
+  // bottom margin uniformly.
   const placementStyle: Record<string, string> = {
     ["--morph-sheet-sheet-left" as string]: `${placement.anchorX}px`,
+    top: placement.topPx !== undefined ? `${placement.topPx}px` : "auto",
+    bottom:
+      placement.bottomPx !== undefined ? `${placement.bottomPx}px` : "auto",
   };
-  if (placement.anchorEdge === "top" && placement.anchorTopPx !== undefined) {
-    // Override the CSS default (grow up from bottom) with explicit top/bottom
-    // — direct properties, not a var, so they always win over .sheet's
-    // `bottom: 16px` default regardless of cascade order.
-    placementStyle.top = `${placement.anchorTopPx}px`;
-    placementStyle.bottom = "auto";
-    placementStyle.maxHeight = `calc(100dvh - ${placement.anchorTopPx}px - 16px)`;
-  }
 
   function handleDragEnd(
     _e: unknown,

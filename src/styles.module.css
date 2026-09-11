@@ -135,11 +135,21 @@
   position: fixed;
   width: min(var(--morph-sheet-sheet-max-width, 480px), calc(100vw - 32px));
   left: var(--morph-sheet-sheet-left, 16px);
-  /* Default: grow upward from the bottom edge. When the trigger is anchored in
-   * the top half of the viewport, Sheet.tsx overrides `top`/`bottom` inline
-   * (not via a var) so the sheet grows downward instead — see Sheet.tsx's
-   * placementStyle. */
+  /* Default: grow upward from the bottom edge. Sheet.tsx always writes
+   * `top`/`bottom` inline (never via a var, so they win regardless of
+   * cascade order) — top-only anchors grow downward, bottom-only anchors
+   * grow upward (this fallback), and the center anchor pins both. */
   bottom: 16px;
+  /* Native dialog-style centring: when Sheet.tsx pins BOTH top and bottom
+   * (the center anchor), the browser distributes the leftover space between
+   * these two auto margins equally, so a fit-content-height box centers
+   * itself between the two offsets. Has no effect when only one edge is
+   * pinned — that side's own auto margin degenerates to 0 with nothing to
+   * distribute. Deliberately not a transform: Motion owns transform for the
+   * FLIP, and a second transform here would break offsetTop measurement in
+   * Sheet.tsx's measureSheetRect. */
+  margin-block: auto;
+  height: fit-content;
   display: flex;
   flex-direction: column;
   background: var(--morph-sheet-surface-elevated, #f4f0e8);
@@ -159,7 +169,11 @@
    * `[data-morph-sheet-settled]`, which was a second clock and produced a
    * one-frame pop when a demo mask clipped it at the phase boundary. */
   box-shadow: none;
-  max-height: 88dvh;
+  /* Above ~267px of viewport height this is identical to the old flat
+   * `88dvh`; below it, `100dvh - 32px` (the two 16px top/bottom margins)
+   * takes over so a both-pinned (center) sheet never overlaps either edge on
+   * a very short viewport. */
+  max-height: min(88dvh, calc(100dvh - 32px));
   overflow: hidden;
   color: var(--morph-sheet-text, #1a1610);
 }
