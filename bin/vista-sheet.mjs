@@ -20,15 +20,15 @@ const TUNER_DIR = new URL("../tuner/", import.meta.url);
 const TUNER_FILES = ["page.tsx", "tune.module.css"];
 
 function usage() {
-  console.log(`morph-sheet — a draggable trigger that morphs into a modal sheet
+  console.log(`vista-sheet — a draggable trigger that morphs into a modal sheet
 
 Usage:
-  npx @seansmithworks/morph-sheet add [targetDir] [--force]
+  npx @seansmithworks/vista-sheet add [targetDir] [--force]
 
   Copies the component source into your project (default target:
-  ./src/morph-sheet) so you own and can edit the files directly.
+  ./src/vista-sheet) so you own and can edit the files directly.
 
-  npx @seansmithworks/morph-sheet add tuner [targetDir] [--force]
+  npx @seansmithworks/vista-sheet add tuner [targetDir] [--force]
 
   Copies the live-tuning panel instead (default target: ./tuner). It is a
   development tool, not part of the component — see its own instructions
@@ -68,7 +68,7 @@ function copyFiles(sourceDir, files, targetDir, force) {
     }
     if (conflicts.length > 0) {
       console.error(
-        `morph-sheet: refusing to overwrite existing files (use --force to overwrite):`
+        `vista-sheet: refusing to overwrite existing files (use --force to overwrite):`
       );
       for (const c of conflicts) console.error(`  ${c}`);
       process.exit(1);
@@ -94,7 +94,7 @@ function cmdAdd(args) {
     return;
   }
 
-  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/morph-sheet");
+  const targetDir = path.resolve(process.cwd(), positional[0] || "./src/vista-sheet");
 
   const files = readSrcFiles();
 
@@ -106,16 +106,16 @@ function cmdAdd(args) {
   const copied = copyFiles(SRC_DIR, files, targetDir, force);
   const relTarget = path.relative(process.cwd(), targetDir) || ".";
 
-  console.log(`morph-sheet: copied ${copied} files to ${relTarget}`);
+  console.log(`vista-sheet: copied ${copied} files to ${relTarget}`);
   if (skipCssShim) {
     console.log(
-      `morph-sheet: detected next-env.d.ts, skipping css-modules.d.ts (Next already declares *.module.css)`
+      `vista-sheet: detected next-env.d.ts, skipping css-modules.d.ts (Next already declares *.module.css)`
     );
   }
   console.log(`\nInstall peer dependencies:`);
   console.log(`  npm install react react-dom motion`);
   console.log(`\nImport it:`);
-  console.log(`  import { MorphSheet } from "./${relTarget}";`);
+  console.log(`  import { VistaSheet } from "./${relTarget}";`);
 }
 
 function cmdAddTuner(positional, force) {
@@ -124,7 +124,7 @@ function cmdAddTuner(positional, force) {
   const copied = copyFiles(TUNER_DIR, TUNER_FILES, targetDir, force);
   const relTarget = path.relative(process.cwd(), targetDir) || ".";
 
-  console.log(`morph-sheet: copied ${copied} tuner files to ${relTarget}`);
+  console.log(`vista-sheet: copied ${copied} tuner files to ${relTarget}`);
   console.log(`\nThe tuner needs dialkit itself, as a devDependency only:`);
   console.log(`  npm install -D dialkit`);
   console.log(
@@ -148,7 +148,7 @@ function main() {
     return;
   }
 
-  console.error(`morph-sheet: unknown command "${command}"\n`);
+  console.error(`vista-sheet: unknown command "${command}"\n`);
   usage();
   process.exit(1);
 }

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { sheetPlacement } from "./anchors";
-import { SlotContext, useMorphSheetInternal } from "./context";
+import { SlotContext, useVistaSheetInternal } from "./context";
 import {
   CLOSE_REVEAL_PROGRESS,
   SWIPE_OFFSET_PX,
@@ -20,7 +20,7 @@ import styles from "./styles.module.css";
 declare const process: { env: { NODE_ENV?: string } };
 
 /**
- * <MorphSheet.Sheet> — the modal surface. Shares the trigger's layoutId so
+ * <VistaSheet.Sheet> — the modal surface. Shares the trigger's layoutId so
  * Motion FLIPs the box between the two, and drives border-radius as a pure
  * function of collapseProgress (docs/PACKAGE-DESIGN.md §3) rather than an
  * independent spring, so the trigger shape can never appear before the box has
@@ -33,7 +33,7 @@ export function Sheet({
   dismissOnBackdrop = true,
   ...labelled
 }: SheetProps) {
-  const ctx = useMorphSheetInternal("Sheet");
+  const ctx = useVistaSheetInternal("Sheet");
   const {
     open,
     setOpen,
@@ -71,7 +71,7 @@ export function Sheet({
     if (open) sheetDragY.jump(0);
   }, [open, sheetDragY]);
 
-  // data-morph-sheet-settled no longer gates any style of ours — the sheet
+  // data-vista-sheet-settled no longer gates any style of ours — the sheet
   // paints no box-shadow of its own (Shadow.tsx is the single painter, see
   // .sheet in styles.module.css), and <Close> tracks its own reveal off
   // collapseProgress directly rather than this attribute. It's kept as a DOM
@@ -83,12 +83,12 @@ export function Sheet({
     // Seeded from the DOM, not false: this effect re-runs when `open` flips,
     // and a fresh false would match the closing state and skip the removal.
     let settled =
-      sheetRef.current?.hasAttribute("data-morph-sheet-settled") ?? false;
+      sheetRef.current?.hasAttribute("data-vista-sheet-settled") ?? false;
     const apply = (v: number) => {
       const next = open && v <= CLOSE_REVEAL_PROGRESS;
       if (next === settled) return;
       settled = next;
-      sheetRef.current?.toggleAttribute("data-morph-sheet-settled", next);
+      sheetRef.current?.toggleAttribute("data-vista-sheet-settled", next);
     };
     apply(collapseProgress.get());
     return collapseProgress.on("change", apply);
@@ -102,7 +102,7 @@ export function Sheet({
     ) {
       // eslint-disable-next-line no-console
       console.warn(
-        "[morph-sheet] <MorphSheet.Sheet> opened with no <MorphSheet.Close> registered. " +
+        "[vista-sheet] <VistaSheet.Sheet> opened with no <VistaSheet.Close> registered. " +
           "Escape and backdrop dismissal are not a substitute for a visible close control.",
       );
     }
@@ -239,7 +239,7 @@ export function Sheet({
   // is derived per anchor by sheetPlacement (anchors.ts) — the CSS default
   // in .sheet only covers the pre-hydration/SSR fallback.
   const placementStyle: Record<string, string> = {
-    ["--morph-sheet-sheet-left" as string]: `${placement.anchorX}px`,
+    ["--vista-sheet-sheet-left" as string]: `${placement.anchorX}px`,
     top: placement.topPx !== undefined ? `${placement.topPx}px` : "auto",
     bottom:
       placement.bottomPx !== undefined ? `${placement.bottomPx}px` : "auto",
@@ -276,7 +276,7 @@ export function Sheet({
   return (
     <>
       {/* Invisible click-catcher for outside-click dismissal — not a
-          visible scrim. <MorphSheet.Backdrop> (a visual dim layer) is cut
+          visible scrim. <VistaSheet.Backdrop> (a visual dim layer) is cut
           from v0.1 (docs/PACKAGE-DESIGN.md §8); dismiss-on-outside-click is
           Root/Sheet behavior and costs nothing visually by default.
           Deliberately a SIBLING of <AnimatePresence>, gated on `open` alone
@@ -290,7 +290,7 @@ export function Sheet({
       {open && dismissOnBackdrop && (
         <div
           aria-hidden="true"
-          data-morph-sheet-part="backdrop"
+          data-vista-sheet-part="backdrop"
           style={{ position: "fixed", inset: 0, zIndex: zIndex + 101 }}
           onClick={() => setOpen(false)}
         />
@@ -308,7 +308,7 @@ export function Sheet({
             ref={attachSheetRef}
             id={sheetId}
             className={`${styles.sheet} ${className ?? ""}`}
-            data-morph-sheet-part="sheet"
+            data-vista-sheet-part="sheet"
             role="dialog"
             aria-modal="true"
             tabIndex={-1}

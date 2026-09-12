@@ -2,15 +2,15 @@ import { createContext, useContext } from "react";
 import type { MutableRefObject } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
-import type { MorphSheetState, Rect, SheetRect } from "./types";
+import type { VistaSheetState, Rect, SheetRect } from "./types";
 
 /**
  * Internal context value — everything Trigger, Sheet, Shared, Content, Close
  * and Shadow need to coordinate, plus the subset re-exported publicly by
- * useMorphSheet(). Keeping the internal shape richer than the public one means
+ * useVistaSheet(). Keeping the internal shape richer than the public one means
  * widening usePKG() later (if ever needed) is additive, not a breaking change.
  */
-export interface MorphSheetContextValue extends MorphSheetState {
+export interface VistaSheetContextValue extends VistaSheetState {
   setAnchor: (anchor: AnchorId) => void;
   onAnchorChange?: (anchor: AnchorId) => void;
   setIsDragging: (dragging: boolean) => void;
@@ -61,7 +61,7 @@ export interface MorphSheetContextValue extends MorphSheetState {
   contentScrollElRef: MutableRefObject<HTMLDivElement | null>;
 }
 
-export const MorphSheetContext = createContext<MorphSheetContextValue | null>(
+export const VistaSheetContext = createContext<VistaSheetContextValue | null>(
   null,
 );
 
@@ -72,28 +72,28 @@ export const MorphSheetContext = createContext<MorphSheetContextValue | null>(
  * trigger-side instance is an inset, circular clip; the sheet-side instance
  * is an in-flow, margined circle. One mechanism serves both findings.
  */
-export type MorphSheetSlot = "trigger" | "sheet";
+export type VistaSheetSlot = "trigger" | "sheet";
 
-export const SlotContext = createContext<MorphSheetSlot | null>(null);
+export const SlotContext = createContext<VistaSheetSlot | null>(null);
 
-export function useMorphSheetSlot(): MorphSheetSlot | undefined {
+export function useVistaSheetSlot(): VistaSheetSlot | undefined {
   const slot = useContext(SlotContext);
   return slot ?? undefined;
 }
 
 /**
- * useMorphSheet — the public escape hatch. Throws outside <MorphSheet.Root>.
+ * useVistaSheet — the public escape hatch. Throws outside <VistaSheet.Root>.
  *
  * usePKG().collapseProgress is the raw MotionValue the package's own radius,
  * mask and opacity transforms read (0 = fully open, 1 = fully closed).
  * Combined with triggerRect/sheetRect, it is enough to rebuild any of the
  * internal choreography externally — see example/CloseMask.tsx.
  */
-export function useMorphSheet(): MorphSheetState {
-  const ctx = useContext(MorphSheetContext);
+export function useVistaSheet(): VistaSheetState {
+  const ctx = useContext(VistaSheetContext);
   if (!ctx) {
     throw new Error(
-      "useMorphSheet() must be called from inside <MorphSheet.Root>.",
+      "useVistaSheet() must be called from inside <VistaSheet.Root>.",
     );
   }
   const {
@@ -119,13 +119,13 @@ export function useMorphSheet(): MorphSheetState {
 }
 
 /** Internal-only accessor, used by the compound components themselves. */
-export function useMorphSheetInternal(
+export function useVistaSheetInternal(
   componentName: string,
-): MorphSheetContextValue {
-  const ctx = useContext(MorphSheetContext);
+): VistaSheetContextValue {
+  const ctx = useContext(VistaSheetContext);
   if (!ctx) {
     throw new Error(
-      `<MorphSheet.${componentName}> must be rendered inside <MorphSheet.Root>.`,
+      `<VistaSheet.${componentName}> must be rendered inside <VistaSheet.Root>.`,
     );
   }
   return ctx;

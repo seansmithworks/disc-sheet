@@ -3,11 +3,11 @@ import type { CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { DialRoot, useDialKit, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
-import { MorphSheet } from "../src/index";
+import { VistaSheet } from "../src/index";
 import { CloseMask } from "./CloseMask";
 import "./example.css";
 
-// Sized to 100% of its parent, not a fixed px value: <MorphSheet.Shared>'s two
+// Sized to 100% of its parent, not a fixed px value: <VistaSheet.Shared>'s two
 // instances (trigger-side and sheet-side) are laid out at different sizes by the
 // package itself (the trigger's inset circle, the sheet's margined circle), so
 // the child inside must fill whatever box it's given rather than assert its
@@ -47,7 +47,7 @@ const openDelayOverride = testParams.has("openDelay")
 // Demo-only: swaps the plain shadow for an iridescent glow while open, so the
 // open/close reads clearly in short screen-recording clips. Persisted so a
 // reload keeps the setting.
-const IRI_KEY = "morph-sheet-example:iridescent";
+const IRI_KEY = "vista-sheet-example:iridescent";
 function readIri() {
   try {
     return localStorage.getItem(IRI_KEY) === "1";
@@ -57,7 +57,8 @@ function readIri() {
 }
 
 // Live dials for the glow, shown only while the toggle is on. Persisted under
-// dialkit:morph-sheet-iridescent.
+// dialkit:morph-sheet-iridescent. That key predates the VistaSheet rename —
+// changing it orphans Sean's saved dial history, so the id below stays as-is.
 const IRI_DIALS = {
   palette: {
     type: "select" as const,
@@ -171,12 +172,14 @@ const IRI_PALETTES: Record<string, IriPreset> = {
 };
 
 // The Shadow crossfade window (Shadow.tsx reads these two vars via
-// readVarPx: --morph-sheet-sheet-shadow-fade-start/-fade-end). Seeded so the
-// heavy sheet shadow (`--morph-sheet-sheet-shadow`) is fully in at
+// readVarPx: --vista-sheet-sheet-shadow-fade-start/-fade-end). Seeded so the
+// heavy sheet shadow (`--vista-sheet-sheet-shadow`) is fully in at
 // collapseProgress p=0 (open, at rest) and fully gone by p=0.25 — roughly
 // where the silhouette has shrunk enough that the thin disc shadow
-// (`--morph-sheet-shadow`) alone reads right, rather than a heavy blur on a
-// small shape. Persisted under dialkit:morph-sheet-shadow-crossfade.
+// (`--vista-sheet-shadow`) alone reads right, rather than a heavy blur on a
+// small shape. Persisted under dialkit:morph-sheet-shadow-crossfade. That key
+// predates the VistaSheet rename — changing it orphans Sean's saved dial
+// history, so the id below stays as-is.
 const SHADOW_CROSSFADE_DIALS = {
   fadeStart: [0, 0, 1, 0.01] as [number, number, number, number],
   fadeEnd: [0.25, 0, 1, 0.01] as [number, number, number, number],
@@ -229,13 +232,13 @@ function App() {
     ),
   } as CSSProperties;
   // Consumer-set crossfade dial, plumbed as CSS custom properties on an
-  // ancestor of <MorphSheet.Shadow> — CSS custom properties inherit down the
+  // ancestor of <VistaSheet.Shadow> — CSS custom properties inherit down the
   // DOM tree, and .shadow (or an asChild swap) isn't portalled, so Shadow.tsx's
   // readVarPx(el, ...) picks these up via getComputedStyle the same way it
-  // already reads --morph-sheet-sheet-radius from wherever a consumer set it.
+  // already reads --vista-sheet-sheet-radius from wherever a consumer set it.
   const shadowCrossfadeStyle = {
-    "--morph-sheet-sheet-shadow-fade-start": shadowCrossfade.fadeStart,
-    "--morph-sheet-sheet-shadow-fade-end": shadowCrossfade.fadeEnd,
+    "--vista-sheet-sheet-shadow-fade-start": shadowCrossfade.fadeStart,
+    "--vista-sheet-sheet-shadow-fade-end": shadowCrossfade.fadeEnd,
   } as CSSProperties;
   const toggleIri = () => {
     const next = !iri;
@@ -266,13 +269,13 @@ function App() {
           The Sheet shadow crossfade panel registered below still shows up
           here once the iri toggle is on. */}
       {iri && <DialRoot position="bottom-right" />}
-      <h1>morph-sheet</h1>
+      <h1>vista-sheet</h1>
       <p className="sub">
         A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
         default) — drag it to any of the seven anchors first if you like.
       </p>
 
-      <MorphSheet.Root
+      <VistaSheet.Root
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}
         transition={
@@ -290,36 +293,36 @@ function App() {
         }
       >
         {iri ? (
-          <MorphSheet.Shadow asChild>
+          <VistaSheet.Shadow asChild>
             <div className="iri-shadow" style={iriStyle} />
-          </MorphSheet.Shadow>
+          </VistaSheet.Shadow>
         ) : (
-          <MorphSheet.Shadow />
+          <VistaSheet.Shadow />
         )}
 
-        <MorphSheet.Trigger aria-label="Open example sheet">
-          <MorphSheet.Shared>
+        <VistaSheet.Trigger aria-label="Open example sheet">
+          <VistaSheet.Shared>
             <ColorCircle />
-          </MorphSheet.Shared>
-        </MorphSheet.Trigger>
+          </VistaSheet.Shared>
+        </VistaSheet.Trigger>
 
-        <MorphSheet.Sheet aria-labelledby="example-sheet-title">
-          <MorphSheet.Shared>
+        <VistaSheet.Sheet aria-labelledby="example-sheet-title">
+          <VistaSheet.Shared>
             <ColorCircle />
-          </MorphSheet.Shared>
+          </VistaSheet.Shared>
 
-          <MorphSheet.Close aria-label="Close" />
+          <VistaSheet.Close aria-label="Close" />
 
-          <MorphSheet.Content>
-            <MorphSheet.Item>
+          <VistaSheet.Content>
+            <VistaSheet.Item>
               <h2 id="example-sheet-title">Placeholder heading</h2>
               <p>
-                Everything inside &lt;MorphSheet.Content&gt; is supplied by the
+                Everything inside &lt;VistaSheet.Content&gt; is supplied by the
                 consumer. This example ships a colored circle, this heading, and
                 two links.
               </p>
-            </MorphSheet.Item>
-            <MorphSheet.Item>
+            </VistaSheet.Item>
+            <VistaSheet.Item>
               <nav
                 aria-label="Example links"
                 style={{ display: "flex", gap: 16 }}
@@ -327,19 +330,19 @@ function App() {
                 <a href="https://example.com">Example.com</a>
                 <a href="https://github.com">GitHub</a>
               </nav>
-            </MorphSheet.Item>
-          </MorphSheet.Content>
-        </MorphSheet.Sheet>
+            </VistaSheet.Item>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
 
         {/* CloseMask demonstrates the escape hatch: it rebuilds the
             trailing-paper close mask from OUTSIDE the package using only
-            useMorphSheet().collapseProgress (+ its built-in getVelocity()) and
+            useVistaSheet().collapseProgress (+ its built-in getVelocity()) and
             triggerRect/sheetRect. It renders no DOM of its own — it finds the
-            live sheet element by its documented data-morph-sheet-part="sheet"
+            live sheet element by its documented data-vista-sheet-part="sheet"
             attribute and writes a mask-image directly onto it. See
             CloseMask.tsx. */}
         <CloseMask />
-      </MorphSheet.Root>
+      </VistaSheet.Root>
     </div>
   );
 }

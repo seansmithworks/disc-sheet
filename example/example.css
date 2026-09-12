@@ -1,5 +1,5 @@
 /*
- * example.css — content styling for the morph-sheet example app only. The
+ * example.css — content styling for the vista-sheet example app only. The
  * package itself ships zero typography/spacing decisions for <Item> content
  * (docs/PACKAGE-DESIGN.md §1: "No props beyond that" — those are the
  * consumer's to make). This file is that consumer decision, made once here
@@ -9,43 +9,43 @@
 
 /* Neutral palette for this page, overriding the package's warm defaults. */
 :root {
-  --morph-sheet-surface: #fafafa;
-  --morph-sheet-surface-elevated: #ffffff;
-  --morph-sheet-surface-border: #e5e5e5;
-  --morph-sheet-text: #1d1d1f;
-  --morph-sheet-accent: #1d1d1f;
+  --vista-sheet-surface: #fafafa;
+  --vista-sheet-surface-elevated: #ffffff;
+  --vista-sheet-surface-border: #e5e5e5;
+  --vista-sheet-text: #1d1d1f;
+  --vista-sheet-accent: #1d1d1f;
 }
 
 /* M13: Close.tsx ships unpositioned by design (consumer decides) — without
  * this, it rendered as a 430x44 bar floating between the circle and the
  * heading, the first thing a first-time visitor to this page sees open. */
-[data-morph-sheet-part="close"] {
+[data-vista-sheet-part="close"] {
   position: absolute;
   top: 16px;
   right: 16px;
 }
 
-[data-morph-sheet-part="item"] {
+[data-vista-sheet-part="item"] {
   padding-top: 16px;
 }
 
-[data-morph-sheet-part="item"]:first-of-type {
+[data-vista-sheet-part="item"]:first-of-type {
   padding-top: 24px;
 }
 
-[data-morph-sheet-part="content"] h2 {
+[data-vista-sheet-part="content"] h2 {
   font-size: 20px;
   line-height: 1.3;
   margin: 0 0 8px;
 }
 
-[data-morph-sheet-part="content"] p {
+[data-vista-sheet-part="content"] p {
   margin: 0;
   line-height: 1.5;
   color: #4b4b52;
 }
 
-[data-morph-sheet-part="content"] nav a {
+[data-vista-sheet-part="content"] nav a {
   color: #1d1d1f;
   text-decoration: underline;
 }
@@ -103,7 +103,7 @@
 
 /* Iridescent shadow: a slowly turning conic gradient, blurred into a long
  * soft falloff around the silhouette. Its opacity follows
- * --morph-sheet-collapse (0 open, 1 closed), so it blooms with the open and
+ * --vista-sheet-collapse (0 open, 1 closed), so it blooms with the open and
  * is gone at the trigger. The plain box-shadow stays underneath. */
 @property --iri-angle {
   syntax: "<angle>";
@@ -112,7 +112,7 @@
 }
 
 .iri-shadow {
-  border-radius: var(--morph-sheet-shadow-radius);
+  border-radius: var(--vista-sheet-shadow-radius);
   box-shadow:
     0 1px 4px rgba(26, 22, 16, 0.14),
     0 6px 24px rgba(0, 0, 0, 0.15);
@@ -124,7 +124,7 @@
   position: absolute;
   inset: calc(var(--iri-length, 56px) * -1);
   border-radius: calc(
-    var(--morph-sheet-shadow-radius) + var(--iri-length, 56px)
+    var(--vista-sheet-shadow-radius) + var(--iri-length, 56px)
   );
   background: conic-gradient(
     from var(--iri-angle),
@@ -140,7 +140,7 @@
     )
   );
   filter: blur(var(--iri-blur, 40px)) saturate(var(--iri-saturation, 1.15));
-  opacity: calc((1 - var(--morph-sheet-collapse, 1)) * var(--iri-opacity, 0.5));
+  opacity: calc((1 - var(--vista-sheet-collapse, 1)) * var(--iri-opacity, 0.5));
   animation: iri-turn var(--iri-spin, 8s) linear infinite;
 }
 

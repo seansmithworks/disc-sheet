@@ -14,13 +14,13 @@ There is no canonical design-system name for this pattern. Material has
 SpeedDial, a FAB that expands into a radial menu of actions. Apple and Radix
 both have sheets, but theirs enter from a screen edge rather than growing out
 of a persistent trigger. Nobody has standardized "trigger morphs into
-surface," so `morph-sheet` / `MorphSheet` names the shape directly rather than
+surface," so `vista-sheet` / `VistaSheet` names the shape directly rather than
 reaching for an existing term.
 
 ## Install
 
 ```bash
-npm install @seansmithworks/morph-sheet
+npm install @seansmithworks/vista-sheet
 ```
 
 `dist/` ships compiled ESM + `.d.ts` declarations, so the default import
@@ -28,7 +28,7 @@ needs no build-step config on the consumer's side — no `transpilePackages`,
 no extra `tsc` target. CSS is bundled and auto-imported by the package's own
 entry point; you don't need a separate stylesheet `<link>` or `import` for
 the component to render styled. A manual stylesheet path,
-`@seansmithworks/morph-sheet/styles.css`, also exists if you need to import
+`@seansmithworks/vista-sheet/styles.css`, also exists if you need to import
 the CSS on its own (e.g. to inline it above the fold, or reference it from a
 non-JS build step) — most consumers never need it.
 
@@ -41,12 +41,12 @@ needs a build step on your side. Point Next.js at it via
 
 ```ts
 const nextConfig = {
-  transpilePackages: ["@seansmithworks/morph-sheet"],
+  transpilePackages: ["@seansmithworks/vista-sheet"],
 };
 ```
 
 ```bash
-npm install @seansmithworks/morph-sheet@github:seansmithworks/morph-sheet
+npm install @seansmithworks/vista-sheet@github:seansmithworks/vista-sheet
 ```
 
 This mirrors how `@seansmithworks/device-frame` is consumed. Vite consumers
@@ -63,11 +63,11 @@ If you'd rather own the files outright — no package dependency, no
 project:
 
 ```bash
-npx @seansmithworks/morph-sheet add
+npx @seansmithworks/vista-sheet add
 ```
 
 This drops all of `src/`'s components, hooks, and `styles.module.css` into
-`./src/morph-sheet` (pass a different path as the first argument to change
+`./src/vista-sheet` (pass a different path as the first argument to change
 the target). It skips the test file and, if your project already has a
 `next-env.d.ts`, skips the `*.module.css` ambient type shim too (Next
 already declares it — a duplicate `declare module` block is a TS error). It
@@ -85,7 +85,7 @@ npm install react react-dom motion
 ### Live-tuning panel
 
 ```bash
-npx @seansmithworks/morph-sheet add tuner
+npx @seansmithworks/vista-sheet add tuner
 ```
 
 Copies a small dialkit-driven page (`./tuner` by default) for dialling the
@@ -105,7 +105,7 @@ tuning panel is a development tool that has no business being reachable
 from a production bundle. Mount `tuner/page.tsx` behind a route your prod
 build never ships (or a dev-only guard), dial the close, then use the
 panel's **Copy as MotionPreset** button — it emits a `MotionPreset`-shaped
-object you paste straight into `preset={...}` on `<MorphSheet.Root>`, no
+object you paste straight into `preset={...}` on `<VistaSheet.Root>`, no
 hand-translation. This repo runs the same file live at
 `npm run dev` → `/tune.html`.
 
@@ -126,15 +126,15 @@ Router app:
 ```tsx
 "use client";
 
-import { MorphSheet } from "@seansmithworks/morph-sheet";
+import { VistaSheet } from "@seansmithworks/vista-sheet";
 
 export default function ContactTrigger() {
   return (
-    <MorphSheet.Root>
-      <MorphSheet.Shadow />
+    <VistaSheet.Root>
+      <VistaSheet.Shadow />
 
-      <MorphSheet.Trigger aria-label="Open contact">
-        <MorphSheet.Shared>
+      <VistaSheet.Trigger aria-label="Open contact">
+        <VistaSheet.Shared>
           <div
             style={{
               width: "100%",
@@ -143,11 +143,11 @@ export default function ContactTrigger() {
               background: "#b4512e",
             }}
           />
-        </MorphSheet.Shared>
-      </MorphSheet.Trigger>
+        </VistaSheet.Shared>
+      </VistaSheet.Trigger>
 
-      <MorphSheet.Sheet aria-labelledby="sheet-title">
-        <MorphSheet.Shared>
+      <VistaSheet.Sheet aria-labelledby="sheet-title">
+        <VistaSheet.Shared>
           <div
             style={{
               width: "100%",
@@ -156,20 +156,20 @@ export default function ContactTrigger() {
               background: "#b4512e",
             }}
           />
-        </MorphSheet.Shared>
+        </VistaSheet.Shared>
 
-        <MorphSheet.Close aria-label="Close" />
+        <VistaSheet.Close aria-label="Close" />
 
-        <MorphSheet.Content>
-          <MorphSheet.Item>
+        <VistaSheet.Content>
+          <VistaSheet.Item>
             <h2 id="sheet-title">Sean Smith</h2>
-          </MorphSheet.Item>
-          <MorphSheet.Item>
+          </VistaSheet.Item>
+          <VistaSheet.Item>
             <p>Links, etc.</p>
-          </MorphSheet.Item>
-        </MorphSheet.Content>
-      </MorphSheet.Sheet>
-    </MorphSheet.Root>
+          </VistaSheet.Item>
+        </VistaSheet.Content>
+      </VistaSheet.Sheet>
+    </VistaSheet.Root>
   );
 }
 ```
@@ -179,12 +179,12 @@ viewport anchor: drag it to re-anchor at any of the seven anchors, tap it to
 morph it into the sheet shown above.
 
 Nine exports total: eight components (`Root`, `Trigger`, `Sheet`, `Shared`,
-`Content`, `Item`, `Close`, `Shadow`) plus the `useMorphSheet()` hook. That is
+`Content`, `Item`, `Close`, `Shadow`) plus the `useVistaSheet()` hook. That is
 the whole surface area.
 
 **In a Next.js App Router app, `"use client"` has to be the first line of
-the file where you mount `MorphSheet`**, as it is in the snippet above.
-Server Components can't resolve a property access like `MorphSheet.Root` on
+the file where you mount `VistaSheet`**, as it is in the snippet above.
+Server Components can't resolve a property access like `VistaSheet.Root` on
 a client-reference namespace — this is the same constraint as Radix, MUI,
 and `motion/react` itself.
 
@@ -201,12 +201,12 @@ might have mixed up default and named imports.
 ```
 
 Nothing is missing an export. If you see this message after adding
-`<MorphSheet.Root>` to a file, the fix is to add `"use client"` as the very
+`<VistaSheet.Root>` to a file, the fix is to add `"use client"` as the very
 first line of that file.
 
 ### The escape hatch
 
-`useMorphSheet().collapseProgress` is the raw `MotionValue<number>` the
+`useVistaSheet().collapseProgress` is the raw `MotionValue<number>` the
 package's own radius, mask, and opacity transforms read: `0` at fully open
 (sheet), `1` at fully closed (trigger). Combined with `triggerRect` and
 `sheetRect`, it is enough to rebuild any choreography the package doesn't
@@ -216,7 +216,7 @@ this hatch.
 
 ```tsx
 function usePKG() {
-  return useMorphSheet();
+  return useVistaSheet();
   // { open, setOpen, anchor, isDragging, triggerSize, collapseProgress, triggerRect, sheetRect }
 }
 ```
@@ -226,61 +226,61 @@ function usePKG() {
 Two public styling surfaces: CSS custom properties and a DOM data-attribute
 contract.
 
-### `--morph-sheet-*` custom properties
+### `--vista-sheet-*` custom properties
 
 Every visual token is a CSS custom property with a hardcoded fallback, so the
 package renders correctly out of the box:
 
 | Variable | Default |
 | --- | --- |
-| `--morph-sheet-surface` | `#faf7f2` |
-| `--morph-sheet-surface-elevated` | `#f4f0e8` |
-| `--morph-sheet-surface-border` | `#e6dfd2` |
-| `--morph-sheet-text` | `#1a1610` |
-| `--morph-sheet-accent` | `#b4512e` |
-| `--morph-sheet-sheet-max-width` | `480px` |
-| `--morph-sheet-shared-size` | matches `--morph-sheet-trigger-size` |
-| `--morph-sheet-sheet-radius` | `32px` |
-| `--morph-sheet-trigger-radius` | `9999px` |
-| `--morph-sheet-sheet-padding` | `24px` |
-| `--morph-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
-| `--morph-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |
-| `--morph-sheet-sheet-shadow-fade-start` | `0` |
-| `--morph-sheet-sheet-shadow-fade-end` | `0.25` |
-| `--morph-sheet-z` | `100` |
+| `--vista-sheet-surface` | `#faf7f2` |
+| `--vista-sheet-surface-elevated` | `#f4f0e8` |
+| `--vista-sheet-surface-border` | `#e6dfd2` |
+| `--vista-sheet-text` | `#1a1610` |
+| `--vista-sheet-accent` | `#b4512e` |
+| `--vista-sheet-sheet-max-width` | `480px` |
+| `--vista-sheet-shared-size` | matches `--vista-sheet-trigger-size` |
+| `--vista-sheet-sheet-radius` | `32px` |
+| `--vista-sheet-trigger-radius` | `9999px` |
+| `--vista-sheet-sheet-padding` | `24px` |
+| `--vista-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |
+| `--vista-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` |
+| `--vista-sheet-sheet-shadow-fade-start` | `0` |
+| `--vista-sheet-sheet-shadow-fade-end` | `0.25` |
+| `--vista-sheet-z` | `100` |
 
-`--morph-sheet-sheet-shadow-fade-start`/`-fade-end` are unitless
+`--vista-sheet-sheet-shadow-fade-start`/`-fade-end` are unitless
 `collapseProgress` fractions (0 = open at rest, 1 = closed at rest) marking
-where `<MorphSheet.Shadow>` crossfades from the heavy `--morph-sheet-sheet-shadow`
-look to the thin `--morph-sheet-shadow` look — see "Two shadows, one painter"
+where `<VistaSheet.Shadow>` crossfades from the heavy `--vista-sheet-sheet-shadow`
+look to the thin `--vista-sheet-shadow` look — see "Two shadows, one painter"
 below.
 
-The package writes `--morph-sheet-trigger-size`, `--morph-sheet-trigger-x/-y`,
-`--morph-sheet-sheet-left`, `--morph-sheet-collapse`,
-`--morph-sheet-shadow-x/-y/-w/-h/-radius`, and
-`--morph-sheet-shadow-opacity`/`--morph-sheet-sheet-shadow-opacity` (the live
+The package writes `--vista-sheet-trigger-size`, `--vista-sheet-trigger-x/-y`,
+`--vista-sheet-sheet-left`, `--vista-sheet-collapse`,
+`--vista-sheet-shadow-x/-y/-w/-h/-radius`, and
+`--vista-sheet-shadow-opacity`/`--vista-sheet-sheet-shadow-opacity` (the live
 crossfade values, in [0, 1]); read these, don't set them.
 
 ### Two shadows, one painter
 
-`<MorphSheet.Shadow>` paints both shadow looks on its one silhouette,
+`<VistaSheet.Shadow>` paints both shadow looks on its one silhouette,
 crossfaded by opacity as `collapseProgress` moves — nothing else in the
-package paints a shadow. If you don't render `<MorphSheet.Shadow>`, there is
+package paints a shadow. If you don't render `<VistaSheet.Shadow>`, there is
 no shadow at all. An `asChild` swap receives
-`--morph-sheet-shadow-opacity`/`--morph-sheet-sheet-shadow-opacity` as custom
+`--vista-sheet-shadow-opacity`/`--vista-sheet-sheet-shadow-opacity` as custom
 properties on the cloned element so a replacement layer (e.g. a
 `@seansmithworks/surface-fx` dither) can reproduce the same crossfade.
 
 `npm run audit:vars` checks this table against `src/styles.module.css` and
-`src/`: any `--morph-sheet-*` variable the CSS reads must be either written by
+`src/`: any `--vista-sheet-*` variable the CSS reads must be either written by
 the package or documented here, or the audit fails.
 
-### `data-morph-sheet-part` DOM contract
+### `data-vista-sheet-part` DOM contract
 
-Every element the package renders carries `data-morph-sheet-part`, and this is
+Every element the package renders carries `data-vista-sheet-part`, and this is
 public, stable surface, not an accident of implementation you happen to be
 able to reach. Use it for CSS overrides or, as `example/CloseMask.tsx` does,
-to find the live element from outside the package via `useMorphSheet()` + a
+to find the live element from outside the package via `useVistaSheet()` + a
 `document.querySelector`.
 
 | Value | Element |
@@ -288,26 +288,26 @@ to find the live element from outside the package via `useMorphSheet()` + a
 | `trigger-root` | The trigger's fixed drag wrapper |
 | `trigger` | The trigger `<button>` |
 | `trigger-surface` | The trigger's circular seed surface (the FLIP source) |
-| `shared` | `<MorphSheet.Shared>`, on both its trigger- and sheet-side instances |
-| `sheet` | `<MorphSheet.Sheet>`'s panel |
+| `shared` | `<VistaSheet.Shared>`, on both its trigger- and sheet-side instances |
+| `sheet` | `<VistaSheet.Sheet>`'s panel |
 | `backdrop` | The invisible outside-click catcher (only when `dismissOnBackdrop`) |
-| `content` | `<MorphSheet.Content>`'s scroll region |
-| `item` | `<MorphSheet.Item>` |
-| `close` | `<MorphSheet.Close>`'s button |
-| `shadow` | `<MorphSheet.Shadow>`'s default div (also merged onto an `asChild` child) |
+| `content` | `<VistaSheet.Content>`'s scroll region |
+| `item` | `<VistaSheet.Item>` |
+| `close` | `<VistaSheet.Close>`'s button |
+| `shadow` | `<VistaSheet.Shadow>`'s default div (also merged onto an `asChild` child) |
 
-`<MorphSheet.Shared>` additionally carries `data-morph-sheet-slot="trigger"` or
+`<VistaSheet.Shared>` additionally carries `data-vista-sheet-slot="trigger"` or
 `"sheet"`, so consumer CSS (or the package's own
-`.shared[data-morph-sheet-slot=…]` rules) can target either instance without
+`.shared[data-vista-sheet-slot=…]` rules) can target either instance without
 relying on className precedence.
 
-`trigger-root` additionally carries `data-morph-sheet-closing` (empty string),
+`trigger-root` additionally carries `data-vista-sheet-closing` (empty string),
 present only while a close is in flight (removed once the sheet has fully
 closed).
 
-`sheet` additionally carries `data-morph-sheet-settled` (empty string), present
+`sheet` additionally carries `data-vista-sheet-settled` (empty string), present
 only once the open has finished and removed as soon as a close starts. This
-gates `<MorphSheet.Close>`'s reveal, not any shadow — the sheet element paints
+gates `<VistaSheet.Close>`'s reveal, not any shadow — the sheet element paints
 no box-shadow of its own; see "Two shadows, one painter" above.
 
 ## Motion
@@ -328,7 +328,7 @@ single value still applies to both directions; `{ open, close }` sets them
 independently:
 
 ```tsx
-<MorphSheet.Root
+<VistaSheet.Root
   transition={{
     close: { stiffness: 375, damping: 32, mass: 1 },
     shared: {
@@ -349,7 +349,7 @@ independently:
 ### `surfaceCloseLeadDelayMs`
 
 ```tsx
-<MorphSheet.Root surfaceCloseLeadDelayMs={35}>
+<VistaSheet.Root surfaceCloseLeadDelayMs={35}>
 ```
 
 Milliseconds the surface box waits before starting its close FLIP, so the
@@ -372,9 +372,9 @@ trailing shared element spills past the round trigger's 2px border.
 ### Presets
 
 ```tsx
-import { MorphSheet, presets } from "@seansmithworks/morph-sheet";
+import { VistaSheet, presets } from "@seansmithworks/vista-sheet";
 
-<MorphSheet.Root preset={presets.snappy}>
+<VistaSheet.Root preset={presets.snappy}>
 ```
 
 `presets` carries three named feels, each a `{ transition?, surfaceCloseLeadDelayMs? }`
@@ -394,13 +394,13 @@ one direction, the other direction falls back to the preset's `shared` for
 that direction, not the package default:
 
 ```tsx
-<MorphSheet.Root preset={presets.snappy} transition={{ open: mySpring }}>
+<VistaSheet.Root preset={presets.snappy} transition={{ open: mySpring }}>
 ```
 
 keeps `snappy`'s `close` and `shared`, taking only `mySpring` for `open`.
 
 ```tsx
-<MorphSheet.Root
+<VistaSheet.Root
   preset={presets.snappy}
   transition={{ shared: { open: mySharedOpenSpring } }}
 >
@@ -416,7 +416,7 @@ numbers instead of `stiffness`/`damping`. Use exactly these two keys,
 **`visualDuration` and `bounce`, both required**:
 
 ```tsx
-<MorphSheet.Root transition={{ open: { visualDuration: 0.4, bounce: 0.2 } }}>
+<VistaSheet.Root transition={{ open: { visualDuration: 0.4, bounce: 0.2 } }}>
 ```
 
 Do not use Motion's other duration shorthand, `{ duration, bounce }` — this
@@ -445,7 +445,7 @@ the type checker, as the guard.
   unconditionally; focus restores to the trigger on exit-complete, not at
   state-change.
 - Body scroll lock while open; Tab/Shift+Tab cycle within the panel.
-- `<MorphSheet.Close>` is required in practice; Root logs a dev-only warning
+- `<VistaSheet.Close>` is required in practice; Root logs a dev-only warning
   if the sheet opens with none registered.
 
 **Known gap:** no `inert` on background content. `aria-modal="true"` covers
@@ -469,7 +469,7 @@ of the dialog.
 
 ## What v0.1 cuts
 
-Entrance choreography, `<MorphSheet.Backdrop>` as its own component (dismissal
+Entrance choreography, `<VistaSheet.Backdrop>` as its own component (dismissal
 still works via `Sheet`'s `dismissOnBackdrop`, which renders an invisible
 click-catcher, no visual dim layer by default), controlled anchor, the
 anchors-subset prop, and arrow-key repositioning between anchors. See

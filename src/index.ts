@@ -8,25 +8,25 @@ import { Close } from "./Close";
 import { Shadow } from "./Shadow";
 
 /**
- * MorphSheet — draggable trigger that morphs into a modal sheet.
+ * VistaSheet — draggable trigger that morphs into a modal sheet.
  *
  * ```tsx
- * <MorphSheet.Root>
- *   <MorphSheet.Shadow />
- *   <MorphSheet.Trigger aria-label="Open contact">
- *     <MorphSheet.Shared><Avatar /></MorphSheet.Shared>
- *   </MorphSheet.Trigger>
- *   <MorphSheet.Sheet aria-labelledby="sheet-title">
- *     <MorphSheet.Shared><Avatar /></MorphSheet.Shared>
- *     <MorphSheet.Content>
- *       <MorphSheet.Close aria-label="Close" />
- *       <MorphSheet.Item><h2 id="sheet-title">Title</h2></MorphSheet.Item>
- *     </MorphSheet.Content>
- *   </MorphSheet.Sheet>
- * </MorphSheet.Root>
+ * <VistaSheet.Root>
+ *   <VistaSheet.Shadow />
+ *   <VistaSheet.Trigger aria-label="Open contact">
+ *     <VistaSheet.Shared><Avatar /></VistaSheet.Shared>
+ *   </VistaSheet.Trigger>
+ *   <VistaSheet.Sheet aria-labelledby="sheet-title">
+ *     <VistaSheet.Shared><Avatar /></VistaSheet.Shared>
+ *     <VistaSheet.Content>
+ *       <VistaSheet.Close aria-label="Close" />
+ *       <VistaSheet.Item><h2 id="sheet-title">Title</h2></VistaSheet.Item>
+ *     </VistaSheet.Content>
+ *   </VistaSheet.Sheet>
+ * </VistaSheet.Root>
  * ```
  */
-export const MorphSheet = {
+export const VistaSheet = {
   Root,
   Trigger,
   Sheet,
@@ -37,7 +37,7 @@ export const MorphSheet = {
   Shadow,
 };
 
-export { useMorphSheet } from "./context";
+export { useVistaSheet } from "./context";
 export { presets } from "./motion";
 
 export type {
@@ -45,7 +45,7 @@ export type {
   CloseProps,
   ContentProps,
   TriggerProps,
-  MorphSheetState,
+  VistaSheetState,
   ItemProps,
   Labelled,
   MorphTransition,

@@ -181,17 +181,17 @@ export const CONTENT_FADE_OUT_MS = 80;
 export const CONTENT_FADE_OUT_DELAY_MS = 0;
 
 /** collapseProgress at or below which the open counts as finished, and
- * <MorphSheet.Close> starts fading in, so the X never paints while the
+ * <VistaSheet.Close> starts fading in, so the X never paints while the
  * surface is still scaling. Render Close as a direct child of <Sheet>, not
  * inside <Content>: Content's reveal transform makes it the X's containing
  * block, so an absolutely-positioned X jumps when that transform clears. */
 export const CLOSE_REVEAL_PROGRESS = 0.01;
 
-/** <MorphSheet.Close> fade-in duration (s), once the open has finished. Shorter
+/** <VistaSheet.Close> fade-in duration (s), once the open has finished. Shorter
  * than the spring below so the X is solid before its turn has landed. */
 export const CLOSE_FADE_IN_SEC = 0.15;
 
-/** <MorphSheet.Close> reveal: scales 0 -> 1 while turning -90deg -> 0 (an X
+/** <VistaSheet.Close> reveal: scales 0 -> 1 while turning -90deg -> 0 (an X
  * is symmetric at 90deg, so the turn reads as a spin but lands seamlessly).
  * Light bounce only — this runs on every open. Movement is dropped under
  * reduced motion; the fade stays. */
@@ -201,7 +201,7 @@ export const CLOSE_REVEAL_SPRING = {
   duration: 0.45,
   bounce: 0.25,
 };
-/** <MorphSheet.Close> exit (s): the reveal in reverse — turns back to
+/** <VistaSheet.Close> exit (s): the reveal in reverse — turns back to
  * CLOSE_REVEAL_ROTATE_DEG and scales to 0. A tween, not the spring, so it
  * clears fast; opacity is linear over the same span so the turn stays
  * visible instead of vanishing in the first frames. */
@@ -215,7 +215,7 @@ export const CLOSE_REVEAL_ROTATE_SPRING = {
   bounce: 0.5,
 };
 
-/** Stagger interval (s) between <MorphSheet.Item> children. */
+/** Stagger interval (s) between <VistaSheet.Item> children. */
 export const ITEM_STAGGER_INTERVAL_SEC = 0.04;
 
 /** Drag-vs-tap threshold, px. */
@@ -250,7 +250,7 @@ export function mergeTransition(
     "mass" in provided
   ) {
     console.warn(
-      "[morph-sheet] A transition combines `visualDuration`/`bounce` with " +
+      "[vista-sheet] A transition combines `visualDuration`/`bounce` with " +
         "`mass`. Motion resolves stiffness/damping/mass before it ever " +
         "looks at visualDuration/bounce, so `mass` silently discards both " +
         "and the spring falls back to Motion's defaults (measured: a " +

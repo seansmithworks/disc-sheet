@@ -1,8 +1,8 @@
-# `morph-sheet` package design
+# `vista-sheet` package design
 
 Draggable trigger that morphs into a sheet. Generic React primitive, compound-component API.
 
-Shipped as `@seansmithworks/morph-sheet`. `MorphSheet` is the exported namespace object throughout, and `--morph-sheet-*` is the CSS custom property namespace.
+Shipped as `@seansmithworks/vista-sheet`. `VistaSheet` is the exported namespace object throughout, and `--vista-sheet-*` is the CSS custom property namespace.
 
 Source of the extraction: `src/components/chrome/FloatingIdentity.tsx`, `ContactSheet.tsx`, `anchorPositions.ts` and their CSS modules on `seansmithdesign.com`. Everything cited below was verified against those files, not inferred.
 
@@ -30,37 +30,37 @@ Precedent check. Two of Sean's own packages already set conventions:
 ### The tree
 
 ```tsx
-import { MorphSheet } from "@seansmithworks/morph-sheet";
+import { VistaSheet } from "@seansmithworks/vista-sheet";
 
-<MorphSheet.Root>
-  <MorphSheet.Shadow />
+<VistaSheet.Root>
+  <VistaSheet.Shadow />
 
-  <MorphSheet.Trigger aria-label="Open contact">
-    <MorphSheet.Shared>
+  <VistaSheet.Trigger aria-label="Open contact">
+    <VistaSheet.Shared>
       <Avatar />
-    </MorphSheet.Shared>
-  </MorphSheet.Trigger>
+    </VistaSheet.Shared>
+  </VistaSheet.Trigger>
 
-  <MorphSheet.Sheet aria-labelledby="sheet-title">
-    <MorphSheet.Shared>
+  <VistaSheet.Sheet aria-labelledby="sheet-title">
+    <VistaSheet.Shared>
       <Avatar />
-    </MorphSheet.Shared>
+    </VistaSheet.Shared>
 
-    <MorphSheet.Close aria-label="Close" />
+    <VistaSheet.Close aria-label="Close" />
 
-    <MorphSheet.Content>
-      <MorphSheet.Item>
+    <VistaSheet.Content>
+      <VistaSheet.Item>
         <h2 id="sheet-title">Sean Smith</h2>
-      </MorphSheet.Item>
-      <MorphSheet.Item>…</MorphSheet.Item>
-    </MorphSheet.Content>
-  </MorphSheet.Sheet>
-</MorphSheet.Root>
+      </VistaSheet.Item>
+      <VistaSheet.Item>…</VistaSheet.Item>
+    </VistaSheet.Content>
+  </VistaSheet.Sheet>
+</VistaSheet.Root>
 ```
 
 Nine exports total: eight components plus one hook. That is the whole surface area.
 
-### `<MorphSheet.Root>`
+### `<VistaSheet.Root>`
 
 Owns open state, anchor state, the `LayoutGroup`, the shared context, and the reduced-motion decision.
 
@@ -83,7 +83,7 @@ interface MorphTransition {
   /** Sheet to trigger. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
   /**
-   * The <MorphSheet.Shared> element's own morph. Direction-aware: a single
+   * The <VistaSheet.Shared> element's own morph. Direction-aware: a single
    * value applies to both directions, { open, close } sets them apart.
    * Defaults: open { stiffness: 500, damping: 45 },
    *           close { stiffness: 305, damping: 28.9, mass: 1 }
@@ -111,7 +111,7 @@ interface RootProps {
   draggable?: boolean;
   /**
    * localStorage key for the chosen anchor.
-   * Default "morph-sheet-anchor". Pass false to disable persistence entirely.
+   * Default "vista-sheet-anchor". Pass false to disable persistence entirely.
    */
   persistKey?: string | false;
 
@@ -138,13 +138,13 @@ interface RootProps {
 }
 ```
 
-**Uncontrolled path.** `<MorphSheet.Root>` with no `open`. The trigger tap toggles internal state, `onOpenChange` fires for telemetry. The anchor is read from `localStorage` at mount, validated against the seven legal values, and written back on every settled drag. This is the default and it is what the flagship example uses.
+**Uncontrolled path.** `<VistaSheet.Root>` with no `open`. The trigger tap toggles internal state, `onOpenChange` fires for telemetry. The anchor is read from `localStorage` at mount, validated against the seven legal values, and written back on every settled drag. This is the default and it is what the flagship example uses.
 
-**Controlled path.** Pass `open` and `onOpenChange`. The package calls `onOpenChange(next)` and does nothing else; the surface only changes when `open` changes. All internal triggers route through the same call: trigger tap, Escape, backdrop click, swipe-down past threshold, `<MorphSheet.Close>`. There is no second escape valve, so a consumer holding `open={false}` gets a sheet that genuinely cannot open.
+**Controlled path.** Pass `open` and `onOpenChange`. The package calls `onOpenChange(next)` and does nothing else; the surface only changes when `open` changes. All internal triggers route through the same call: trigger tap, Escape, backdrop click, swipe-down past threshold, `<VistaSheet.Close>`. There is no second escape valve, so a consumer holding `open={false}` gets a sheet that genuinely cannot open.
 
 Anchor is deliberately **uncontrolled only** in v0.1. See §8.
 
-### `<MorphSheet.Trigger>`
+### `<VistaSheet.Trigger>`
 
 The fixed drag wrapper plus the trigger button plus the morph seed surface.
 
@@ -159,13 +159,13 @@ interface TriggerProps {
 
 Renders three nested nodes the consumer does not control:
 
-1. `motion.div[data-morph-sheet-part="trigger-root"]`, `position: fixed` at the viewport origin, positioned entirely by Motion `x`/`y` MotionValues holding the trigger's top-left in viewport px. This single-origin model is load-bearing: nothing ever changes CSS `left`/`top` after mount, so a snap is a plain `x`/`y` animation with no FLIP and no one-frame transform desync.
-2. `button[data-morph-sheet-part="trigger"]`, transparent, fills the wrapper, carries `aria-haspopup="dialog"` / `aria-expanded` / `aria-controls`.
-3. `motion.div[data-morph-sheet-part="trigger-surface"]`, the `layoutId` seed. Circular, painted from `--morph-sheet-surface` and `--morph-sheet-surface-border`. This is the element that FLIPs into the sheet, which is why it is package-owned rather than a slot.
+1. `motion.div[data-vista-sheet-part="trigger-root"]`, `position: fixed` at the viewport origin, positioned entirely by Motion `x`/`y` MotionValues holding the trigger's top-left in viewport px. This single-origin model is load-bearing: nothing ever changes CSS `left`/`top` after mount, so a snap is a plain `x`/`y` animation with no FLIP and no one-frame transform desync.
+2. `button[data-vista-sheet-part="trigger"]`, transparent, fills the wrapper, carries `aria-haspopup="dialog"` / `aria-expanded` / `aria-controls`.
+3. `motion.div[data-vista-sheet-part="trigger-surface"]`, the `layoutId` seed. Circular, painted from `--vista-sheet-surface` and `--vista-sheet-surface-border`. This is the element that FLIPs into the sheet, which is why it is package-owned rather than a slot.
 
 `children` render above the seed surface, inside the button.
 
-### `<MorphSheet.Sheet>`
+### `<VistaSheet.Sheet>`
 
 The modal surface. Same `layoutId` as the trigger seed, so Motion FLIPs the box between the two.
 
@@ -188,9 +188,9 @@ The `Labelled` union makes it a type error to render a dialog with no accessible
 
 Escape is **not** configurable. A modal surface that traps focus and cannot be dismissed by keyboard is a defect, not a variant.
 
-### `<MorphSheet.Shared>`
+### `<VistaSheet.Shared>`
 
-The shared-element slot. Rendered **twice**: once inside `<MorphSheet.Trigger>`, once inside `<MorphSheet.Sheet>`, with the same children. It carries its own `layoutId` and its own spring, independent of the surface morph.
+The shared-element slot. Rendered **twice**: once inside `<VistaSheet.Trigger>`, once inside `<VistaSheet.Sheet>`, with the same children. It carries its own `layoutId` and its own spring, independent of the surface morph.
 
 ```ts
 interface SharedProps {
@@ -199,11 +199,11 @@ interface SharedProps {
 }
 ```
 
-Critical structural rule inherited from the source, and the package enforces it by construction: `<MorphSheet.Shared>` renders as a **sibling** of the trigger seed surface, never a child. Nesting it would make its projection inherit the surface's close-morph FLIP, freezing it at the surface's transient mid-collapse box and then teleporting it home. The comment at `FloatingIdentity.tsx:1935-1944` documents that exact bug.
+Critical structural rule inherited from the source, and the package enforces it by construction: `<VistaSheet.Shared>` renders as a **sibling** of the trigger seed surface, never a child. Nesting it would make its projection inherit the surface's close-morph FLIP, freezing it at the surface's transient mid-collapse box and then teleporting it home. The comment at `FloatingIdentity.tsx:1935-1944` documents that exact bug.
 
 Optional: omit it entirely. The morph still works; there is just no element that persists visually across it.
 
-### `<MorphSheet.Content>` and `<MorphSheet.Item>`
+### `<VistaSheet.Content>` and `<VistaSheet.Item>`
 
 `Content` holds sheet content at opacity 0 through the bloom and reveals it after, then fades it out first on close. `Item` is a staggered child.
 
@@ -216,7 +216,7 @@ No props beyond that. The reveal delay, stagger interval, and exit duration are 
 
 `Content` also owns the scroll region: it applies `overflow-y: auto` to itself and reports `scrollTop` to the swipe-to-close handler, which must not fire while the content is scrolled. That coupling exists today at `ContactSheet.tsx:929-930` and it is easy to lose in an extraction.
 
-### `<MorphSheet.Close>`
+### `<VistaSheet.Close>`
 
 ```ts
 interface CloseProps {
@@ -228,7 +228,7 @@ interface CloseProps {
 
 Registers itself in context on mount. If the sheet opens and no `Close` is registered, Root logs a dev-only warning. Escape and backdrop click are not a substitute for a visible close control.
 
-### `<MorphSheet.Backdrop>`
+### `<VistaSheet.Backdrop>`
 
 Opt-in **visual** scrim only. Dismiss-on-outside-click is Root behavior and works whether or not `Backdrop` is rendered.
 
@@ -242,14 +242,14 @@ interface BackdropProps {
 
 This split matters. The site currently ships `backdropDimEnabled: false` (verified in `surface-fx/src/schema/bloomDefaults.ts`), so the default look is a clear page behind the bloom. Making the scrim a component rather than a boolean means the default costs nothing and the dim variant costs one line.
 
-### `<MorphSheet.Shadow>`
+### `<VistaSheet.Shadow>`
 
 See §4.
 
-### `useMorphSheet()`
+### `useVistaSheet()`
 
 ```ts
-interface MorphSheetState {
+interface VistaSheetState {
   open: boolean;
   setOpen: (open: boolean) => void;
   anchor: AnchorId;
@@ -262,10 +262,10 @@ interface MorphSheetState {
   sheetRect: { cx: number; cy: number; halfWidth: number; halfHeight: number } | null;
 }
 
-function useMorphSheet(): MorphSheetState;
+function useVistaSheet(): VistaSheetState;
 ```
 
-Throws outside `<MorphSheet.Root>`. This hook is the escape hatch for §3 and the data source for §4.
+Throws outside `<VistaSheet.Root>`. This hook is the escape hatch for §3 and the data source for §4.
 
 ### Props deliberately NOT exposed
 
@@ -302,25 +302,25 @@ Required companion file: `src/css-modules.d.ts`, copied verbatim from device-fra
 
 ### Namespace and mapping
 
-Every variable is `--morph-sheet-*` and every one has a hardcoded fallback in the CSS, so the package renders correctly with a consumer who sets nothing. The mapping below is what the flagship example writes to re-skin the primitive back into Sean's site.
+Every variable is `--vista-sheet-*` and every one has a hardcoded fallback in the CSS, so the package renders correctly with a consumer who sets nothing. The mapping below is what the flagship example writes to re-skin the primitive back into Sean's site.
 
 | Package variable | Default (fallback baked in the CSS) | Current site variable |
 | --- | --- | --- |
-| `--morph-sheet-surface` | `#faf7f2` | `--color-paper` |
-| `--morph-sheet-surface-elevated` | `#f4f0e8` | `--color-paper-soft` (midnight sheet fill) |
-| `--morph-sheet-surface-border` | `#e6dfd2` | `--color-paper-edge` |
-| `--morph-sheet-text` | `#1a1610` | `--color-ink` |
-| `--morph-sheet-accent` | `#b4512e` | `--color-accent` (focus ring only) |
-| `--morph-sheet-sheet-max-width` | `480px` | `--contact-sheet-max-width` |
-| `--morph-sheet-shared-size` | matches `--morph-sheet-trigger-size` | `--contact-portrait-size` |
-| `--morph-sheet-sheet-radius` | `32px` | `tuning.sheetRadius` |
-| `--morph-sheet-trigger-radius` | `9999px` | `tuning.discRadius` |
-| `--morph-sheet-edge-margin` | `16px` | `EDGE_MARGIN` in `anchorPositions.ts` |
-| `--morph-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` | `.triggerSurface` box-shadow |
-| `--morph-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` | `.sheet` box-shadow |
-| `--morph-sheet-z` | `100` | the z-index literals |
+| `--vista-sheet-surface` | `#faf7f2` | `--color-paper` |
+| `--vista-sheet-surface-elevated` | `#f4f0e8` | `--color-paper-soft` (midnight sheet fill) |
+| `--vista-sheet-surface-border` | `#e6dfd2` | `--color-paper-edge` |
+| `--vista-sheet-text` | `#1a1610` | `--color-ink` |
+| `--vista-sheet-accent` | `#b4512e` | `--color-accent` (focus ring only) |
+| `--vista-sheet-sheet-max-width` | `480px` | `--contact-sheet-max-width` |
+| `--vista-sheet-shared-size` | matches `--vista-sheet-trigger-size` | `--contact-portrait-size` |
+| `--vista-sheet-sheet-radius` | `32px` | `tuning.sheetRadius` |
+| `--vista-sheet-trigger-radius` | `9999px` | `tuning.discRadius` |
+| `--vista-sheet-edge-margin` | `16px` | `EDGE_MARGIN` in `anchorPositions.ts` |
+| `--vista-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` | `.triggerSurface` box-shadow |
+| `--vista-sheet-sheet-shadow` | `0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)` | `.sheet` box-shadow |
+| `--vista-sheet-z` | `100` | the z-index literals |
 
-Derived z-stack, from `--morph-sheet-z` (call it `z`):
+Derived z-stack, from `--vista-sheet-z` (call it `z`):
 
 | Layer | z |
 | --- | --- |
@@ -335,17 +335,17 @@ Those offsets reproduce the shipped stack exactly (99 / 100 / 201 / 202) at the 
 
 | Variable | On | Meaning |
 | --- | --- | --- |
-| `--morph-sheet-trigger-size` | trigger root | resolved diameter in px |
-| `--morph-sheet-trigger-x`, `--morph-sheet-trigger-y` | trigger root | live top-left in viewport px |
-| `--morph-sheet-sheet-left`, `--morph-sheet-sheet-top` | sheet | resolved placement in px |
-| `--morph-sheet-collapse` | shadow layer | `0..1`, the live morph progress |
-| `--morph-sheet-shadow-x/-y/-w/-h/-radius` | shadow layer | the interpolated silhouette |
+| `--vista-sheet-trigger-size` | trigger root | resolved diameter in px |
+| `--vista-sheet-trigger-x`, `--vista-sheet-trigger-y` | trigger root | live top-left in viewport px |
+| `--vista-sheet-sheet-left`, `--vista-sheet-sheet-top` | sheet | resolved placement in px |
+| `--vista-sheet-collapse` | shadow layer | `0..1`, the live morph progress |
+| `--vista-sheet-shadow-x/-y/-w/-h/-radius` | shadow layer | the interpolated silhouette |
 
 ### One fix taken during extraction
 
 The site duplicates the trigger breakpoints in two places: the `@media` blocks in `FloatingIdentity.module.css:94-106` and the `resolveDiscSize()` function at `FloatingIdentity.tsx:311-317`, with a comment on each telling you to keep them in sync. That is a latent bug, and the sync failure mode (trigger shifts off its anchor) is exactly the kind of thing that gets debugged twice.
 
-In the package, `resolveTriggerSize()` remains the single source of the size ramp, but it is not JS writing the var at runtime. `Root` renders a scoped `<style>` block with real `@media` rules — one per breakpoint in the ramp — that set `--morph-sheet-trigger-size` in CSS, server-rendered and deterministic from props alone. Neither `Root`'s wrapper nor `Trigger`'s drag wrapper writes `--morph-sheet-trigger-size` inline; an inline write on either would always beat the `@media` rules, at every viewport, and defeat the point of resolving the size in CSS. The live JS value from the size hook feeds only position math (`anchors.ts`) and drag-constraint numbers — never a FLIP-tracked element's painted box.
+In the package, `resolveTriggerSize()` remains the single source of the size ramp, but it is not JS writing the var at runtime. `Root` renders a scoped `<style>` block with real `@media` rules — one per breakpoint in the ramp — that set `--vista-sheet-trigger-size` in CSS, server-rendered and deterministic from props alone. Neither `Root`'s wrapper nor `Trigger`'s drag wrapper writes `--vista-sheet-trigger-size` inline; an inline write on either would always beat the `@media` rules, at every viewport, and defeat the point of resolving the size in CSS. The live JS value from the size hook feeds only position math (`anchors.ts`) and drag-constraint numbers — never a FLIP-tracked element's painted box.
 
 This split exists because Motion snapshots a shared-`layoutId` element's box at first paint. A JS-resolved size is not available correctly at first paint without either a hydration mismatch (server and client disagreeing before the effect that would set it runs) or a stale post-mount promotion (the size hook returning a base value on first render for hydration safety, then correcting itself after Motion has already snapshotted the shared-element origin). Resolving the size in CSS via `@media`, instead of in JS via an effect, means the browser has the correct value at first paint with no client-side correction step for Motion to snapshot ahead of.
 
@@ -374,7 +374,7 @@ cannot do that on the open's spring, because the surface's close FLIP is
 deliberately started `surfaceCloseLeadDelayMs` after the shared element's.
 Left on one fixed spring, the shared element parked at its resting box 175ms
 before the trigger stopped moving, and the 2px border relationship
-(`.shared[data-morph-sheet-slot="trigger"]`, `inset: 2px`) arrived a sixth of a
+(`.shared[data-vista-sheet-slot="trigger"]`, `inset: 2px`) arrived a sixth of a
 second early. The close default was originally derived from `close` by
 formula; as of "Version 4" it is independently dialled instead (see the table
 above), so if `close` is ever retuned again, `shared.close` must be re-dialled
@@ -398,7 +398,7 @@ Each accepts a full Motion `Transition` as well as the `Spring` shorthand, so "I
 
 ### CSS variables: shape tokens
 
-`--morph-sheet-sheet-radius` (32px) and `--morph-sheet-trigger-radius` (9999px). These are read once when the sheet opens, via a small `readVarPx` helper modelled on the existing `useCssVarPx.ts`, and fed to the border-radius transform.
+`--vista-sheet-sheet-radius` (32px) and `--vista-sheet-trigger-radius` (9999px). These are read once when the sheet opens, via a small `readVarPx` helper modelled on the existing `useCssVarPx.ts`, and fed to the border-radius transform.
 
 Rationale: radius is a design token. A designer will want it sitting next to the rest of the surface styling in CSS, not buried in a JS prop object. Every other visual token in this package is a CSS variable, and radius should not be the exception just because JS happens to interpolate it.
 
@@ -420,7 +420,7 @@ Each of these is a fix for a specific artifact. Exposing them turns "we solved t
 
 ### The escape hatch
 
-**`useMorphSheet().collapseProgress`**: the raw `MotionValue<number>`, 0 at fully open, 1 at fully closed. It is the same value the package's own radius, mask, and opacity transforms read.
+**`useVistaSheet().collapseProgress`**: the raw `MotionValue<number>`, 0 at fully open, 1 at fully closed. It is the same value the package's own radius, mask, and opacity transforms read.
 
 Anything the package will not animate for you, you animate off that value, and it is frame-locked to the morph by construction rather than by a parallel timer. Combined with `triggerRect` and `sheetRect`, that is enough to rebuild any of the internal choreography externally. Section 8 uses exactly this to validate the hatch: the trailing-paper close mask is cut from the package and rebuilt in the example app. If it cannot be rebuilt from outside, the hatch is inadequate and we find out in week one instead of after v1.
 
@@ -433,60 +433,60 @@ Anything the package will not animate for you, you animate off that value, and i
 ### Default, zero dependencies
 
 ```tsx
-<MorphSheet.Root>
-  <MorphSheet.Shadow />
+<VistaSheet.Root>
+  <VistaSheet.Shadow />
   …
-</MorphSheet.Root>
+</VistaSheet.Root>
 ```
 
-Renders one `div`: `position: fixed`, `aria-hidden="true"`, `pointer-events: none`, at `z - 1`, sized and positioned to the interpolated silhouette between the trigger circle and the sheet box. It paints a plain `box-shadow` from `--morph-sheet-shadow`. It carries, updated every frame without a React re-render:
+Renders one `div`: `position: fixed`, `aria-hidden="true"`, `pointer-events: none`, at `z - 1`, sized and positioned to the interpolated silhouette between the trigger circle and the sheet box. It paints a plain `box-shadow` from `--vista-sheet-shadow`. It carries, updated every frame without a React re-render:
 
 ```
-data-morph-sheet-part="shadow"
+data-vista-sheet-part="shadow"
 data-state="closed" | "open" | "dragging"
 style:
-  --morph-sheet-collapse: 0..1
-  --morph-sheet-shadow-x / -y      viewport px, silhouette center
-  --morph-sheet-shadow-w / -h      half-extents in px
-  --morph-sheet-shadow-radius      px
+  --vista-sheet-collapse: 0..1
+  --vista-sheet-shadow-x / -y      viewport px, silhouette center
+  --vista-sheet-shadow-w / -h      half-extents in px
+  --vista-sheet-shadow-radius      px
 ```
 
-A consumer with only CSS can already do a lot with that: swap the shadow, tie its opacity to `--morph-sheet-collapse`, change the falloff.
+A consumer with only CSS can already do a lot with that: swap the shadow, tie its opacity to `--vista-sheet-collapse`, change the falloff.
 
 ### Swapped for a surface-fx dither layer
 
 ```tsx
-import { MorphSheet, useMorphSheet } from "@seansmithworks/morph-sheet";
+import { VistaSheet, useVistaSheet } from "@seansmithworks/vista-sheet";
 import { useRippleEngine, velocityToRipple } from "@seansmith/surface-fx";
 
 function DitherShadow() {
-  const { collapseProgress, triggerRect, sheetRect, isDragging } = useMorphSheet();
+  const { collapseProgress, triggerRect, sheetRect, isDragging } = useVistaSheet();
   // build the mask / shader uniforms off collapseProgress + the two rects
   return <canvas … />;
 }
 
-<MorphSheet.Shadow asChild>
+<VistaSheet.Shadow asChild>
   <DitherShadow />
-</MorphSheet.Shadow>
+</VistaSheet.Shadow>
 ```
 
-`asChild` clones the single child and merges onto it: the fixed positioning, the z-index, `aria-hidden`, `pointer-events: none`, the `data-*` attributes, and all the `--morph-sheet-shadow-*` custom properties. The child gets a correctly placed, correctly stacked, non-interactive layer for free and only has to paint.
+`asChild` clones the single child and merges onto it: the fixed positioning, the z-index, `aria-hidden`, `pointer-events: none`, the `data-*` attributes, and all the `--vista-sheet-shadow-*` custom properties. The child gets a correctly placed, correctly stacked, non-interactive layer for free and only has to paint.
 
-The richer signal (the raw MotionValue and the two rects) comes through `useMorphSheet()`, not through the slot. Keeping data flow in the hook and layout in the slot means the slot has one job and the hook has one job.
+The richer signal (the raw MotionValue and the two rects) comes through `useVistaSheet()`, not through the slot. Keeping data flow in the hook and layout in the slot means the slot has one job and the hook has one job.
 
-**The package never imports surface-fx.** `@seansmith/surface-fx` appears only in the example app's dependencies. The default `<MorphSheet.Shadow />` has no dependency beyond React.
+**The package never imports surface-fx.** `@seansmith/surface-fx` appears only in the example app's dependencies. The default `<VistaSheet.Shadow />` has no dependency beyond React.
 
 ### Why this shape
 
-- **Render prop** (`<MorphSheet.Shadow>{(state) => …}</MorphSheet.Shadow>`): equal power, but every consumer re-declares the fixed positioning and the z-index, and gets one of them wrong. The slot owns the container so the consumer owns only the paint.
+- **Render prop** (`<VistaSheet.Shadow>{(state) => …}</VistaSheet.Shadow>`): equal power, but every consumer re-declares the fixed positioning and the z-index, and gets one of them wrong. The slot owns the container so the consumer owns only the paint.
 - **Data-attributes only, styled by consumer CSS**: cannot paint a WebGL canvas or a JS-computed radial mask. Insufficient for the actual target.
 - **A `shadow` prop on Root taking a component**: makes composition order implicit and reads badly in a compound API.
 
 ### The tradeoff you are buying
 
-Today the box-shadow is painted directly on `.triggerSurface` and `.sheet`. In this design it moves to the separate shadow layer, which means **if you do not render `<MorphSheet.Shadow />` you get a flat trigger with no shadow.**
+Today the box-shadow is painted directly on `.triggerSurface` and `.sheet`. In this design it moves to the separate shadow layer, which means **if you do not render `<VistaSheet.Shadow />` you get a flat trigger with no shadow.**
 
-That is deliberate. The alternative (keep a built-in shadow on the surfaces *and* offer a shadow layer) means swapping in the dither requires two edits: add the layer, and null out the built-in. That is the friction that makes people not bother. Radix makes the same call with `Dialog.Overlay`. `<MorphSheet.Shadow />` appears in every documentation example including the one-line copy-paste sample.
+That is deliberate. The alternative (keep a built-in shadow on the surfaces *and* offer a shadow layer) means swapping in the dither requires two edits: add the layer, and null out the built-in. That is the friction that makes people not bother. Radix makes the same call with `Dialog.Overlay`. `<VistaSheet.Shadow />` appears in every documentation example including the one-line copy-paste sample.
 
 ---
 
@@ -495,12 +495,12 @@ That is deliberate. The alternative (keep a built-in shadow on the surfaces *and
 ### Package
 
 ```
-morph-sheet/
+vista-sheet/
 ├── package.json              ~35    name, root-only exports, react+motion peers
 ├── tsconfig.json             ~20    device-frame's, verbatim
 ├── README.md                ~260    pitch → install → one copy-paste sample → prop tables
 └── src/
-    ├── index.ts              ~25    the MorphSheet namespace object, useMorphSheet, exported types
+    ├── index.ts              ~25    the VistaSheet namespace object, useVistaSheet, exported types
     ├── Root.tsx             ~180    context, open+anchor state, LayoutGroup, persistence, reduced-motion, id generation
     ├── Trigger.tsx             ~200    fixed drag wrapper, x/y MotionValues, drag + nearest-anchor snap, tap-vs-drag, trigger button, seed surface
     ├── Sheet.tsx            ~260    dialog surface, layoutId FLIP, borderRadius transform, swipe-to-close, placement from anchor
@@ -509,15 +509,15 @@ morph-sheet/
     ├── Close.tsx             ~35    close button, registers itself for the dev warning
     ├── Backdrop.tsx          ~45    visual scrim only
     ├── Shadow.tsx            ~95    shadow slot + asChild merge, writes geometry vars per frame
-    ├── context.ts            ~70    context type, useMorphSheet, the throw-outside-Root guard
+    ├── context.ts            ~70    context type, useVistaSheet, the throw-outside-Root guard
     ├── anchors.ts           ~180    seven-anchor model: nearestAnchor, restingLeft/Top, anchorCenter, sheetPlacement
     ├── motion.ts             ~75    default springs, internal choreography constants, transition merge
-    ├── useTriggerSize.ts     ~45    resolve the ramp to a number, write --morph-sheet-trigger-size, resize handling
+    ├── useTriggerSize.ts     ~45    resolve the ramp to a number, write --vista-sheet-trigger-size, resize handling
     ├── usePersistedAnchor.ts ~50    localStorage read + validate + write
     ├── useDialogBehavior.ts  ~95    scroll lock, focus trap, Escape, focus restore on exit-complete
     ├── readVarPx.ts          ~35    read a px custom property (radius tokens)
     ├── types.ts              ~60    AnchorId, Spring, MorphTransition, prop interfaces
-    ├── styles.module.css    ~380    all package CSS, --morph-sheet-* vars with fallbacks
+    ├── styles.module.css    ~380    all package CSS, --vista-sheet-* vars with fallbacks
     └── css-modules.d.ts       ~4    device-frame's file, verbatim
 ```
 
@@ -526,14 +526,14 @@ Roughly 1,900 lines. That is higher than the raw extraction estimate (~800 TS + 
 ### Example app
 
 ```
-morph-sheet/example/
+vista-sheet/example/
 ├── index.html            ~20
 ├── vite.config.ts         ~8
 ├── main.tsx              ~40    mount, palette toggle for light/midnight proof
 ├── IdentityTrigger.tsx  ~220    Sean's contact surface, built on the primitive
-├── DitherShadow.tsx     ~120    surface-fx dither layer through <MorphSheet.Shadow asChild>
+├── DitherShadow.tsx     ~120    surface-fx dither layer through <VistaSheet.Shadow asChild>
 ├── CloseMask.tsx         ~60    the trailing-paper mask, rebuilt off collapseProgress (see §8)
-└── example.module.css   ~200    the site's tokens mapped onto --morph-sheet-*
+└── example.module.css   ~200    the site's tokens mapped onto --vista-sheet-*
 ```
 
 ### Where surface-fx's conventions carry over, and where they do not
@@ -583,10 +583,10 @@ Do not carry over:
 
 ### What the consumer owns
 
-- Every semantic inside `<MorphSheet.Sheet>`: heading levels, landmarks, link text, reading order.
+- Every semantic inside `<VistaSheet.Sheet>`: heading levels, landmarks, link text, reading order.
 - Supplying both accessible names. Both are typed-required, so this is enforced, not merely asked for.
-- Rendering a visible `<MorphSheet.Close>`. The package does not place it, because placement is a design decision, but Root logs a dev-only warning if the sheet opens with none registered. Escape plus backdrop click is not sufficient for a touch user with a screen reader.
-- Color contrast of the content and of any `--morph-sheet-*` overrides.
+- Rendering a visible `<VistaSheet.Close>`. The package does not place it, because placement is a design decision, but Root logs a dev-only warning if the sheet opens with none registered. Escape plus backdrop click is not sufficient for a touch user with a screen reader.
+- Color contrast of the content and of any `--vista-sheet-*` overrides.
 - Any live-region announcements their content needs beyond the dialog role.
 
 ### Known gaps, stated rather than hidden
@@ -609,9 +609,9 @@ Do not carry over:
 
 **Uncertainty: low.** I would make this call again without hesitating.
 
-### B. `<MorphSheet.Shared>` is duplicated in both Trigger and Sheet, not hoisted to a Root prop
+### B. `<VistaSheet.Shared>` is duplicated in both Trigger and Sheet, not hoisted to a Root prop
 
-**Rejected:** `<MorphSheet.Root shared={<Avatar />}>`, with the package rendering it into both states automatically.
+**Rejected:** `<VistaSheet.Root shared={<Avatar />}>`, with the package rendering it into both states automatically.
 
 **Why rejected.** The shared element needs genuinely different layout in each state. In the trigger it is `inset: 2px` and clipped to a circle so the surface ring shows around it. In the sheet it is `position: absolute; top: 24px; left: 24px` at a fixed size, sitting over a spacer row (`ContactSheet.module.css:168-178`). A single hoisted node can only be styled by the package, which means the package would have to own sheet header layout. That is a content decision and it does not belong in a generic primitive. Duplicating the slot keeps layout with the consumer in both states.
 
@@ -627,18 +627,18 @@ Do not carry over:
 
 **Cost.** Someone who wants a materially different close choreography has to fork. Accepted. That is a fork worth forcing, because the alternative is a package that ships twenty ways to look wrong.
 
-**Uncertainty: medium.** This section used to flag `radiusCloseDelaySec: 1.5` as tuned to a 480px-wide, roughly 600px-tall sheet and wrong for a 900px one. It was worse than that — being wall-clock rather than progress-based, it was longer than a close takes at ANY sheet size, so it never let the radius round at all on the close direction and left the trigger resting as a squircle. It is gone; `radiusHoldFraction` alone carries the hold, and the rounding phase targets half the trigger's own box so it lands on the resting shape continuously. The remaining soft spot is that `sheetMaxWidth` is a prop while `--morph-sheet-sheet-max-width` is also a CSS variable; those two must not disagree, and the package should let the prop win and write the variable.
+**Uncertainty: medium.** This section used to flag `radiusCloseDelaySec: 1.5` as tuned to a 480px-wide, roughly 600px-tall sheet and wrong for a 900px one. It was worse than that — being wall-clock rather than progress-based, it was longer than a close takes at ANY sheet size, so it never let the radius round at all on the close direction and left the trigger resting as a squircle. It is gone; `radiusHoldFraction` alone carries the hold, and the rounding phase targets half the trigger's own box so it lands on the resting shape continuously. The remaining soft spot is that `sheetMaxWidth` is a prop while `--vista-sheet-sheet-max-width` is also a CSS variable; those two must not disagree, and the package should let the prop win and write the variable.
 
 ---
 
 ## 8. What I would cut from v0.1
 
-Ship this: `Root`, `Trigger`, `Sheet`, `Shared`, `Content`, `Item`, `Close`, `Shadow`, `useMorphSheet`. Roughly 1,400 lines. That is the smallest thing that is still the actual product.
+Ship this: `Root`, `Trigger`, `Sheet`, `Shared`, `Content`, `Item`, `Close`, `Shadow`, `useVistaSheet`. Roughly 1,400 lines. That is the smallest thing that is still the actual product.
 
 | Cut | Cost |
 | --- | --- |
-| **The entrance choreography** (WAAPI arrival stroke, impact ripple, velocity coupling) | Already out of scope per the extraction map; reconfirming it. Near-zero cost to the package. Real cost to the site: the trigger simply appears. The site keeps its own arrival animation on a wrapper, driven off `useMorphSheet().triggerRect`. Say this out loud in the migration plan so nobody discovers it during cutover. |
-| **`<MorphSheet.Backdrop>`** | Site default is already no scrim. Dismissal behavior still ships. A consumer who wants a dim scrim writes six lines of their own fixed div. Low. |
+| **The entrance choreography** (WAAPI arrival stroke, impact ripple, velocity coupling) | Already out of scope per the extraction map; reconfirming it. Near-zero cost to the package. Real cost to the site: the trigger simply appears. The site keeps its own arrival animation on a wrapper, driven off `useVistaSheet().triggerRect`. Say this out loud in the migration plan so nobody discovers it during cutover. |
+| **`<VistaSheet.Backdrop>`** | Site default is already no scrim. Dismissal behavior still ships. A consumer who wants a dim scrim writes six lines of their own fixed div. Low. |
 | **Controlled `anchor` + `onAnchorChange` as a controlled pair** | Ship uncontrolled and persisted only; keep `onAnchorChange` as a read-only notification. Cost: an app that wants to move the trigger programmatically (get out of the way of another modal) cannot. Real use case, not v0.1's. Low-medium. |
 | **The `anchors` subset prop and `edgeMargin`** | All six anchors at 16px. Cost: low, and it is additive later. |
 | **Arrow-key repositioning between anchors** | Roughly 20 lines and a genuine accessibility and delight win, but it does not exist in the shipped component and extraction is the wrong time to add behavior. Cost: a documented a11y gap that stays documented. |
@@ -650,8 +650,8 @@ That mask is roughly 50 lines of the least explicable code in `ContactSheet.tsx`
 
 But Sean's flagship example *does* have it, and cutting the mask outright would make the example visibly worse than the live site it replaces. That is not acceptable.
 
-So: **cut it from the package, rebuild it in the example app** off `useMorphSheet().collapseProgress`, in `example/CloseMask.tsx`. Roughly 60 lines applying a `maskImage` to `<MorphSheet.Sheet>` from outside.
+So: **cut it from the package, rebuild it in the example app** off `useVistaSheet().collapseProgress`, in `example/CloseMask.tsx`. Roughly 60 lines applying a `maskImage` to `<VistaSheet.Sheet>` from outside.
 
 This is the design's own validation test. If that mask can be rebuilt from outside the package with no additional API, the escape hatch in §3 is proven sufficient and the internal-constants decision in §7C is safe. If it cannot, the hatch is inadequate and we learn it in week one, on a case we already understand, instead of after v1 on a case we do not.
 
-Build the example's `CloseMask.tsx` **first**, before finalizing `useMorphSheet()`'s shape. It is the cheapest possible check on the most consequential decision in this document.
+Build the example's `CloseMask.tsx` **first**, before finalizing `useVistaSheet()`'s shape. It is the cheapest possible check on the most consequential decision in this document.

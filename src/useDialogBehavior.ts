@@ -47,7 +47,7 @@ function hideOutsideSiblings(target: Element): () => void {
  *
  * Focus lands on the dialog panel itself on open (not the first control) so
  * opening the sheet never pre-highlights a link. Focus restore to the
- * trigger happens on `onExitComplete`, called by <MorphSheet.Sheet>'s
+ * trigger happens on `onExitComplete`, called by <VistaSheet.Sheet>'s
  * AnimatePresence — not at the moment `open` flips false — so the restore
  * doesn't cause a visible scroll jump mid-close.
  */
@@ -93,16 +93,16 @@ export function useDialogBehavior({
     if (!panel) return;
     // Hide from the WIDGET's root, not the dialog panel node itself. The
     // panel, the trigger and the shadow are all siblings inside the
-    // same <MorphSheet.Root> wrapper (this package never portals — see
+    // same <VistaSheet.Root> wrapper (this package never portals — see
     // docs/PACKAGE-DESIGN.md), and the trigger is contractually required to
     // keep reflecting aria-expanded/aria-controls to assistive tech while
     // the dialog is open (§6). Hiding from the panel's own siblings would
     // aria-hide the trigger along with everything else. Hiding from the
     // root wrapper's siblings hides real page content while leaving the
-    // whole morph-sheet widget (trigger included) in the accessibility tree
+    // whole vista-sheet widget (trigger included) in the accessibility tree
     // — the same effective boundary Radix/Base UI get for free from their
     // portal root.
-    const root = panel.closest("[data-morph-sheet-root]") ?? panel;
+    const root = panel.closest("[data-vista-sheet-root]") ?? panel;
     return hideOutsideSiblings(root);
   }, [isOpen, panelRef]);
 

@@ -1,16 +1,16 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useMorphSheetInternal } from "./context";
+import { useVistaSheetInternal } from "./context";
 import type { ItemProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <MorphSheet.Item> — a staggered child of <MorphSheet.Content>. No props
+ * <VistaSheet.Item> — a staggered child of <VistaSheet.Content>. No props
  * beyond children/className: the stagger interval is internal (§3).
  */
 export function Item({ children, className }: ItemProps) {
-  const ctx = useMorphSheetInternal("Item");
+  const ctx = useVistaSheetInternal("Item");
   const variants = ctx.reduceMotion
     ? { hidden: { opacity: 0 }, visible: { opacity: 1 } }
     : {
@@ -25,7 +25,7 @@ export function Item({ children, className }: ItemProps) {
   return (
     <motion.div
       className={`${styles.item} ${className ?? ""}`}
-      data-morph-sheet-part="item"
+      data-vista-sheet-part="item"
       variants={variants}
     >
       {children}

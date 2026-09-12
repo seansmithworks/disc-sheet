@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { useMorphSheetInternal } from "./context";
+import { useVistaSheetInternal } from "./context";
 import {
   CLOSE_EXIT_SEC,
   CLOSE_FADE_IN_SEC,
@@ -35,7 +35,7 @@ function DefaultCloseGlyph() {
 }
 
 /**
- * <MorphSheet.Close> — the close button. Registers itself in context on
+ * <VistaSheet.Close> — the close button. Registers itself in context on
  * mount so Root/Sheet can dev-warn if the sheet opens with no visible close
  * control rendered (docs/PACKAGE-DESIGN.md §1). Escape and backdrop click are
  * not a substitute.
@@ -46,7 +46,7 @@ function DefaultCloseGlyph() {
  * layout effect has reset it to 1 for this open.
  */
 export function Close({ children, className, ...aria }: CloseProps) {
-  const ctx = useMorphSheetInternal("Close");
+  const ctx = useVistaSheetInternal("Close");
   const { registerClose, setOpen, collapseProgress, reduceMotion } = ctx;
   const [revealed, setRevealed] = useState(false);
 
@@ -73,7 +73,7 @@ export function Close({ children, className, ...aria }: CloseProps) {
     <motion.button
       type="button"
       className={`${styles.closeButton} ${className ?? ""}`}
-      data-morph-sheet-part="close"
+      data-vista-sheet-part="close"
       onClick={() => setOpen(false)}
       initial={hidden}
       animate={revealed ? shown : hidden}

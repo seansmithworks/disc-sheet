@@ -2,40 +2,40 @@
 
 import { cloneElement, isValidElement, useEffect, useRef } from "react";
 import type { CSSProperties, ReactElement } from "react";
-import { useMorphSheetInternal } from "./context";
+import { useVistaSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
 import type { ShadowProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <MorphSheet.Shadow> — the shadow seam (docs/PACKAGE-DESIGN.md §4).
+ * <VistaSheet.Shadow> — the shadow seam (docs/PACKAGE-DESIGN.md §4).
  *
  * Default: renders one fixed, aria-hidden, pointer-events:none div at
  * z-1, sized/positioned to the interpolated silhouette between the trigger
  * circle and the sheet box. It paints BOTH looks on that one silhouette —
- * the thin disc shadow (--morph-sheet-shadow) and the sheet's heavier
- * resting shadow (--morph-sheet-sheet-shadow), as two layers (.shadow::before
+ * the thin disc shadow (--vista-sheet-shadow) and the sheet's heavier
+ * resting shadow (--vista-sheet-sheet-shadow), as two layers (.shadow::before
  * / ::after in styles.module.css) crossfaded by opacity as a function of
  * collapseProgress. This is the only place either shadow is painted (DESIGN.md
  * §4.1 "one surface, one clock") — the sheet used to paint its own resting
- * shadow via `.sheet[data-morph-sheet-settled]`, which was a second clock and
+ * shadow via `.sheet[data-vista-sheet-settled]`, which was a second clock and
  * produced a one-frame pop when a demo mask clipped it at the phase boundary.
  * Zero dependencies beyond React.
  *
  * The crossfade window (where in collapseProgress the handoff happens) is a
  * taste value, exposed as two consumer-overridable CSS custom properties —
- * --morph-sheet-sheet-shadow-fade-start / -fade-end — read the same way
- * --morph-sheet-sheet-radius already is, via readVarPx.
+ * --vista-sheet-sheet-shadow-fade-start / -fade-end — read the same way
+ * --vista-sheet-sheet-radius already is, via readVarPx.
  *
  * asChild: clones the single child and merges the fixed positioning,
  * z-index, aria-hidden, pointer-events, data-* attributes, and all
- * --morph-sheet-shadow-* custom properties (including the two crossfade
+ * --vista-sheet-shadow-* custom properties (including the two crossfade
  * opacities) onto it — the shape a consumer swaps in a
  * `@seansmithworks/surface-fx` dither layer through. This package never
  * imports surface-fx (docs/PACKAGE-DESIGN.md §4).
  */
 export function Shadow({ className, asChild, children }: ShadowProps) {
-  const ctx = useMorphSheetInternal("Shadow");
+  const ctx = useVistaSheetInternal("Shadow");
   const {
     collapseProgress,
     triggerRect,
@@ -81,7 +81,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       // The silhouette's corner radius interpolates between the SHEET's own
       // corner radius (not its half-width, which produced a stadium instead
       // of the sheet's actual rounded-rect silhouette) and the trigger's radius.
-      const sheetRadius = readVarPx(el, "--morph-sheet-sheet-radius", 32);
+      const sheetRadius = readVarPx(el, "--vista-sheet-sheet-radius", 32);
       const radius = sheetRadius + (trigger.radius - sheetRadius) * p;
 
       // Crossfade window: the heavy sheet shadow is fully in at p=0 (open,
@@ -97,12 +97,12 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const pClamped = p < 0 ? 0 : p > 1 ? 1 : p;
       const fadeStart = readVarPx(
         el,
-        "--morph-sheet-sheet-shadow-fade-start",
+        "--vista-sheet-sheet-shadow-fade-start",
         0,
       );
       const fadeEnd = readVarPx(
         el,
-        "--morph-sheet-sheet-shadow-fade-end",
+        "--vista-sheet-sheet-shadow-fade-end",
         0.25,
       );
       const span = fadeEnd - fadeStart;
@@ -114,20 +114,20 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
           : Math.min(1, Math.max(0, (fadeEnd - pClamped) / span));
       const discShadowOpacity = 1 - sheetShadowOpacity;
 
-      el.style.setProperty("--morph-sheet-collapse", String(p));
+      el.style.setProperty("--vista-sheet-collapse", String(p));
       el.style.setProperty(
-        "--morph-sheet-shadow-opacity",
+        "--vista-sheet-shadow-opacity",
         String(discShadowOpacity),
       );
       el.style.setProperty(
-        "--morph-sheet-sheet-shadow-opacity",
+        "--vista-sheet-sheet-shadow-opacity",
         String(sheetShadowOpacity),
       );
-      el.style.setProperty("--morph-sheet-shadow-x", `${cx}px`);
-      el.style.setProperty("--morph-sheet-shadow-y", `${cy}px`);
-      el.style.setProperty("--morph-sheet-shadow-w", `${halfW}px`);
-      el.style.setProperty("--morph-sheet-shadow-h", `${halfH}px`);
-      el.style.setProperty("--morph-sheet-shadow-radius", `${radius}px`);
+      el.style.setProperty("--vista-sheet-shadow-x", `${cx}px`);
+      el.style.setProperty("--vista-sheet-shadow-y", `${cy}px`);
+      el.style.setProperty("--vista-sheet-shadow-w", `${halfW}px`);
+      el.style.setProperty("--vista-sheet-shadow-h", `${halfH}px`);
+      el.style.setProperty("--vista-sheet-shadow-radius", `${radius}px`);
       el.style.width = `${halfW * 2}px`;
       el.style.height = `${halfH * 2}px`;
       el.style.left = `${cx - halfW}px`;
@@ -151,7 +151,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
 
   const sharedProps = {
     "aria-hidden": true as const,
-    "data-morph-sheet-part": "shadow",
+    "data-vista-sheet-part": "shadow",
     "data-state": dataState,
   };
 

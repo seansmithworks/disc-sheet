@@ -1,16 +1,16 @@
 {
-  "name": "@seansmithworks/morph-sheet",
+  "name": "@seansmithworks/vista-sheet",
   "version": "0.1.0",
   "type": "module",
   "description": "Draggable trigger that morphs into a modal sheet. Generic React primitive, compound-component API.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seansmithworks/morph-sheet.git"
+    "url": "git+https://github.com/seansmithworks/vista-sheet.git"
   },
-  "homepage": "https://github.com/seansmithworks/morph-sheet#readme",
+  "homepage": "https://github.com/seansmithworks/vista-sheet#readme",
   "bugs": {
-    "url": "https://github.com/seansmithworks/morph-sheet/issues"
+    "url": "https://github.com/seansmithworks/vista-sheet/issues"
   },
   "keywords": [
     "react",
@@ -39,7 +39,7 @@
   },
   "types": "./dist/index.d.ts",
   "bin": {
-    "morph-sheet": "./bin/morph-sheet.mjs"
+    "vista-sheet": "./bin/vista-sheet.mjs"
   },
   "files": [
     "dist",

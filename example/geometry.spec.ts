@@ -9,7 +9,7 @@ import { ALL_ANCHORS, type AnchorId } from "../src/anchors";
  *   (a) trigger-side vs sheet-side <Shared> box size  — B1
  *   (b) sheet border-radius > 0 in both motion modes — B3
  *   (c) content sits inside the sheet's padding box — M4
- *   (d) --morph-sheet-z / --morph-sheet-sheet-max-width respond to props — M1/M2
+ *   (d) --vista-sheet-z / --vista-sheet-sheet-max-width respond to props — M1/M2
  *
  * FIXED — Defect 3 (stale first-open shared-layoutId snapshot). Tests (e),
  * (j), and (k) are green. FIVE candidate fixes were tried and rejected
@@ -35,12 +35,12 @@ import { ALL_ANCHORS, type AnchorId } from "../src/anchors";
  * render (still needed for hydration-safe position math in anchors.ts), but
  * it no longer sizes any FLIP-tracked element. Root.tsx now renders a
  * scoped `<style>` block with real `@media` rules for
- * `--morph-sheet-trigger-size`, derived from `resolveTriggerSize` (the ramp's one
+ * `--vista-sheet-trigger-size`, derived from `resolveTriggerSize` (the ramp's one
  * source of truth) at the ramp's own breakpoints. A real `@media` query
  * resolves correctly in the browser before any script runs, so there is
  * never a stale value for Motion to snapshot in the first place. Neither
  * Root.tsx's wrapper nor Trigger.tsx's drag wrapper write
- * `--morph-sheet-trigger-size` inline anymore — an inline write on either would
+ * `--vista-sheet-trigger-size` inline anymore — an inline write on either would
  * have kept beating the `<style>` block's `@media` rules regardless of
  * viewport, which is why Trigger.tsx's drag wrapper (an ANCESTOR of the
  * trigger-side `.shared`) needed the same change as Root.tsx, not just one of
@@ -72,7 +72,7 @@ async function gotoExample(
   }
   const qs = query ? `?${new URLSearchParams(query).toString()}` : "";
   await page.goto(`/${qs}`);
-  await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+  await page.waitForSelector('[data-vista-sheet-part="trigger"]');
 }
 
 /** Poll a locator's boundingBox().width until it stops changing between two
@@ -94,7 +94,7 @@ async function waitForStableWidth(
 
 async function openSheet(page: Page) {
   await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-  const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+  const sheet = page.locator('[data-vista-sheet-part="sheet"]');
   await sheet.waitFor();
   // Let the FLIP/cross-fade fully settle so offsetWidth/Height reflect the
   // resting geometry, not a mid-spring frame.
@@ -102,7 +102,7 @@ async function openSheet(page: Page) {
 }
 
 /**
- * Frame-samples `[data-morph-sheet-part="shadow"]` against whichever surface
+ * Frame-samples `[data-vista-sheet-part="shadow"]` against whichever surface
  * node currently shares its layoutId (`sheet` while opening, `trigger-surface`
  * while closing — both project to the same box during the FLIP, so either
  * selector matching is sufficient) for `durationMs`, via an in-page rAF loop
@@ -136,10 +136,10 @@ async function sampleShadowSurfaceDelta(page: Page, durationMs: number) {
       const start = performance.now();
       function tick() {
         const surface = document.querySelector(
-          '[data-morph-sheet-part="sheet"], [data-morph-sheet-part="trigger-surface"]',
+          '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
         );
         const shadow = document.querySelector(
-          '[data-morph-sheet-part="shadow"]',
+          '[data-vista-sheet-part="shadow"]',
         );
         if (surface && shadow) {
           const s = surface.getBoundingClientRect();
@@ -172,7 +172,7 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
 
         const triggerShared = page.locator(
-          '[data-morph-sheet-part="shared"][data-morph-sheet-slot="trigger"]',
+          '[data-vista-sheet-part="shared"][data-vista-sheet-slot="trigger"]',
         );
         // useTriggerSize's SSR-safe initializer (M6) always resolves at the
         // ramp's base size first, then promotes to the real size in a
@@ -188,7 +188,7 @@ for (const viewport of VIEWPORTS) {
         await openSheet(page);
 
         const sheetShared = page.locator(
-          '[data-morph-sheet-part="shared"][data-morph-sheet-slot="sheet"]',
+          '[data-vista-sheet-part="shared"][data-vista-sheet-slot="sheet"]',
         );
         const sheetBox = await sheetShared.boundingBox();
         expect(
@@ -210,7 +210,7 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
         await openSheet(page);
 
-        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
         const radius = await sheet.evaluate((el) => {
           const cs = getComputedStyle(el);
           // borderRadius is the shorthand; read one corner explicitly.
@@ -229,8 +229,8 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
         await openSheet(page);
 
-        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
-        const content = page.locator('[data-morph-sheet-part="content"]');
+        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+        const content = page.locator('[data-vista-sheet-part="content"]');
 
         const sheetBox = (await sheet.boundingBox())!;
         const contentBox = (await content.boundingBox())!;
@@ -256,7 +256,7 @@ for (const viewport of VIEWPORTS) {
         );
       });
 
-      test("(d) --morph-sheet-z and --morph-sheet-sheet-max-width respond to props", async ({
+      test("(d) --vista-sheet-z and --vista-sheet-sheet-max-width respond to props", async ({
         page,
       }) => {
         await gotoExample(page, reduced, {
@@ -264,13 +264,13 @@ for (const viewport of VIEWPORTS) {
           sheetMaxWidth: "600",
         });
 
-        const rootEl = page.locator("[data-morph-sheet-root]");
+        const rootEl = page.locator("[data-vista-sheet-root]");
         const z = await rootEl.evaluate((el) =>
-          getComputedStyle(el).getPropertyValue("--morph-sheet-z").trim(),
+          getComputedStyle(el).getPropertyValue("--vista-sheet-z").trim(),
         );
         const maxWidth = await rootEl.evaluate((el) =>
           getComputedStyle(el)
-            .getPropertyValue("--morph-sheet-sheet-max-width")
+            .getPropertyValue("--vista-sheet-sheet-max-width")
             .trim(),
         );
         expect(z).toBe("500");
@@ -278,7 +278,7 @@ for (const viewport of VIEWPORTS) {
 
         // And it must actually reach the rendered layers, not just the var.
         const triggerRoot = page.locator(
-          '[data-morph-sheet-part="trigger-root"]',
+          '[data-vista-sheet-part="trigger-root"]',
         );
         const triggerZ = await triggerRoot.evaluate(
           (el) => getComputedStyle(el).zIndex,
@@ -286,9 +286,9 @@ for (const viewport of VIEWPORTS) {
         expect(triggerZ).toBe("500");
 
         await openSheet(page);
-        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
         const sheetWidth = (await sheet.boundingBox())!.width;
-        // .sheet's CSS width is min(--morph-sheet-sheet-max-width, 100vw -
+        // .sheet's CSS width is min(--vista-sheet-sheet-max-width, 100vw -
         // 32px) — at our narrowest viewport (375) the viewport clamp wins,
         // not the 600px max-width, so the expectation has to account for
         // that clamp rather than assume 600 always renders.
@@ -314,7 +314,7 @@ for (const viewport of VIEWPORTS) {
         const cy = triggerBox.y + triggerBox.height / 2;
 
         await trigger.click();
-        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
         await sheet.waitFor();
         await waitForStableWidth(page, sheet);
 
@@ -326,8 +326,8 @@ for (const viewport of VIEWPORTS) {
             const el = document.elementFromPoint(x, y);
             return (
               el
-                ?.closest("[data-morph-sheet-part]")
-                ?.getAttribute("data-morph-sheet-part") ?? null
+                ?.closest("[data-vista-sheet-part]")
+                ?.getAttribute("data-vista-sheet-part") ?? null
             );
           },
           [cx, cy],
@@ -341,7 +341,7 @@ for (const viewport of VIEWPORTS) {
 
       // Review finding #8, resurrected as a real gate — and it caught a
       // shipped defect immediately. The trigger's RESTING shape is CSS
-      // (`border-radius: var(--morph-sheet-trigger-radius, 9999px)`), but the
+      // (`border-radius: var(--vista-sheet-trigger-radius, 9999px)`), but the
       // close morph binds a numeric MotionValue over it (M1) and Motion
       // writes that inline: scale-corrected percentages while the projection
       // runs, then one final px keyframe when it settles. So "the trigger is a
@@ -366,7 +366,7 @@ for (const viewport of VIEWPORTS) {
           await page.waitForTimeout(1600);
           const r = await page.evaluate(() => {
             const el = document.querySelector(
-              '[data-morph-sheet-part="trigger-surface"]',
+              '[data-vista-sheet-part="trigger-surface"]',
             ) as HTMLElement | null;
             if (!el) return null;
             const box = el.getBoundingClientRect();
@@ -400,7 +400,7 @@ for (const viewport of VIEWPORTS) {
           ).toBe(true);
           expect(
             r!.inline === "" || isCircular(r!.inline),
-            `${variant}: a stale inline border-radius (${r!.inline}) survived the morph and beats the --morph-sheet-trigger-radius token`,
+            `${variant}: a stale inline border-radius (${r!.inline}) survived the morph and beats the --vista-sheet-trigger-radius token`,
           ).toBe(true);
         };
 
@@ -526,7 +526,7 @@ for (const viewport of VIEWPORTS) {
           page,
         }) => {
           await page.goto("/flagship.html");
-          await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+          await page.waitForSelector('[data-vista-sheet-part="trigger"]');
           // The flagship's text faces are used ONLY inside its sheet, so they
           // are still unloaded when the trigger is tapped and the swap re-lays
           // the sheet out mid-morph (measured at 390x844: 592 -> 618px tall,
@@ -540,10 +540,10 @@ for (const viewport of VIEWPORTS) {
           );
           await waitForStableWidth(
             page,
-            page.locator('[data-morph-sheet-part="trigger"]'),
+            page.locator('[data-vista-sheet-part="trigger"]'),
           );
 
-          await page.locator('[data-morph-sheet-part="trigger"]').click();
+          await page.locator('[data-vista-sheet-part="trigger"]').click();
           const openResult = await sampleShadowSurfaceDelta(page, 1200);
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} flagship open: ` +
@@ -574,9 +574,9 @@ for (const viewport of VIEWPORTS) {
           await gotoExample(page, reduced);
           await openSheet(page);
 
-          const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+          const sheet = page.locator('[data-vista-sheet-part="sheet"]');
           const box = (await sheet.boundingBox())!;
-          // Top strip of the sheet, above <MorphSheet.Shared>'s 24px margin
+          // Top strip of the sheet, above <VistaSheet.Shared>'s 24px margin
           // and the Close button inside Content — a safe drag-handle point
           // that isn't an interactive child.
           const startX = box.x + box.width / 2;
@@ -597,10 +597,10 @@ for (const viewport of VIEWPORTS) {
 
           const held = await page.evaluate(() => {
             const surface = document.querySelector(
-              '[data-morph-sheet-part="sheet"]',
+              '[data-vista-sheet-part="sheet"]',
             )!;
             const shadow = document.querySelector(
-              '[data-morph-sheet-part="shadow"]',
+              '[data-vista-sheet-part="shadow"]',
             )!;
             const s = surface.getBoundingClientRect();
             const sh = shadow.getBoundingClientRect();
@@ -706,7 +706,7 @@ for (const viewport of VIEWPORTS) {
           await gotoExample(page, reduced);
           const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
           await trigger.click();
-          const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+          const sheet = page.locator('[data-vista-sheet-part="sheet"]');
           await sheet.waitFor();
           await waitForStableWidth(page, sheet);
 
@@ -905,7 +905,7 @@ for (const viewport of VIEWPORTS) {
                 const start = performance.now();
                 function tick() {
                   const el = document.querySelector(
-                    '[data-morph-sheet-part="sheet"], [data-morph-sheet-part="trigger-surface"]',
+                    '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
                   );
                   if (el) {
                     const rect = el.getBoundingClientRect();
@@ -971,8 +971,8 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
 
     await page.waitForTimeout(120);
     const midDelay = await page.evaluate(() => {
-      const surface = document.querySelector('[data-morph-sheet-part="sheet"]');
-      const shadow = document.querySelector('[data-morph-sheet-part="shadow"]');
+      const surface = document.querySelector('[data-vista-sheet-part="sheet"]');
+      const shadow = document.querySelector('[data-vista-sheet-part="shadow"]');
       if (!surface || !shadow) return null;
       const s = surface.getBoundingClientRect();
       const sh = shadow.getBoundingClientRect();
@@ -999,14 +999,14 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
 /**
  * Frame-samples every element inside the trigger root or the sheet (both
  * subtrees, every descendant) for a computed `box-shadow` other than
- * `none`, for `durationMs`, via an in-page rAF loop. `[data-morph-sheet-
+ * `none`, for `durationMs`, via an in-page rAF loop. `[data-vista-sheet-
  * part="shadow"]` and its descendants are excluded — that element (and only
  * that element, via its ::before/::after) is the one documented painter
  * (DESIGN.md §4.1) — but it is never a descendant of trigger-root or sheet
  * in this example (Shadow, Trigger, and Sheet are siblings under
- * MorphSheet.Root), so the exclusion here only matters if a future example
+ * VistaSheet.Root), so the exclusion here only matters if a future example
  * nests it. Returns the first offending element found (tag + its
- * data-morph-sheet-part, if any, + the box-shadow value) or null.
+ * data-vista-sheet-part, if any, + the box-shadow value) or null.
  */
 async function sampleForStrayBoxShadow(page: Page, durationMs: number) {
   return page.evaluate((duration) => {
@@ -1024,18 +1024,18 @@ async function sampleForStrayBoxShadow(page: Page, durationMs: number) {
       function tick() {
         if (!found) {
           const nodes = document.querySelectorAll(
-            '[data-morph-sheet-part="trigger-root"], ' +
-              '[data-morph-sheet-part="trigger-root"] *, ' +
-              '[data-morph-sheet-part="sheet"], ' +
-              '[data-morph-sheet-part="sheet"] *',
+            '[data-vista-sheet-part="trigger-root"], ' +
+              '[data-vista-sheet-part="trigger-root"] *, ' +
+              '[data-vista-sheet-part="sheet"], ' +
+              '[data-vista-sheet-part="sheet"] *',
           );
           for (const el of Array.from(nodes)) {
-            if (el.closest('[data-morph-sheet-part="shadow"]')) continue;
+            if (el.closest('[data-vista-sheet-part="shadow"]')) continue;
             const bs = getComputedStyle(el).boxShadow;
             if (bs && bs !== "none") {
               found = {
                 tag: el.tagName.toLowerCase(),
-                part: el.getAttribute("data-morph-sheet-part"),
+                part: el.getAttribute("data-vista-sheet-part"),
                 boxShadow: bs,
               };
               break;
@@ -1066,7 +1066,7 @@ async function sampleForStrayMask(page: Page, durationMs: number) {
       let firstNonNone = "";
       const start = performance.now();
       function tick() {
-        const sheet = document.querySelector('[data-morph-sheet-part="sheet"]');
+        const sheet = document.querySelector('[data-vista-sheet-part="sheet"]');
         if (sheet) {
           const mi = getComputedStyle(sheet).maskImage;
           if (mi && mi !== "none" && !firstNonNone) firstNonNone = mi;
@@ -1084,13 +1084,13 @@ async function sampleForStrayMask(page: Page, durationMs: number) {
 
 /**
  * (p) Regression gate for the shadow-pop fix: one painter, one clock
- * (DESIGN.md §4.1). Before the fix, `.sheet[data-morph-sheet-settled]`
- * painted its own `--morph-sheet-sheet-shadow` box-shadow starting 240ms
+ * (DESIGN.md §4.1). Before the fix, `.sheet[data-vista-sheet-settled]`
+ * painted its own `--vista-sheet-sheet-shadow` box-shadow starting 240ms
  * after settle — a second painter/second clock that a demo close-mask
  * (driven by collapseProgress velocity, itself a symptom of the same
  * "second clock" class of bug) could clip for one frame. Deliberately broken
  * to confirm this test can fail: restoring that CSS rule (uncommented,
- * `[data-morph-sheet-settled] { box-shadow: var(--morph-sheet-sheet-shadow, ...) }`)
+ * `[data-vista-sheet-settled] { box-shadow: var(--vista-sheet-sheet-shadow, ...) }`)
  * turned this red — the sheet's computed box-shadow was no longer "none"
  * once settled — then reverted, both checked in the shadow-pop-fix commit.
  */
@@ -1106,7 +1106,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
 
     // Frame-sample the sheet's COMPUTED box-shadow (not the inline style —
     // this must catch a shadow painted by any CSS rule, including a
-    // resurrected `[data-morph-sheet-settled]` one) for 1.2s, covering the
+    // resurrected `[data-vista-sheet-settled]` one) for 1.2s, covering the
     // open spring's settle. Any non-"none" value at any sampled frame fails.
     const seenBoxShadow = await page.evaluate((duration) => {
       return new Promise<string>((resolve) => {
@@ -1114,7 +1114,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
         const start = performance.now();
         function tick() {
           const sheet = document.querySelector(
-            '[data-morph-sheet-part="sheet"]',
+            '[data-vista-sheet-part="sheet"]',
           );
           if (sheet) {
             const bs = getComputedStyle(sheet).boxShadow;
@@ -1137,20 +1137,20 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     );
     expect(seenBoxShadow).toBe("");
 
-    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
     await waitForStableWidth(page, sheet);
 
     const restState = await page.evaluate(() => {
-      const sheetEl = document.querySelector('[data-morph-sheet-part="sheet"]');
+      const sheetEl = document.querySelector('[data-vista-sheet-part="sheet"]');
       const shadowEl = document.querySelector(
-        '[data-morph-sheet-part="shadow"]',
+        '[data-vista-sheet-part="shadow"]',
       );
       return {
         sheetBoxShadow: sheetEl ? getComputedStyle(sheetEl).boxShadow : null,
         sheetMaskImage: sheetEl ? getComputedStyle(sheetEl).maskImage : null,
         sheetShadowOpacity: shadowEl
           ? getComputedStyle(shadowEl)
-              .getPropertyValue("--morph-sheet-sheet-shadow-opacity")
+              .getPropertyValue("--vista-sheet-sheet-shadow-opacity")
               .trim()
           : null,
       };
@@ -1158,7 +1158,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     console.log(
       `[geometry] (p) at open rest: box-shadow=${restState.sheetBoxShadow}, ` +
         `mask-image=${restState.sheetMaskImage}, ` +
-        `--morph-sheet-sheet-shadow-opacity=${restState.sheetShadowOpacity}`,
+        `--vista-sheet-sheet-shadow-opacity=${restState.sheetShadowOpacity}`,
     );
     expect(restState.sheetBoxShadow).toBe("none");
     expect(["none", null]).toContain(restState.sheetMaskImage);
@@ -1197,7 +1197,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     );
     expect(openBoxShadow, "open->settle").toBeNull();
 
-    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
     await waitForStableWidth(page, sheet);
 
     const restBoxShadow = await sampleForStrayBoxShadow(page, 200);
@@ -1243,7 +1243,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     await gotoExample(page, false);
     const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
     await trigger.click();
-    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
     await sheet.waitFor();
     await waitForStableWidth(page, sheet);
 
@@ -1263,7 +1263,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
 
     await waitForStableWidth(page, sheet);
     const maskAtRest = await page.evaluate(() => {
-      const sheetEl = document.querySelector('[data-morph-sheet-part="sheet"]');
+      const sheetEl = document.querySelector('[data-vista-sheet-part="sheet"]');
       return sheetEl ? getComputedStyle(sheetEl).maskImage : null;
     });
     console.log(`[geometry] (p3) mask-image at rest: ${maskAtRest}`);
@@ -1283,7 +1283,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
  * algebraically invariant. The center anchor pins BOTH top and bottom, so
  * bottom isn't a distinguishing axis here; centre-offset is.
  */
-const ANCHOR_STORAGE_KEY = "morph-sheet-anchor";
+const ANCHOR_STORAGE_KEY = "vista-sheet-anchor";
 
 async function gotoWithAnchor(page: Page, anchor: string, path = "/") {
   await page.addInitScript(
@@ -1293,7 +1293,7 @@ async function gotoWithAnchor(page: Page, anchor: string, path = "/") {
     [ANCHOR_STORAGE_KEY, anchor] as [string, string],
   );
   await page.goto(path);
-  await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+  await page.waitForSelector('[data-vista-sheet-part="trigger"]');
 }
 
 /** Same rAF sampling loop as sampleShadowSurfaceDelta, plus the two
@@ -1314,10 +1314,10 @@ async function sampleCenterAnchorDelta(page: Page, durationMs: number) {
       const start = performance.now();
       function tick() {
         const surface = document.querySelector(
-          '[data-morph-sheet-part="sheet"], [data-morph-sheet-part="trigger-surface"]',
+          '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
         );
         const shadow = document.querySelector(
-          '[data-morph-sheet-part="shadow"]',
+          '[data-vista-sheet-part="shadow"]',
         );
         if (surface && shadow) {
           const s = surface.getBoundingClientRect();
@@ -1373,7 +1373,7 @@ test.describe("center anchor", () => {
       await page.setViewportSize(viewport);
       await gotoWithAnchor(page, "center");
 
-      const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+      const trigger = page.locator('[data-vista-sheet-part="trigger"]');
       await waitForStableWidth(page, trigger);
       const box = (await trigger.boundingBox())!;
       const cx = box.x + box.width / 2;
@@ -1397,19 +1397,19 @@ test.describe("center anchor", () => {
     // scrolls, rather than fitting and making the height cap moot.
     await gotoWithAnchor(page, "center", "/flagship.html");
 
-    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
     await trigger.click();
-    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
     await sheet.waitFor();
     await waitForStableWidth(page, sheet);
 
     const metrics = await page.evaluate(() => {
       const sheetEl = document.querySelector(
-        '[data-morph-sheet-part="sheet"]',
+        '[data-vista-sheet-part="sheet"]',
       )!;
       const box = sheetEl.getBoundingClientRect();
       const content = sheetEl.querySelector(
-        '[data-morph-sheet-part="content"]',
+        '[data-vista-sheet-part="content"]',
       ) as HTMLElement | null;
       return {
         top: box.top,
@@ -1447,7 +1447,7 @@ test.describe("center anchor", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoWithAnchor(page, "center");
-    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
 
     // Open.
     await trigger.click();
@@ -1483,7 +1483,7 @@ test.describe("center anchor", () => {
 
     // Swipe close.
     await trigger.click();
-    const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
     await sheet.waitFor();
     await waitForStableWidth(page, sheet);
     const box = (await sheet.boundingBox())!;
@@ -1511,7 +1511,7 @@ test.describe("center anchor", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoWithAnchor(page, "center");
-    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
     await trigger.click();
     await page.waitForTimeout(900);
     await page.keyboard.press("Escape");
@@ -1519,7 +1519,7 @@ test.describe("center anchor", () => {
 
     const r = await page.evaluate(() => {
       const el = document.querySelector(
-        '[data-morph-sheet-part="trigger-surface"]',
+        '[data-vista-sheet-part="trigger-surface"]',
       ) as HTMLElement | null;
       if (!el) return null;
       const box = el.getBoundingClientRect();
@@ -1567,13 +1567,13 @@ test.describe("center anchor", () => {
     await page.waitForTimeout(900); // let the snap spring settle
 
     const persisted = await page.evaluate(() =>
-      window.localStorage.getItem("morph-sheet-anchor"),
+      window.localStorage.getItem("vista-sheet-anchor"),
     );
     expect(persisted).toBe("center");
 
     await page.reload();
-    await page.waitForSelector('[data-morph-sheet-part="trigger"]');
-    const restoredTrigger = page.locator('[data-morph-sheet-part="trigger"]');
+    await page.waitForSelector('[data-vista-sheet-part="trigger"]');
+    const restoredTrigger = page.locator('[data-vista-sheet-part="trigger"]');
     await waitForStableWidth(page, restoredTrigger);
     const restoredBox = (await restoredTrigger.boundingBox())!;
     expect(
@@ -1585,7 +1585,7 @@ test.describe("center anchor", () => {
 
     // A legitimate persisted non-center anchor still restores correctly.
     await gotoWithAnchor(page, "top-right");
-    const topRightTrigger = page.locator('[data-morph-sheet-part="trigger"]');
+    const topRightTrigger = page.locator('[data-vista-sheet-part="trigger"]');
     await waitForStableWidth(page, topRightTrigger);
     const topRightBox = (await topRightTrigger.boundingBox())!;
     expect(topRightBox.x + topRightBox.width).toBeGreaterThan(1280 - 32 - 16);
@@ -1596,7 +1596,7 @@ test.describe("center anchor", () => {
     // rejected by usePersistedAnchor's isAnchorId guard and falls back to
     // DEFAULT_ANCHOR ("bottom-center"), never to the invalid value itself.
     await gotoWithAnchor(page, "middle-center");
-    const fallbackTrigger = page.locator('[data-morph-sheet-part="trigger"]');
+    const fallbackTrigger = page.locator('[data-vista-sheet-part="trigger"]');
     await waitForStableWidth(page, fallbackTrigger);
     const fallbackBox = (await fallbackTrigger.boundingBox())!;
     // bottom-center IS horizontally centered too (same as the real center
@@ -1622,7 +1622,7 @@ test.describe("center anchor", () => {
  * d020d91 precedent and keeps `min(88dvh, calc(100dvh - 32px))`.
  *
  * Sets the persisted anchor directly via localStorage (the same key
- * `usePersistedAnchor` reads, `morph-sheet-anchor`) rather than simulating a
+ * `usePersistedAnchor` reads, `vista-sheet-anchor`) rather than simulating a
  * drag — anchor selection isn't under test here, only the resulting
  * max-height. Injects a 3000px-tall filler node into the sheet's content
  * after opening so the cap is actually load-bearing (a short sheet would
@@ -1655,21 +1655,21 @@ for (const viewport of [
         page,
       }) => {
         await page.addInitScript(
-          (a) => window.localStorage.setItem("morph-sheet-anchor", a),
+          (a) => window.localStorage.setItem("vista-sheet-anchor", a),
           anchor,
         );
         await page.goto("/");
-        await page.waitForSelector('[data-morph-sheet-part="trigger"]');
+        await page.waitForSelector('[data-vista-sheet-part="trigger"]');
         await page.getByRole("button", { name: TRIGGER_LABEL }).click();
 
-        const sheet = page.locator('[data-morph-sheet-part="sheet"]');
+        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
         await sheet.waitFor();
         await waitForStableWidth(page, sheet);
 
         // Force real overflow so the cap is load-bearing, not just declared.
         await page.evaluate(() => {
           const content = document.querySelector(
-            '[data-morph-sheet-part="content"]',
+            '[data-vista-sheet-part="content"]',
           );
           const filler = document.createElement("div");
           filler.style.height = "3000px";

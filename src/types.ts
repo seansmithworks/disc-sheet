@@ -30,7 +30,7 @@ export interface DurationSpring {
 
 export type Spring = StiffnessSpring | DurationSpring;
 
-/** Per-direction override for <MorphSheet.Shared>. Either key may be omitted;
+/** Per-direction override for <VistaSheet.Shared>. Either key may be omitted;
  * the package default for that direction is used instead. */
 export interface SharedTransitionByDirection {
   open?: Spring | Transition;
@@ -43,7 +43,7 @@ export interface MorphTransition {
   /** Sheet to trigger. Default: { stiffness: 375, damping: 32, mass: 1 } */
   close?: Spring | Transition;
   /**
-   * The <MorphSheet.Shared> element's own morph. Direction-aware, because the
+   * The <VistaSheet.Shared> element's own morph. Direction-aware, because the
    * two directions have different jobs: on the open the shared element only
    * has to clear the growing sheet, on the close it has to arrive home
    * together with the collapsing trigger.
@@ -89,7 +89,7 @@ export interface RootProps {
   draggable?: boolean;
   /**
    * localStorage key for the chosen anchor.
-   * Default "morph-sheet-anchor". Pass false to disable persistence entirely.
+   * Default "vista-sheet-anchor". Pass false to disable persistence entirely.
    */
   persistKey?: string | false;
 
@@ -181,7 +181,7 @@ export interface ShadowProps {
   className?: string;
   /** Render a single child in place of the default shadow div, merging the
    * fixed positioning, z-index, aria-hidden, pointer-events, data-* attributes
-   * and --morph-sheet-shadow-* custom properties onto it. */
+   * and --vista-sheet-shadow-* custom properties onto it. */
   asChild?: boolean;
   children?: ReactNode;
 }
@@ -199,8 +199,8 @@ export interface SheetRect {
   halfHeight: number;
 }
 
-/** Public state + escape hatch returned by useMorphSheet(). */
-export interface MorphSheetState {
+/** Public state + escape hatch returned by useVistaSheet(). */
+export interface VistaSheetState {
   open: boolean;
   setOpen: (open: boolean) => void;
   anchor: AnchorId;

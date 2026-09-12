@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { MorphSheet } from "../../src/index";
+import { VistaSheet } from "../../src/index";
 import { CloseMask } from "../CloseMask";
 import "./flagship.css";
 import portraitUrl from "./portrait.jpg";
@@ -87,24 +87,24 @@ function App() {
       <h1 className="flagship-whisper">
         Sean Smith — tap the trigger. Drag it anywhere.
       </h1>
-      <MorphSheet.Root className="flagship-theme">
-        <MorphSheet.Shadow />
+      <VistaSheet.Root className="flagship-theme">
+        <VistaSheet.Shadow />
 
-        <MorphSheet.Trigger aria-label="Open contact">
-          <MorphSheet.Shared>
+        <VistaSheet.Trigger aria-label="Open contact">
+          <VistaSheet.Shared>
             <Portrait />
-          </MorphSheet.Shared>
-        </MorphSheet.Trigger>
+          </VistaSheet.Shared>
+        </VistaSheet.Trigger>
 
-        <MorphSheet.Sheet aria-labelledby="flagship-sheet-title">
-          <MorphSheet.Shared>
+        <VistaSheet.Sheet aria-labelledby="flagship-sheet-title">
+          <VistaSheet.Shared>
             <Portrait />
-          </MorphSheet.Shared>
+          </VistaSheet.Shared>
 
-          <MorphSheet.Close aria-label="Close" />
+          <VistaSheet.Close aria-label="Close" />
 
-          <MorphSheet.Content>
-            <MorphSheet.Item>
+          <VistaSheet.Content>
+            <VistaSheet.Item>
               <p className="flagship-eyebrow">Open to work · 2026</p>
               <h2 id="flagship-sheet-title" className="flagship-title">
                 Let&rsquo;s make something together!
@@ -113,9 +113,9 @@ function App() {
                 Looking for full-time design leadership, and open to advisory.
                 Email is fastest.
               </p>
-            </MorphSheet.Item>
+            </VistaSheet.Item>
 
-            <MorphSheet.Item>
+            <VistaSheet.Item>
               <nav aria-label="Contact links" className="flagship-actions">
                 {actions.map((action) => (
                   <a
@@ -143,9 +143,9 @@ function App() {
                   </a>
                 ))}
               </nav>
-            </MorphSheet.Item>
+            </VistaSheet.Item>
 
-            <MorphSheet.Item>
+            <VistaSheet.Item>
               <a
                 className="flagship-cta"
                 href="https://calendar.app.google/bSgz9A1G5FnY6CdD8"
@@ -154,13 +154,13 @@ function App() {
               >
                 book a slot ↗
               </a>
-            </MorphSheet.Item>
-          </MorphSheet.Content>
-        </MorphSheet.Sheet>
+            </VistaSheet.Item>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
 
         {/* Escape-hatch reuse, unmodified — see example/CloseMask.tsx. */}
         <CloseMask />
-      </MorphSheet.Root>
+      </VistaSheet.Root>
     </div>
   );
 }

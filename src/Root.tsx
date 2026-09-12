@@ -8,7 +8,7 @@ import {
   useReducedMotion,
 } from "motion/react";
 import { DEFAULT_ANCHOR, type AnchorId } from "./anchors";
-import { MorphSheetContext, type MorphSheetContextValue } from "./context";
+import { VistaSheetContext, type VistaSheetContextValue } from "./context";
 import { resolveMotion, SURFACE_CLOSE_LEAD_DELAY_MS } from "./motion";
 import type { Transition } from "motion/react";
 import type { Rect, RootProps, SheetRect } from "./types";
@@ -21,7 +21,7 @@ import {
 import { usePersistedAnchor } from "./usePersistedAnchor";
 
 /**
- * <MorphSheet.Root> — owns open state, anchor state, the LayoutGroup, the
+ * <VistaSheet.Root> — owns open state, anchor state, the LayoutGroup, the
  * shared context, and the reduced-motion decision.
  *
  * Anchor is uncontrolled-only in v0.1 (docs/PACKAGE-DESIGN.md §8): the
@@ -47,10 +47,10 @@ export function Root({
   zIndex = 100,
   className,
 }: RootProps) {
-  // A missing "use client" on the file that mounts <MorphSheet.Root> can't
+  // A missing "use client" on the file that mounts <VistaSheet.Root> can't
   // be caught here or anywhere else in this package: index.ts exports only
-  // the `MorphSheet` namespace object, so the only public path is the
-  // property access `MorphSheet.Root`. In an RSC app that forgot the
+  // the `VistaSheet` namespace object, so the only public path is the
+  // property access `VistaSheet.Root`. In an RSC app that forgot the
   // directive, React/Next resolve that access to `undefined` via a
   // client-reference stub before this component's body — or any of this
   // package's own code — ever runs. Verified: a module-level probe placed
@@ -101,7 +101,7 @@ export function Root({
   // any script runs. triggerSizeCss below derives the same three breakpoint
   // values from resolveTriggerSize (the ramp's one source of truth, shared
   // with the live `triggerSize` above) and Root renders them as a scoped
-  // <style> block. Every element that reads --morph-sheet-trigger-size
+  // <style> block. Every element that reads --vista-sheet-trigger-size
   // (Trigger.tsx's drag wrapper, .shared in styles.module.css) now gets the
   // CORRECT size on the very first frame, so there is never a stale
   // snapshot for Motion to chase. `triggerSize` (JS) still exists and still
@@ -369,7 +369,7 @@ export function Root({
   const triggerId = `${idBase}-trigger`;
   const sheetId = `${idBase}-sheet`;
 
-  const contextValue: MorphSheetContextValue = {
+  const contextValue: VistaSheetContextValue = {
     open,
     setOpen,
     anchor,
@@ -410,39 +410,39 @@ export function Root({
   // — server-rendered and deterministic from props alone, so the server and
   // the client's first render emit byte-identical CSS and there is no
   // hydration mismatch risk (E5).
-  const triggerSizeStyleRule = `[data-morph-sheet-root="${idBase}"]{--morph-sheet-trigger-size:${triggerSizeCss.base}px}`;
-  const triggerSizeStyleMd = `@media (min-width:${MD_BREAKPOINT}px){[data-morph-sheet-root="${idBase}"]{--morph-sheet-trigger-size:${triggerSizeCss.md}px}}`;
-  const triggerSizeStyleXl = `@media (min-width:${XL_BREAKPOINT}px){[data-morph-sheet-root="${idBase}"]{--morph-sheet-trigger-size:${triggerSizeCss.xl}px}}`;
+  const triggerSizeStyleRule = `[data-vista-sheet-root="${idBase}"]{--vista-sheet-trigger-size:${triggerSizeCss.base}px}`;
+  const triggerSizeStyleMd = `@media (min-width:${MD_BREAKPOINT}px){[data-vista-sheet-root="${idBase}"]{--vista-sheet-trigger-size:${triggerSizeCss.md}px}}`;
+  const triggerSizeStyleXl = `@media (min-width:${XL_BREAKPOINT}px){[data-vista-sheet-root="${idBase}"]{--vista-sheet-trigger-size:${triggerSizeCss.xl}px}}`;
 
   return (
-    <MorphSheetContext.Provider value={contextValue}>
+    <VistaSheetContext.Provider value={contextValue}>
       <LayoutGroup id={idBase}>
         <style>{`${triggerSizeStyleRule}${triggerSizeStyleMd}${triggerSizeStyleXl}`}</style>
         <div
           className={className}
-          data-morph-sheet-root={idBase}
+          data-vista-sheet-root={idBase}
           style={{
             // Root's wrapper is an ANCESTOR of both <Trigger> and <Sheet>, unlike
             // the trigger root div (a sibling of <Sheet>), so custom properties
             // written here are the only ones both slots can inherit. B1:
-            // --morph-sheet-trigger-size was previously written only on the trigger
+            // --vista-sheet-trigger-size was previously written only on the trigger
             // root, making it invisible to .shared in the sheet above the
-            // ramp's base breakpoint. M1/M2: --morph-sheet-z and
-            // --morph-sheet-sheet-max-width were never written at all, leaving
+            // ramp's base breakpoint. M1/M2: --vista-sheet-z and
+            // --vista-sheet-sheet-max-width were never written at all, leaving
             // the zIndex and sheetMaxWidth props orphaned from the CSS that
             // reads them.
             //
-            // --morph-sheet-trigger-size is NOT written here anymore (D3 fix,
+            // --vista-sheet-trigger-size is NOT written here anymore (D3 fix,
             // above) — an inline style write on this element would always
             // beat the scoped <style> block's @media rules, for any
             // viewport, defeating the whole point of resolving it in CSS.
-            ["--morph-sheet-z" as string]: String(zIndex),
-            ["--morph-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
+            ["--vista-sheet-z" as string]: String(zIndex),
+            ["--vista-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
           }}
         >
           {children}
         </div>
       </LayoutGroup>
-    </MorphSheetContext.Provider>
+    </VistaSheetContext.Provider>
   );
 }

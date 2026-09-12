@@ -1,8 +1,8 @@
 import { useEffect } from "react";
 // Relative import: the example lives inside the package repo itself (no
 // publish step yet), so it reaches the package the same way main.tsx does.
-// A real consumer would import from "@seansmithworks/morph-sheet".
-import { useMorphSheet } from "../src/index";
+// A real consumer would import from "@seansmithworks/vista-sheet".
+import { useVistaSheet } from "../src/index";
 
 /**
  * CloseMask — the trailing-paper close mask, rebuilt from OUTSIDE the
@@ -11,15 +11,15 @@ import { useMorphSheet } from "../src/index";
  * artifact specific to a tall sheet whose shared element leads the close:
  * mid-collapse, the vacated paper above the avatar sits as a solid opaque
  * block for a few frames. This is the package's own escape-hatch validation
- * test — it is cut from `morph-sheet` because it does not belong in a generic
+ * test — it is cut from `vista-sheet` because it does not belong in a generic
  * primitive (a sheet with no leading shared element has no such artifact),
  * but re-derived here for the flagship-style example so the demo isn't
  * visibly worse without it.
  *
  * THE FINDING: this component is buildable using ONLY the documented v0.1
- * API — useMorphSheet().collapseProgress and .open — and one documented DOM
- * contract: the sheet element carries `data-morph-sheet-part="sheet"`. No
- * widening of useMorphSheet() was needed.
+ * API — useVistaSheet().collapseProgress and .open — and one documented DOM
+ * contract: the sheet element carries `data-vista-sheet-part="sheet"`. No
+ * widening of useVistaSheet() was needed.
  *
  * Why `open`, not getVelocity(): a prior version inferred "closing" from the
  * sign of collapseProgress.getVelocity() (positive while progress increases
@@ -38,12 +38,12 @@ import { useMorphSheet } from "../src/index";
  * sheet element on every collapseProgress tick.
  */
 export function CloseMask() {
-  const { collapseProgress, open } = useMorphSheet();
+  const { collapseProgress, open } = useVistaSheet();
 
   useEffect(() => {
     const apply = () => {
       const sheetEl = document.querySelector<HTMLElement>(
-        '[data-morph-sheet-part="sheet"]',
+        '[data-vista-sheet-part="sheet"]',
       );
       if (!sheetEl) return;
 

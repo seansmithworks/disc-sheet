@@ -1,9 +1,9 @@
 /*
- * morph-sheet — all package CSS. Every variable is --morph-sheet-* and every
+ * vista-sheet — all package CSS. Every variable is --vista-sheet-* and every
  * one has a hardcoded fallback, so the package renders correctly with a
  * consumer who sets nothing (docs/PACKAGE-DESIGN.md §2).
  *
- * --morph-sheet-trigger-size is written by Root.tsx as a scoped @media-query
+ * --vista-sheet-trigger-size is written by Root.tsx as a scoped @media-query
  * <style> block (derived from useTriggerSize's resolveTriggerSize, its one
  * source of truth), not an inline style — that is the D3 fix (stale first-open
  * shared-layoutId snapshot): a real @media query resolves correctly at
@@ -16,9 +16,9 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: var(--morph-sheet-z, 100);
-  width: var(--morph-sheet-trigger-size, 96px);
-  height: var(--morph-sheet-trigger-size, 96px);
+  z-index: var(--vista-sheet-z, 100);
+  width: var(--vista-sheet-trigger-size, 96px);
+  height: var(--vista-sheet-trigger-size, 96px);
   cursor: grab;
   touch-action: none;
 }
@@ -27,9 +27,9 @@
  * measurements): lift the trigger's stacking context over the sheet's
  * z + 102 so the trigger-side <Shared> copy is not occluded by the sheet's
  * still-opaque background mid-crossfade. Stays a calc() on the token rather
- * than an inline style so a consumer's own --morph-sheet-z still governs. */
-.dragWrapper[data-morph-sheet-closing] {
-  z-index: calc(var(--morph-sheet-z, 100) + 103);
+ * than an inline style so a consumer's own --vista-sheet-z still governs. */
+.dragWrapper[data-vista-sheet-closing] {
+  z-index: calc(var(--vista-sheet-z, 100) + 103);
 }
 
 .dragWrapper:active {
@@ -49,21 +49,21 @@
 }
 
 .triggerButton:focus-visible {
-  outline: 2px solid var(--morph-sheet-accent, #b4512e);
+  outline: 2px solid var(--vista-sheet-accent, #b4512e);
   outline-offset: 5px;
-  border-radius: var(--morph-sheet-trigger-radius, 9999px);
+  border-radius: var(--vista-sheet-trigger-radius, 9999px);
 }
 
 .triggerSurface {
   position: absolute;
   inset: 0;
-  border-radius: var(--morph-sheet-trigger-radius, 9999px);
-  background: var(--morph-sheet-surface, #faf7f2);
-  /* 2px, not 1px — .shared[data-morph-sheet-slot="trigger"]'s inset:2px exists to
+  border-radius: var(--vista-sheet-trigger-radius, 9999px);
+  background: var(--vista-sheet-surface, #faf7f2);
+  /* 2px, not 1px — .shared[data-vista-sheet-slot="trigger"]'s inset:2px exists to
    * expose exactly this ring; the two must agree or the ring reads as
    * lopsided. */
-  border: 2px solid var(--morph-sheet-surface-border, #e6dfd2);
-  /* No box-shadow here: <MorphSheet.Shadow> paints the silhouette shadow
+  border: 2px solid var(--vista-sheet-surface-border, #e6dfd2);
+  /* No box-shadow here: <VistaSheet.Shadow> paints the silhouette shadow
    * (docs/PACKAGE-DESIGN.md §4). This surface used to carry the same shadow
    * too, so the resting disc painted it twice and the first frame of every
    * open — when this element unmounts — halved the shadow in one step. */
@@ -72,14 +72,14 @@
 
 /*
  * .shared — the shared-element slot, base rule. Sized to
- * --morph-sheet-shared-size, which defaults to the live --morph-sheet-trigger-size
- * (written on <MorphSheet.Root>'s own wrapper div, an ancestor of both the
+ * --vista-sheet-shared-size, which defaults to the live --vista-sheet-trigger-size
+ * (written on <VistaSheet.Root>'s own wrapper div, an ancestor of both the
  * trigger and the sheet, so both slots resolve the same size).
  *
  * The trigger- and sheet-side instances need genuinely different layout —
  * the trigger clips to a circle inset in the surface ring, the sheet sits
  * in flow with margin — so a single opinionated rule (the pre-review
- * version of this file) can never serve both. `data-morph-sheet-slot="trigger" | "sheet"`,
+ * version of this file) can never serve both. `data-vista-sheet-slot="trigger" | "sheet"`,
  * set by <Shared> from SlotContext (provided by <Trigger>/<Sheet>), is a
  * higher-specificity attribute selector, so it reliably wins over this base
  * rule regardless of source order — unlike trying to override via a
@@ -96,18 +96,18 @@
    * requires — so this base rule (which the sheet-side slot inherits
    * unmodified) has to match it. */
   width: var(
-    --morph-sheet-shared-size,
-    calc(var(--morph-sheet-trigger-size, 96px) - 4px)
+    --vista-sheet-shared-size,
+    calc(var(--vista-sheet-trigger-size, 96px) - 4px)
   );
   height: var(
-    --morph-sheet-shared-size,
-    calc(var(--morph-sheet-trigger-size, 96px) - 4px)
+    --vista-sheet-shared-size,
+    calc(var(--vista-sheet-trigger-size, 96px) - 4px)
   );
   pointer-events: none;
 }
 
 /* Trigger-side: inset in the surface ring, clipped to a circle, centered. */
-.shared[data-morph-sheet-slot="trigger"] {
+.shared[data-vista-sheet-slot="trigger"] {
   position: absolute;
   inset: 2px;
   z-index: 1;
@@ -123,7 +123,7 @@
 /* Sheet-side: no header row to sit inside here, so this stays in flow with
  * margin rather than the source's `position: absolute` — simpler than the
  * extraction source because the package has no header spacer to clear. */
-.shared[data-morph-sheet-slot="sheet"] {
+.shared[data-vista-sheet-slot="sheet"] {
   position: relative;
   margin: 24px 24px 0;
   border-radius: 50%;
@@ -133,8 +133,8 @@
 
 .sheet {
   position: fixed;
-  width: min(var(--morph-sheet-sheet-max-width, 480px), calc(100vw - 32px));
-  left: var(--morph-sheet-sheet-left, 16px);
+  width: min(var(--vista-sheet-sheet-max-width, 480px), calc(100vw - 32px));
+  left: var(--vista-sheet-sheet-left, 16px);
   /* Default: grow upward from the bottom edge. Sheet.tsx always writes
    * `top`/`bottom` inline (never via a var, so they win regardless of
    * cascade order) — top-only anchors grow downward, bottom-only anchors
@@ -152,21 +152,21 @@
   height: fit-content;
   display: flex;
   flex-direction: column;
-  background: var(--morph-sheet-surface-elevated, #f4f0e8);
-  border: 1px solid var(--morph-sheet-surface-border, #e6dfd2);
+  background: var(--vista-sheet-surface-elevated, #f4f0e8);
+  border: 1px solid var(--vista-sheet-surface-border, #e6dfd2);
   /* Motion's inline borderRadius MotionValue (Sheet.tsx) wins during the
    * morph; this supplies the resting shape AND the reduced-motion shape,
    * which never gets an inline value at all (its render branch passes no
    * borderRadius) and previously rendered with square corners. */
-  border-radius: var(--morph-sheet-sheet-radius, 32px);
+  border-radius: var(--vista-sheet-sheet-radius, 32px);
   /* No shadow of its own, ever: Motion draws the growing sheet scaled down
    * (~37% on the first open frame), which squashed a sheet-painted shadow
    * into a dark, tight edge that then lightened as the box grew. Both looks
    * (the thin disc shadow and the sheet's heavier resting shadow) are
-   * painted, and crossfaded, by <MorphSheet.Shadow> alone (Shadow.tsx,
+   * painted, and crossfaded, by <VistaSheet.Shadow> alone (Shadow.tsx,
    * .shadow::before/::after below) — one painter, one clock (DESIGN.md
    * §4.1). This element used to fade its own box-shadow in via
-   * `[data-morph-sheet-settled]`, which was a second clock and produced a
+   * `[data-vista-sheet-settled]`, which was a second clock and produced a
    * one-frame pop when a demo mask clipped it at the phase boundary. */
   box-shadow: none;
   /* SSR/pre-hydration fallback only — Sheet.tsx always writes an inline
@@ -174,7 +174,7 @@
    * over this. Matches the default anchor (bottom-center). */
   max-height: 88dvh;
   overflow: hidden;
-  color: var(--morph-sheet-text, #1a1610);
+  color: var(--vista-sheet-text, #1a1610);
 }
 
 .sheet:focus {
@@ -189,8 +189,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y;
-  padding: 0 var(--morph-sheet-sheet-padding, 24px)
-    var(--morph-sheet-sheet-padding, 24px);
+  padding: 0 var(--vista-sheet-sheet-padding, 24px)
+    var(--vista-sheet-sheet-padding, 24px);
 }
 
 /* Layout-neutral: kept as a real (if empty) CSS-module rule so
@@ -210,23 +210,23 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--morph-sheet-text, #1a1610);
+  color: var(--vista-sheet-text, #1a1610);
   cursor: pointer;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
 .closeButton:focus-visible {
-  outline: 2px solid var(--morph-sheet-accent, #b4512e);
+  outline: 2px solid var(--vista-sheet-accent, #b4512e);
   outline-offset: 2px;
 }
 
 .shadow {
-  border-radius: var(--morph-sheet-shadow-radius, 9999px);
+  border-radius: var(--vista-sheet-shadow-radius, 9999px);
 }
 
 /* Two shadow looks on one silhouette, crossfaded by opacity (Shadow.tsx sets
- * both --morph-sheet-shadow-opacity and --morph-sheet-sheet-shadow-opacity
+ * both --vista-sheet-shadow-opacity and --vista-sheet-sheet-shadow-opacity
  * every collapseProgress tick). Only opacity animates here — never blur or
  * spread (DESIGN.md §4.3). .shadow is itself `position: fixed`, so it is
  * already a positioning context for these; no extra `position: relative`
@@ -242,20 +242,20 @@
 
 .shadow::before {
   box-shadow: var(
-    --morph-sheet-shadow,
+    --vista-sheet-shadow,
     0 1px 4px rgba(26, 22, 16, 0.14),
     0 6px 24px rgba(0, 0, 0, 0.15)
   );
-  opacity: var(--morph-sheet-shadow-opacity, 1);
+  opacity: var(--vista-sheet-shadow-opacity, 1);
 }
 
 .shadow::after {
   box-shadow: var(
-    --morph-sheet-sheet-shadow,
+    --vista-sheet-sheet-shadow,
     0 8px 48px rgba(0, 0, 0, 0.24),
     0 2px 8px rgba(0, 0, 0, 0.12)
   );
-  opacity: var(--morph-sheet-sheet-shadow-opacity, 0);
+  opacity: var(--vista-sheet-sheet-shadow-opacity, 0);
 }
 
 @media (prefers-reduced-motion: reduce) {

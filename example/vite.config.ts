@@ -8,10 +8,10 @@ export default defineConfig({
   resolve: {
     alias: {
       // tuner/page.tsx imports the package by its published specifier (so a
-      // consumer who copies the file out via `npx morph-sheet add tuner`
+      // consumer who copies the file out via `npx vista-sheet add tuner`
       // needs zero edits). This alias is what lets that same, unmodified
       // file also run here against live local source.
-      "@seansmithworks/morph-sheet": resolve(__dirname, "../src/index.ts"),
+      "@seansmithworks/vista-sheet": resolve(__dirname, "../src/index.ts"),
     },
   },
   build: {

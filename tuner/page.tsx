@@ -5,7 +5,7 @@
  *
  * Route `/` stays the verbatim README snippet (it is the test of the
  * documented install path). This route is the instrument: the same
- * MorphSheet markup, driven by a dialkit panel, with the two numbers you
+ * VistaSheet markup, driven by a dialkit panel, with the two numbers you
  * cannot dial this pair blind without.
  *
  * CLOSE PATH ONLY, by construction. `transition.open` is never passed, so the
@@ -14,14 +14,16 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MorphSheet } from "@seansmithworks/morph-sheet";
-import type { MotionPreset } from "@seansmithworks/morph-sheet";
+import { VistaSheet } from "@seansmithworks/vista-sheet";
+import type { MotionPreset } from "@seansmithworks/vista-sheet";
 import { DialRoot, DialStore, useDialKitController } from "dialkit";
 import type { TransitionConfig } from "dialkit";
 import "dialkit/styles.css";
 import styles from "./tune.module.css";
 
-/** Stable panel id. dialkit persists under `dialkit:${id}` in localStorage. */
+/** Stable panel id. dialkit persists under `dialkit:${id}` in localStorage.
+ * This key predates the VistaSheet rename — changing it orphans Sean's saved
+ * dial history, so it stays "morph-sheet-close" on purpose. */
 const PANEL_ID = "morph-sheet-close";
 const PHASE_4_PRESET = "Phase 4 (77f6d9b)";
 
@@ -104,8 +106,8 @@ function toPresetSpring(spring: MotionSpring): {
 
 // ── Measurement ────────────────────────────────────────────────────────────
 // Two elements, sampled per frame from the Close click until both are quiet:
-//   box    = [data-morph-sheet-part="trigger-surface"]      the collapsing shell
-//   avatar = the trigger-side <MorphSheet.Shared>           inset: 2px inside it
+//   box    = [data-vista-sheet-part="trigger-surface"]      the collapsing shell
+//   avatar = the trigger-side <VistaSheet.Shared>           inset: 2px inside it
 //
 // ARRIVAL GAP  = avatarArrival - boxArrival, ms. Negative = the avatar gets
 //                home first (leads). Positive = it is still moving after the
@@ -269,10 +271,10 @@ export default function TunePage() {
 
     const tick = (now: number) => {
       const boxEl = document.querySelector(
-        '[data-morph-sheet-part="trigger-surface"]',
+        '[data-vista-sheet-part="trigger-surface"]',
       );
       const avEl = document.querySelector(
-        '[data-morph-sheet-part="shared"][data-morph-sheet-slot="trigger"]',
+        '[data-vista-sheet-part="shared"][data-vista-sheet-slot="trigger"]',
       );
       if (!boxEl || !avEl) {
         rafRef.current = requestAnimationFrame(tick);
@@ -346,7 +348,7 @@ export default function TunePage() {
   // Read-out hook for the measurement harness; the numbers on screen and the
   // numbers in the report are the same numbers.
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__morphSheetTune = {
+    (window as unknown as Record<string, unknown>).__vistaSheetTune = {
       runs,
       summary,
       values: { discShell: shellSpring, avatar: avatarSpring, leadDelay },
@@ -377,41 +379,41 @@ export default function TunePage() {
 
   return (
     <main className={styles.stage}>
-      <MorphSheet.Root
+      <VistaSheet.Root
         transition={transition}
         surfaceCloseLeadDelayMs={leadDelay}
         onOpenChange={handleOpenChange}
       >
-        <MorphSheet.Shadow />
+        <VistaSheet.Shadow />
 
-        <MorphSheet.Trigger aria-label="Open contact">
-          <MorphSheet.Shared>
+        <VistaSheet.Trigger aria-label="Open contact">
+          <VistaSheet.Shared>
             <div
               className={styles.avatar}
               style={{ "--avatar-fill": avatarFill } as React.CSSProperties}
             />
-          </MorphSheet.Shared>
-        </MorphSheet.Trigger>
+          </VistaSheet.Shared>
+        </VistaSheet.Trigger>
 
-        <MorphSheet.Sheet aria-labelledby="sheet-title">
-          <MorphSheet.Shared>
+        <VistaSheet.Sheet aria-labelledby="sheet-title">
+          <VistaSheet.Shared>
             <div
               className={styles.avatar}
               style={{ "--avatar-fill": avatarFill } as React.CSSProperties}
             />
-          </MorphSheet.Shared>
+          </VistaSheet.Shared>
 
-          <MorphSheet.Content>
-            <MorphSheet.Close aria-label="Close" />
-            <MorphSheet.Item>
+          <VistaSheet.Content>
+            <VistaSheet.Close aria-label="Close" />
+            <VistaSheet.Item>
               <h2 id="sheet-title">Sean Smith</h2>
-            </MorphSheet.Item>
-            <MorphSheet.Item>
+            </VistaSheet.Item>
+            <VistaSheet.Item>
               <p>Links, etc.</p>
-            </MorphSheet.Item>
-          </MorphSheet.Content>
-        </MorphSheet.Sheet>
-      </MorphSheet.Root>
+            </VistaSheet.Item>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
+      </VistaSheet.Root>
 
       <aside
         className={styles.dock}

@@ -4,14 +4,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
-import { SlotContext, useMorphSheetInternal } from "./context";
+import { SlotContext, useVistaSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
 import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
 import type { TriggerProps } from "./types";
 import styles from "./styles.module.css";
 
 /**
- * <MorphSheet.Trigger> — the fixed drag wrapper + trigger button + morph
+ * <VistaSheet.Trigger> — the fixed drag wrapper + trigger button + morph
  * seed surface.
  *
  * Single-origin position model (docs/PACKAGE-DESIGN.md §1, and the
@@ -22,7 +22,7 @@ import styles from "./styles.module.css";
  * animation with no FLIP and no one-frame transform desync.
  */
 export function Trigger({ children, className, ...aria }: TriggerProps) {
-  const ctx = useMorphSheetInternal("Trigger");
+  const ctx = useVistaSheetInternal("Trigger");
   const {
     open,
     setOpen,
@@ -130,7 +130,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
   //
   // Publishing the resting shape as a live numeric MotionValue fixes it at
   // the source and keeps every other resting guarantee: it equals
-  // min(--morph-sheet-trigger-radius, triggerSize / 2), which is a perfect
+  // min(--vista-sheet-trigger-radius, triggerSize / 2), which is a perfect
   // circle for the default 9999px token, honours a consumer's smaller
   // override, and re-derives on the trigger-size ramp's own breakpoints
   // (triggerSize is kept live across resizes by useTriggerSize). It is also
@@ -141,19 +141,19 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
   useEffect(() => {
     const el = surfaceRef.current;
     if (!el) return;
-    const token = readVarPx(el, "--morph-sheet-trigger-radius", 9999);
+    const token = readVarPx(el, "--vista-sheet-trigger-radius", 9999);
     triggerRestRadius.set(Math.min(token, triggerSize / 2));
   }, [triggerSize, triggerRestRadius, sheetRect, open]);
 
   // Report the trigger's live rect for the escape hatch (usePKG().triggerRect)
-  // and for Sheet's shadow-mask morph. Also writes --morph-sheet-trigger-x/-y
+  // and for Sheet's shadow-mask morph. Also writes --vista-sheet-trigger-x/-y
   // — documented as package-written/consumer-readable — directly on the
   // wrapper without a React re-render, mirroring the source site's bloom-
   // tracking pattern.
   //
   // setTriggerRect is React state on Root, so calling it synchronously here
   // would re-render the whole Root subtree on every pointer-move frame of a
-  // drag. The imperative --morph-sheet-trigger-x/-y writes stay per-frame;
+  // drag. The imperative --vista-sheet-trigger-x/-y writes stay per-frame;
   // the React commit is rAF-coalesced to at most once per frame and skipped
   // entirely when the rect hasn't moved by more than half a pixel.
   useEffect(() => {
@@ -182,11 +182,11 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
 
     const update = () => {
       wrapperRef.current?.style.setProperty(
-        "--morph-sheet-trigger-x",
+        "--vista-sheet-trigger-x",
         `${x.get()}px`,
       );
       wrapperRef.current?.style.setProperty(
-        "--morph-sheet-trigger-y",
+        "--vista-sheet-trigger-y",
         `${y.get()}px`,
       );
       if (rafRef.current == null) {
@@ -270,21 +270,21 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         wrapperRef.current = el;
       }}
       className={`${styles.dragWrapper} ${className ?? ""}`}
-      // width/height come from .dragWrapper's CSS rule (var(--morph-sheet-
+      // width/height come from .dragWrapper's CSS rule (var(--vista-sheet-
       // trigger-size)), not an inline write of `triggerSize` — an inline
       // write here would win over Root's scoped @media block regardless of
       // viewport, reproducing D3 one level down (this element is the
-      // ancestor .shared[data-morph-sheet-slot="trigger"] inherits from).
+      // ancestor .shared[data-vista-sheet-slot="trigger"] inherits from).
       // `x`/`y` still come from the live triggerSize for position math
       // (anchors.ts) — that's unaffected by D3, which is a BOX-SIZE defect,
       // not a position one.
       style={{ x, y }}
-      data-morph-sheet-part="trigger-root"
+      data-vista-sheet-part="trigger-root"
       // Lift the trigger's stacking context above the sheet's for the
       // duration of a CLOSE. `.dragWrapper` is `position: fixed` with a
       // z-index, so it is a stacking context: everything inside it —
       // including the trigger-side <Shared> instance — is capped at
-      // `--morph-sheet-z` (100) and painted under the sheet at z + 102.
+      // `--vista-sheet-z` (100) and painted under the sheet at z + 102.
       //
       // That cap put a hole in the middle of every close. The two layoutId
       // pairs crossfade on DIFFERENT springs: `-shared` runs on
@@ -305,7 +305,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       // Lifting the wrapper to z + 103 lets the trigger-side copy paint
       // through, so it covers the gap the sheet-side copy leaves: worst
       // frame 0.987 (index) / 0.981 (flagship). Both surfaces are the same
-      // --morph-sheet-surface, co-located and same-radius by construction
+      // --vista-sheet-surface, co-located and same-radius by construction
       // mid-FLIP, so the reordered pair reads identically; the sheet's
       // content is already at opacity 0 by 80ms (CONTENT_FADE_OUT_MS), long
       // before trigger-surface has any opacity at all (0 until 121ms).
@@ -314,7 +314,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       // OPEN this button still renders (only its children are behind
       // `{!open && ...}`), so lifting it then would float an invisible
       // trigger-size hit target over the open sheet and swallow its clicks.
-      data-morph-sheet-closing={sheetRect !== null && !open ? "" : undefined}
+      data-vista-sheet-closing={sheetRect !== null && !open ? "" : undefined}
       drag={draggable && !open ? true : false}
       dragMomentum={false}
       dragElastic={reduceMotion ? 0 : 0.06}
@@ -336,7 +336,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         }}
         type="button"
         className={styles.triggerButton}
-        data-morph-sheet-part="trigger"
+        data-vista-sheet-part="trigger"
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? sheetId : undefined}
@@ -363,7 +363,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
             // layout animation, so both share a start time. No-op unless Root
             // has a morph armed. See Root.tsx's clock-coupling note.
             onLayoutAnimationStart={() => startMorphClock("trigger")}
-            data-morph-sheet-part="trigger-surface"
+            data-vista-sheet-part="trigger-surface"
             // Framer Motion's shared-layout border-radius correction only
             // tracks a border-radius it manages as an inline style value —
             // it can't see the CSS module's border-radius rule. Without this,
@@ -416,7 +416,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
             // this guard existed. Once Sheet's onExitComplete nulls
             // sheetRect (the morph is provably over), this falls back to
             // `undefined` and the CSS module's own resting default
-            // (`var(--morph-sheet-trigger-radius, 9999px)`,
+            // (`var(--vista-sheet-trigger-radius, 9999px)`,
             // styles.module.css) takes over — correct immediately, no 1.4s
             // lag.
             style={{

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createRoot } from "react-dom/client";
-import { MorphSheet } from "../../src/index";
+import { VistaSheet } from "../../src/index";
 import "./contact.css";
 
 function PencilIcon() {
@@ -24,30 +24,30 @@ function App() {
 
   return (
     <div className="contact-page">
-      <MorphSheet.Root className="contact-theme">
-        <MorphSheet.Shadow />
+      <VistaSheet.Root className="contact-theme">
+        <VistaSheet.Shadow />
 
-        <MorphSheet.Trigger aria-label="Open contact form">
-          <MorphSheet.Shared>
+        <VistaSheet.Trigger aria-label="Open contact form">
+          <VistaSheet.Shared>
             <PencilIcon />
-          </MorphSheet.Shared>
-        </MorphSheet.Trigger>
+          </VistaSheet.Shared>
+        </VistaSheet.Trigger>
 
-        <MorphSheet.Sheet aria-labelledby="contact-sheet-title">
-          <MorphSheet.Shared>
+        <VistaSheet.Sheet aria-labelledby="contact-sheet-title">
+          <VistaSheet.Shared>
             <PencilIcon />
-          </MorphSheet.Shared>
+          </VistaSheet.Shared>
 
-          <MorphSheet.Close aria-label="Close" />
+          <VistaSheet.Close aria-label="Close" />
 
-          <MorphSheet.Content>
-            <MorphSheet.Item>
+          <VistaSheet.Content>
+            <VistaSheet.Item>
               <h2 id="contact-sheet-title" className="contact-title">
                 Send a message
               </h2>
-            </MorphSheet.Item>
+            </VistaSheet.Item>
 
-            <MorphSheet.Item>
+            <VistaSheet.Item>
               <form
                 className="contact-form"
                 onSubmit={(e) => {
@@ -83,10 +83,10 @@ function App() {
                   {submitted ? "Sent — thanks." : ""}
                 </p>
               </form>
-            </MorphSheet.Item>
-          </MorphSheet.Content>
-        </MorphSheet.Sheet>
-      </MorphSheet.Root>
+            </VistaSheet.Item>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
+      </VistaSheet.Root>
     </div>
   );
 }

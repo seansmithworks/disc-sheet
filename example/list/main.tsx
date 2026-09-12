@@ -1,5 +1,5 @@
 import { createRoot } from "react-dom/client";
-import { MorphSheet } from "../../src/index";
+import { VistaSheet } from "../../src/index";
 import "./list.css";
 
 function MenuIcon() {
@@ -20,44 +20,44 @@ const rows = [
   { label: "Delete" },
 ];
 
-// Plain: "I could use this for a menu." Each row is its own <MorphSheet.Item>
+// Plain: "I could use this for a menu." Each row is its own <VistaSheet.Item>
 // so the open stagger is visible per-row, not on the list as a block.
 function App() {
   return (
     <div className="list-page">
-      <MorphSheet.Root className="list-theme">
-        <MorphSheet.Shadow />
+      <VistaSheet.Root className="list-theme">
+        <VistaSheet.Shadow />
 
-        <MorphSheet.Trigger aria-label="Open quick actions">
-          <MorphSheet.Shared>
+        <VistaSheet.Trigger aria-label="Open quick actions">
+          <VistaSheet.Shared>
             <MenuIcon />
-          </MorphSheet.Shared>
-        </MorphSheet.Trigger>
+          </VistaSheet.Shared>
+        </VistaSheet.Trigger>
 
-        <MorphSheet.Sheet aria-labelledby="list-sheet-title">
-          <MorphSheet.Shared>
+        <VistaSheet.Sheet aria-labelledby="list-sheet-title">
+          <VistaSheet.Shared>
             <MenuIcon />
-          </MorphSheet.Shared>
+          </VistaSheet.Shared>
 
-          <MorphSheet.Close aria-label="Close" />
+          <VistaSheet.Close aria-label="Close" />
 
-          <MorphSheet.Content>
-            <MorphSheet.Item>
+          <VistaSheet.Content>
+            <VistaSheet.Item>
               <h2 id="list-sheet-title" className="list-title">
                 Quick actions
               </h2>
-            </MorphSheet.Item>
+            </VistaSheet.Item>
 
             {rows.map((row) => (
-              <MorphSheet.Item key={row.label}>
+              <VistaSheet.Item key={row.label}>
                 <button type="button" className="list-row">
                   {row.label}
                 </button>
-              </MorphSheet.Item>
+              </VistaSheet.Item>
             ))}
-          </MorphSheet.Content>
-        </MorphSheet.Sheet>
-      </MorphSheet.Root>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
+      </VistaSheet.Root>
     </div>
   );
 }

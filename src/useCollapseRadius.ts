@@ -20,7 +20,7 @@ import { readVarPx } from "./readVarPx";
  * geometry.spec.ts's close-tracking gate — read it before touching how
  * Trigger.tsx consumes this value.
  *
- * Reads the shape tokens (--morph-sheet-sheet-radius / --morph-sheet-
+ * Reads the shape tokens (--vista-sheet-sheet-radius / --vista-sheet-
  * trigger-radius) off `varsElRef` — the caller decides which element to
  * read them from; Sheet.tsx passes its own `sheetRef`.
  */
@@ -42,19 +42,19 @@ export function useCollapseRadius({
   const radiusVarsRef = useRef({ sheetRadius: 32, triggerRadius: 9999 });
 
   // Read the shape tokens once per open — a designer's CSS override on
-  // --morph-sheet-sheet-radius / --morph-sheet-trigger-radius is honored
+  // --vista-sheet-sheet-radius / --vista-sheet-trigger-radius is honored
   // without becoming a JS prop (docs/PACKAGE-DESIGN.md §3).
   useEffect(() => {
     if (!open) return;
     radiusVarsRef.current = {
       sheetRadius: readVarPx(
         varsElRef.current,
-        "--morph-sheet-sheet-radius",
+        "--vista-sheet-sheet-radius",
         32,
       ),
       triggerRadius: readVarPx(
         varsElRef.current,
-        "--morph-sheet-trigger-radius",
+        "--vista-sheet-trigger-radius",
         9999,
       ),
     };
@@ -84,7 +84,7 @@ export function useCollapseRadius({
   return useTransform(collapseProgress, (p: number) => {
     const { sheetRadius, triggerRadius } = radiusVarsRef.current;
     if (p <= RADIUS_HOLD_FRACTION) return sheetRadius;
-    // --morph-sheet-trigger-radius is a "fully round" sentinel by default
+    // --vista-sheet-trigger-radius is a "fully round" sentinel by default
     // (9999px). Interpolating toward the raw token would clear min(w,h)/2
     // within one frame of leaving the hold and paint the M1 ellipse on a
     // still-sheet-sized box (a 212x178 box at p=0.76 would take a ~800px

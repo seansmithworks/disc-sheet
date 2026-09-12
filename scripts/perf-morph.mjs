@@ -532,7 +532,7 @@ async function measureLaunch(cycles) {
     // drops a trace marker that places the scored windows.
     await page.addInitScript(
       ({ inject, mark }) => {
-        localStorage.setItem("morph-sheet-example:iridescent", inject ? "1" : "0");
+        localStorage.setItem("vista-sheet-example:iridescent", inject ? "1" : "0");
         // Page-clock record of each cycle, read back by verifyInjections.
         window.__perfMorph = { clicks: [], jank: [], block: [] };
         addEventListener(
@@ -570,7 +570,7 @@ async function measureLaunch(cycles) {
     if (INJECT_GPU) await injectGpuLoad(page);
     if (INJECT_ANIMATION) await injectUnrelatedAnimation(page);
 
-    const trigger = page.locator('[data-morph-sheet-part="trigger"]');
+    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
     const triggerBox = await trigger.boundingBox();
     const cx = triggerBox.x + triggerBox.width / 2;
     const cy = triggerBox.y + triggerBox.height / 2;
@@ -594,7 +594,7 @@ async function measureLaunch(cycles) {
       }
       await page.mouse.click(cx, cy);
       await page.waitForTimeout(WINDOW_MS + 800); // open window + hold
-      const closeBox = await page.locator('[data-morph-sheet-part="close"]').boundingBox();
+      const closeBox = await page.locator('[data-vista-sheet-part="close"]').boundingBox();
       await page.mouse.click(closeBox.x + closeBox.width / 2, closeBox.y + closeBox.height / 2);
       await page.waitForTimeout(WINDOW_MS + 700); // close window + hold
     };
@@ -810,7 +810,7 @@ async function main() {
     .filter(([, on]) => on)
     .map(([name]) => name);
 
-  console.log("morph-sheet perf");
+  console.log("vista-sheet perf");
   console.log(`  renderer:   ${result.gpu}`);
   console.log(`  mode:       ${LAUNCH_OPTIONS.channel} headless (new)`);
   console.log(`  load1:      ${gateLoad.toFixed(2)} (quiet threshold < ${QUIET_THRESHOLD.toFixed(1)}, ${CORES} cores)`);
