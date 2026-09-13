@@ -205,7 +205,7 @@ first line of that file.
 ### Trigger shape
 
 `<VistaSheet.Root shape>` takes `"circle"` (default), `"squircle"`,
-`"rounded-square"` or `"square"`. The trigger surface, `<VistaSheet.Shadow>`,
+`"rounded-square"`, `"square"` or `"rectangle"`. The trigger surface, `<VistaSheet.Shadow>`,
 both `<VistaSheet.Shared>` slots and the focus ring all follow it.
 `--vista-sheet-trigger-radius` still caps the corner radius for every shape.
 With `"squircle"` the sheet's own corners use the squircle curve too, so the
@@ -216,6 +216,55 @@ the slot clips them to the current shape.
 Browser support: `"squircle"` is a true superellipse where CSS `corner-shape`
 is supported (Chromium); Safari and Firefox get a close `border-radius`
 approximation.
+
+### Rectangle buttons
+
+```tsx
+"use client";
+
+import { VistaSheet } from "@seansmithworks/vista-sheet";
+
+export default function SearchTrigger() {
+  return (
+    <VistaSheet.Root shape="rectangle" buttonSize="m">
+      <VistaSheet.Shadow />
+
+      <VistaSheet.Trigger aria-label="Search">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
+          <circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" />
+          <line x1="11" y1="11" x2="15" y2="15" stroke="currentColor" />
+        </svg>
+        Search
+      </VistaSheet.Trigger>
+
+      <VistaSheet.Sheet aria-labelledby="search-title">
+        <VistaSheet.Close aria-label="Close" />
+
+        <VistaSheet.Content>
+          <VistaSheet.Item>
+            <h2 id="search-title">Search</h2>
+          </VistaSheet.Item>
+        </VistaSheet.Content>
+      </VistaSheet.Sheet>
+    </VistaSheet.Root>
+  );
+}
+```
+
+- `shape="rectangle"` plus `buttonSize` (`"s" | "m" | "l"`, default `"m"`)
+  sets height and inline padding: 36px/14px, 44px/18px, 52px/22px.
+- Width sizes to the trigger's label (children) by default. Pass `buttonWidth`
+  (px) for a fixed width; a value narrower than the label clips it, no
+  ellipsis.
+- Corners are a pill — `min(--vista-sheet-trigger-radius, height / 2)` — a
+  strawman awaiting Sean's dial pass. Set `--vista-sheet-trigger-radius` lower
+  for a rounded rectangle instead.
+- A rectangle trigger holds plain children only: an icon, icon + text, or
+  text. `<VistaSheet.Shared>` and `<VistaSheet.Media>` are not supported
+  inside it in v0.2.
+- The label fades in only as a close nears rest, over the last 15% of the
+  close (`collapseProgress` 0.85 to 1), so it never paints over the
+  still-large sheet.
 
 ### Media and aspect-ratio sheets
 
@@ -262,7 +311,9 @@ const ratio = 9 / 16;
 
 `useVistaSheet().collapseProgress` is the raw `MotionValue<number>` the
 package's own radius, mask, and opacity transforms read: `0` at fully open
-(sheet), `1` at fully closed (trigger). Combined with `triggerRect` and
+(sheet), `1` at fully closed (trigger). `triggerRect` is
+`{ cx, cy, halfWidth, halfHeight }`, so it describes a rectangle trigger as
+well as a round one. Combined with `triggerRect` and
 `sheetRect`, it is enough to rebuild any choreography the package doesn't
 expose as a prop. See `example/CloseMask.tsx` for a worked example: it
 rebuilds a trailing-paper close mask from *outside* the package using only
@@ -309,7 +360,8 @@ where `<VistaSheet.Shadow>` crossfades from the heavy `--vista-sheet-sheet-shado
 look to the thin `--vista-sheet-shadow` look — see "Two shadows, one painter"
 below.
 
-The package writes `--vista-sheet-trigger-size`, `--vista-sheet-trigger-x/-y`,
+The package writes `--vista-sheet-trigger-size`, `--vista-sheet-button-width`,
+`--vista-sheet-trigger-x/-y`,
 `--vista-sheet-sheet-left`, `--vista-sheet-collapse`,
 `--vista-sheet-shadow-x/-y/-w/-h/-radius`, and
 `--vista-sheet-shadow-opacity`/`--vista-sheet-sheet-shadow-opacity` (the live
@@ -351,6 +403,7 @@ to find the live element from outside the package via `useVistaSheet()` + a
 | `item` | `<VistaSheet.Item>` |
 | `close` | `<VistaSheet.Close>`'s button |
 | `shadow` | `<VistaSheet.Shadow>`'s default div (also merged onto an `asChild` child) |
+| `trigger-label` | Wrapper around the trigger's plain children (everything except Shared and Media); fades in as a close lands |
 
 `<VistaSheet.Shared>` additionally carries `data-vista-sheet-slot="trigger"` or
 `"sheet"`, so consumer CSS (or the package's own
@@ -363,6 +416,10 @@ closed).
 
 `trigger`, `trigger-surface`, `sheet`, `shared` and `shadow` additionally
 carry `data-vista-sheet-shape` (the Root's `shape`).
+
+`trigger-root` also carries `data-vista-sheet-shape`. `trigger-root` and
+`trigger` additionally carry `data-vista-sheet-button-size` (the Root's
+`buttonSize`) when `shape="rectangle"`.
 
 `sheet` additionally carries `data-vista-sheet-settled` (empty string), present
 only once the open has finished and removed as soon as a close starts. This

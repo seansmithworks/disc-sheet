@@ -434,6 +434,12 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [ ] parked — stagger length scales with Item count: Design menu 9 rows → last row ~0.92s (was ~0.52s), list example ~0.65s (arithmetic, not measured). If long sheets feel slow, cap total stagger rather than shrink the interval.
 - [ ] parked — design-settings button draggable (unchanged, see above).
 
+## P3 deferred — 2026-09-13 (overnight run)
+- [ ] Dial pass: rectangle S/M/L (strawman heights 36/44/52, padding 14/18/22, gap 6/8/10) and pill corners vs a fixed radius.
+- [ ] Dial pass: trigger label reveal window (strawman collapseProgress 0.85 to 1).
+- [ ] Shared / Media inside a rectangle trigger (unsupported in v0.2).
+- [ ] Playground: Rectangle is disabled for Shared/media recipes; revisit once Shared-in-rectangle exists.
+
 ## Overnight v0.2 run ledger — 2026-09-13
 
 - [x] e59c7a2 WIP verified at dc3bd44 before launch: 95 vitest · tsc 6 (baseline) · audit:vars PASS · build:lib + banner PASS · geometry 117 passed.
