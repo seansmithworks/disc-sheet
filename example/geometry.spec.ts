@@ -2002,3 +2002,99 @@ for (const viewport of [
     });
   });
 }
+
+test.describe("settings vs main trigger collision — live drag", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  // The collision tests above only cover the mount-time persisted anchor
+  // (seeded via localStorage before the first paint). These exercise the
+  // live path: dragging the mounted main trigger, and the settings trigger
+  // reflowing in response to the real onAnchorChange callback.
+
+  test("dragging the main trigger into top-right moves the settings trigger to top-left", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+
+    const mainTrigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
+    const settingsTrigger = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="trigger"]',
+    );
+    await waitForStableWidth(page, mainTrigger);
+    await waitForStableWidth(page, settingsTrigger);
+
+    // Default anchor is bottom-center — settings starts at top-right.
+    const startSettingsBox = (await settingsTrigger.boundingBox())!;
+    expect(startSettingsBox.x).toBeGreaterThan(1280 / 2);
+
+    // Drag main into the top-right region and release.
+    const startBox = (await mainTrigger.boundingBox())!;
+    await page.mouse.move(
+      startBox.x + startBox.width / 2,
+      startBox.y + startBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(1280 - 20, 20, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(900); // let the snap spring settle
+
+    const mainAtTopRight = (await mainTrigger.boundingBox())!;
+    expect(mainAtTopRight.x).toBeGreaterThan(1280 / 2);
+    expect(mainAtTopRight.y).toBeLessThan(400); // sanity: top half of the 800px viewport
+
+    const settingsAtTopLeft = (await settingsTrigger.boundingBox())!;
+    expect(settingsAtTopLeft.x).toBeLessThan(32 + 16);
+    const intersects =
+      settingsAtTopLeft.x < mainAtTopRight.x + mainAtTopRight.width &&
+      settingsAtTopLeft.x + settingsAtTopLeft.width > mainAtTopRight.x &&
+      settingsAtTopLeft.y < mainAtTopRight.y + mainAtTopRight.height &&
+      settingsAtTopLeft.y + settingsAtTopLeft.height > mainAtTopRight.y;
+    expect(intersects).toBe(false);
+  });
+
+  test("dragging the main trigger back out of top-right returns the settings trigger to top-right", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+
+    const mainTrigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
+    const settingsTrigger = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="trigger"]',
+    );
+    await waitForStableWidth(page, mainTrigger);
+    await waitForStableWidth(page, settingsTrigger);
+
+    // Drag main into the top-right region first.
+    const startBox = (await mainTrigger.boundingBox())!;
+    await page.mouse.move(
+      startBox.x + startBox.width / 2,
+      startBox.y + startBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(1280 - 20, 20, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(900); // let the snap spring settle
+
+    // Sanity: settings did move to top-left before the second drag.
+    const settingsAtTopLeft = (await settingsTrigger.boundingBox())!;
+    expect(settingsAtTopLeft.x).toBeLessThan(32 + 16);
+
+    // Drag main back out of top-right (to the viewport centre) and release.
+    const midBox = (await mainTrigger.boundingBox())!;
+    await page.mouse.move(
+      midBox.x + midBox.width / 2,
+      midBox.y + midBox.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(640, 400, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(900); // let the snap spring settle
+
+    const settingsBackAtTopRight = (await settingsTrigger.boundingBox())!;
+    expect(settingsBackAtTopRight.x).toBeGreaterThan(1280 / 2);
+  });
+});

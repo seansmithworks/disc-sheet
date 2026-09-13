@@ -21,7 +21,10 @@
         min-height: 100vh;
       }
       .page {
-        padding: 40px 24px;
+        /* Top padding clears the settings trigger: 16px inset + 40px
+           triggerSize = 56px from the viewport edge at either top corner,
+           plus a margin, so the heading never sits under it. */
+        padding: 72px 24px 40px;
         max-width: 720px;
         margin: 0 auto;
       }
@@ -30,7 +33,7 @@
         margin: 0 0 8px;
       }
       p.sub {
-        color: #6e6e73;
+        color: var(--demo-text-muted, #6e6e73);
         margin: 0 0 32px;
       }
     </style>

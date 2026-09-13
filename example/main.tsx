@@ -301,8 +301,25 @@ function App() {
   // seeds from the persisted value at mount (readMainAnchor) and tracks
   // live drags via onAnchorChange below.
   const [mainAnchor, setMainAnchor] = useState<AnchorId>(readMainAnchor);
-  const settingsAnchor: AnchorId =
+  const desiredSettingsAnchor: AnchorId =
     mainAnchor === "top-right" ? "top-left" : "top-right";
+  // The settings Root is remounted on `key={appliedSettingsAnchor}` (anchor
+  // is uncontrolled-only, docs/PACKAGE-DESIGN.md §8) — but remounting while
+  // that sheet is open or closing skips its exit animation and focus
+  // restore. So a change in the desired anchor is only ever applied while
+  // the settings sheet is fully closed: held in `appliedSettingsAnchor`
+  // until `onOpenChange` reports `false`. `settingsOpenRef` reads the
+  // latest open state inside that same closure without adding it as an
+  // effect dependency.
+  const [appliedSettingsAnchor, setAppliedSettingsAnchor] = useState<AnchorId>(
+    desiredSettingsAnchor,
+  );
+  const settingsOpenRef = useRef(false);
+  useEffect(() => {
+    if (!settingsOpenRef.current) {
+      setAppliedSettingsAnchor(desiredSettingsAnchor);
+    }
+  }, [desiredSettingsAnchor]);
   const iriController = useDialKitController("Iridescent shadow", IRI_DIALS, {
     id: "morph-sheet-iridescent",
     persist: true,
@@ -456,15 +473,20 @@ function App() {
           fight over stacking order if they ever visually overlap. Not
           draggable — it is a fixed utility control, not the demo subject. */}
       <VistaSheet.Root
-        // Remounted on its own derived anchor (`key`): anchor is
+        // Remounted on its own applied anchor (`key`): anchor is
         // uncontrolled-only in v0.1 (docs/PACKAGE-DESIGN.md §8), so a
         // `defaultAnchor` change alone wouldn't move an already-mounted
-        // Root. Safe here specifically because this Root is non-draggable
-        // and modal-when-open — the main trigger can't be mid-drag while
-        // this remounts, so there's no in-flight gesture to interrupt.
-        key={settingsAnchor}
+        // Root. `appliedSettingsAnchor` only changes while this Root is
+        // closed (see the effect above + onOpenChange below), so the key
+        // never flips mid-animation and never interrupts this Root's own
+        // open/close.
+        key={appliedSettingsAnchor}
         id="settings"
-        defaultAnchor={settingsAnchor}
+        defaultAnchor={appliedSettingsAnchor}
+        onOpenChange={(next) => {
+          settingsOpenRef.current = next;
+          if (!next) setAppliedSettingsAnchor(desiredSettingsAnchor);
+        }}
         persistKey={false}
         draggable={false}
         triggerSize={40}

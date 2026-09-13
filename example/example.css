@@ -14,6 +14,10 @@
   --vista-sheet-surface-border: #e5e5e5;
   --vista-sheet-text: #1d1d1f;
   --vista-sheet-accent: #1d1d1f;
+  /* Example-only token: muted body copy on both the sheet surface (content
+   * p) and the page ground (p.sub in index.html). Dark mode overrides it
+   * below so both stay ≥4.5:1 rather than each carrying its own literal. */
+  --demo-text-muted: #4b4b52;
 }
 
 /* M13: Close.tsx ships unpositioned by design (consumer decides) — without
@@ -42,11 +46,11 @@
 [data-vista-sheet-part="content"] p {
   margin: 0;
   line-height: 1.5;
-  color: #4b4b52;
+  color: var(--demo-text-muted);
 }
 
 [data-vista-sheet-part="content"] nav a {
-  color: #1d1d1f;
+  color: var(--vista-sheet-text);
   text-decoration: underline;
 }
 
@@ -72,6 +76,7 @@ body[data-dark-mode="true"] {
     0 1px 4px rgba(0, 0, 0, 0.4), 0 6px 24px rgba(0, 0, 0, 0.45);
   --vista-sheet-sheet-shadow:
     0 8px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --demo-text-muted: #a1a1a6;
 }
 
 /* Design settings sheet: one label + one control per row. */
@@ -95,10 +100,10 @@ body[data-dark-mode="true"] {
     -apple-system,
     sans-serif;
   padding: 6px 10px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--vista-sheet-surface-border);
   border-radius: 8px;
-  background: #ffffff;
-  color: #1d1d1f;
+  background: var(--vista-sheet-surface-elevated);
+  color: var(--vista-sheet-text);
 }
 
 .settings-select:disabled {
