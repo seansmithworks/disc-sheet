@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Frame, type Page } from "@playwright/test";
 
 /**
  * Contract spec for example/play.html — the P1 playground page. Written
@@ -22,6 +22,91 @@ async function gotoPlay(page: Page) {
     ),
   ).toBeVisible();
   return frame;
+}
+
+/**
+ * Tags the stage frame's window, the specimen Root element and its trigger
+ * surface with a JS property (never a DOM attribute) so a later remount —
+ * which recreates all three — is detectable: the property is simply gone
+ * from the new nodes/window.
+ */
+async function tagStageIdentity(frame: Frame) {
+  await frame.evaluate(() => {
+    (window as unknown as { __vsIdentityTag?: boolean }).__vsIdentityTag = true;
+    const root = document.querySelector('[data-vista-sheet-root="specimen"]');
+    const surface = document.querySelector(
+      '[data-vista-sheet-part="trigger-surface"]',
+    );
+    if (root)
+      (root as unknown as { __vsIdentityTag?: boolean }).__vsIdentityTag = true;
+    if (surface)
+      (surface as unknown as { __vsIdentityTag?: boolean }).__vsIdentityTag =
+        true;
+  });
+}
+
+async function stageIdentitySurvives(frame: Frame): Promise<boolean> {
+  return frame.evaluate(() => {
+    const w = window as unknown as { __vsIdentityTag?: boolean };
+    const root = document.querySelector('[data-vista-sheet-root="specimen"]');
+    const surface = document.querySelector(
+      '[data-vista-sheet-part="trigger-surface"]',
+    );
+    return !!(
+      w.__vsIdentityTag &&
+      root &&
+      (root as unknown as { __vsIdentityTag?: boolean }).__vsIdentityTag &&
+      surface &&
+      (surface as unknown as { __vsIdentityTag?: boolean }).__vsIdentityTag
+    );
+  });
+}
+
+/** Starts an rAF sampler in the stage frame recording the trigger surface's
+ * bounding box every frame for `ms`. Kicked off without awaiting so it runs
+ * concurrently with the control change that follows. */
+function sampleTriggerSurfaceBoxes(frame: Frame, ms: number) {
+  return frame.evaluate((duration) => {
+    return new Promise<
+      Array<{ x: number; y: number; width: number; height: number }>
+    >((resolve) => {
+      const boxes: Array<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }> = [];
+      const start = performance.now();
+      function step() {
+        const el = document.querySelector(
+          '[data-vista-sheet-part="trigger-surface"]',
+        );
+        if (el) {
+          const r = el.getBoundingClientRect();
+          boxes.push({ x: r.x, y: r.y, width: r.width, height: r.height });
+        }
+        if (performance.now() - start < duration) {
+          requestAnimationFrame(step);
+        } else {
+          resolve(boxes);
+        }
+      }
+      requestAnimationFrame(step);
+    });
+  }, ms);
+}
+
+function expectBoxesStill(
+  boxes: Array<{ x: number; y: number; width: number; height: number }>,
+) {
+  expect(boxes.length).toBeGreaterThan(5);
+  const ref = boxes[0];
+  for (const b of boxes) {
+    expect(Math.abs(b.x - ref.x)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(b.y - ref.y)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(b.width - ref.width)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(b.height - ref.height)).toBeLessThanOrEqual(0.5);
+  }
 }
 
 test.describe("1440x900", () => {
@@ -170,6 +255,94 @@ test.describe("1440x900", () => {
 
     await expect(trigger).toHaveAttribute("data-vista-sheet-shape", "square");
     await expect(jsxPane).toContainText('shape="square"');
+  });
+
+  test("play-ui: desktop shape switch applies in place — no specimen remount or entrance replay", async ({
+    page,
+  }) => {
+    await gotoPlay(page);
+    const stageFrame = page.frame({ url: /stage=1/ });
+    expect(stageFrame).not.toBeNull();
+    if (!stageFrame) return;
+
+    await tagStageIdentity(stageFrame);
+
+    const samplerPromise = sampleTriggerSurfaceBoxes(stageFrame, 900);
+
+    const trigger = stageFrame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+    await page
+      .getByRole("radio", { name: "Rounded square", exact: true })
+      .check();
+    await expect(trigger).toHaveAttribute(
+      "data-vista-sheet-shape",
+      "rounded-square",
+    );
+
+    const boxes = await samplerPromise;
+    expectBoxesStill(boxes);
+
+    expect(await stageIdentitySurvives(stageFrame)).toBe(true);
+  });
+
+  test("play-ui: desktop trigger size, shadow toggle, anchor change and dismiss toggle apply without remounting the specimen", async ({
+    page,
+  }) => {
+    await gotoPlay(page);
+    const stageFrame = page.frame({ url: /stage=1/ });
+    expect(stageFrame).not.toBeNull();
+    if (!stageFrame) return;
+
+    await tagStageIdentity(stageFrame);
+
+    const trigger = stageFrame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+
+    // Trigger size — legitimately glides, so no box-stillness assertion.
+    await page.getByLabel("Trigger size", { exact: true }).selectOption("96");
+    await expect
+      .poll(async () => {
+        const box = await trigger.boundingBox();
+        return box ? Math.abs(box.height - 96) : Infinity;
+      })
+      .toBeLessThanOrEqual(0.5);
+    expect(await stageIdentitySurvives(stageFrame)).toBe(true);
+
+    // Shadow toggle off then on.
+    await page.getByLabel("Shadow", { exact: true }).uncheck();
+    await expect(
+      stageFrame.locator(
+        '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="shadow"]',
+      ),
+    ).toHaveCount(0);
+    expect(await stageIdentitySurvives(stageFrame)).toBe(true);
+
+    await page.getByLabel("Shadow", { exact: true }).check();
+    await expect(
+      stageFrame.locator(
+        '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="shadow"]',
+      ),
+    ).toHaveCount(1);
+    expect(await stageIdentitySurvives(stageFrame)).toBe(true);
+
+    // Anchor change while closed — Sean accepted this jumps, no glide.
+    await page.getByLabel("Anchor", { exact: true }).selectOption("top-left");
+    await expect
+      .poll(async () => {
+        const box = await trigger.boundingBox();
+        return box ? box.x < 150 && box.y < 150 : false;
+      })
+      .toBe(true);
+    expect(await stageIdentitySurvives(stageFrame)).toBe(true);
+
+    // One dismiss toggle.
+    await page.getByLabel("Dismiss on swipe", { exact: true }).uncheck();
+    await expect(page.locator('pre[data-play-output="jsx"]')).toContainText(
+      "dismissOnSwipe={false}",
+    );
+    expect(await stageIdentitySurvives(stageFrame)).toBe(true);
   });
 
   test("play-ui: desktop token control changes the specimen and the copy output", async ({
