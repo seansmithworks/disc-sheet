@@ -313,9 +313,11 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 
 Voice note after testing the design-settings sheet on his phone. Planning in flight (planner draft → plan Artifact). Several asks reopen the SCOPE LOCK above — Sean's call.
 
+Plan (reviewed by a second agent): https://claude.ai/code/artifact/1ab67c7c-1efc-4fbf-a3eb-717a66f36745 — P1 playground page · P2 radius shapes · P3 rectangle/button triggers · P4 video + aspect-ratio sheets. Open calls: reopen lock for buttons + aspect ratio; Safari squircle approximation; squircle vs rounded-square corner definitions; rectangle width author-set vs from label; 09-01 release hold.
+
 - [ ] The design-settings panel becomes the WYSIWYG "copy tool" — a playground page reached from npm to play with the component and copy what you build. (extends: line 181 "Visual configurator on the site")
-- [ ] Trigger shape presets: circle, squircle, square, star with outer points (configurable point count, e.g. 8, with a corner radius on the points). (extends: line 41 "Shape presets") — reopens SCOPE LOCK
-- [ ] Custom shapes definable by any developer or agent, beyond the presets. (new) — reopens SCOPE LOCK
+- [ ] Trigger shape presets: circle, squircle, square, star with outer points (configurable point count, e.g. 8, with a corner radius on the points). (extends: line 41 "Shape presets") — reopens SCOPE LOCK → DECIDED 2026-09-13 (Sean): v0.2 ships circle, squircle, rounded-corner square, square, rectangle (buttons). Star → future release.
+- [ ] Custom shapes definable by any developer or agent, beyond the presets. (new) — reopens SCOPE LOCK → DEFERRED 2026-09-13 (Sean): future release, not v0.2.
 - [ ] Button-style triggers: rectangle/pill at small/medium/large with icon, icon+text, or text; by extension a search box or chat input as the trigger. (new)
 - [ ] Sheet content presets: list, grid, navigation, media. (extends: line 203 "Content layouts as package exports") — reopens SCOPE LOCK
 - [ ] Video sheet: a circle with Sean's picture expands to full video content. (extends: line 42 "icon to advertisement")
