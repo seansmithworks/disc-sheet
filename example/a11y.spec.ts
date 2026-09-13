@@ -24,7 +24,9 @@ test.describe("§6 accessibility contract", () => {
     expect(await trigger.getAttribute("aria-controls")).toBeNull();
 
     await trigger.click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
 
     expect(await trigger.getAttribute("aria-expanded")).toBe("true");
     const controls = await trigger.getAttribute("aria-controls");
@@ -42,7 +44,9 @@ test.describe("§6 accessibility contract", () => {
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
 
-    const sheet = page.locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await expect(sheet).toHaveAttribute("role", "dialog");
     await expect(sheet).toHaveAttribute("aria-modal", "true");
     await expect(sheet).toHaveAttribute("tabindex", "-1");
@@ -57,7 +61,9 @@ test.describe("§6 accessibility contract", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    const sheet = page.locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await sheet.waitFor();
     // useDialogBehavior focuses the panel ~50ms after open.
     await page.waitForTimeout(150);
@@ -71,15 +77,20 @@ test.describe("§6 accessibility contract", () => {
     await page.goto("/");
     const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
     await trigger.click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await page.waitForTimeout(150);
 
     await page.keyboard.press("Escape");
     // Wait for AnimatePresence's exit + onExitComplete.
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]', {
-      state: "detached",
-      timeout: 5000,
-    });
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      {
+        state: "detached",
+        timeout: 5000,
+      },
+    );
     await page.waitForTimeout(100);
 
     const isTriggerFocused = await trigger.evaluate(
@@ -91,18 +102,25 @@ test.describe("§6 accessibility contract", () => {
   test("Escape closes the sheet unconditionally", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await page.keyboard.press("Escape");
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]', {
-      state: "detached",
-      timeout: 5000,
-    });
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      {
+        state: "detached",
+        timeout: 5000,
+      },
+    );
   });
 
   test("Tab/Shift+Tab cycle within the panel", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    const sheet = page.locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await sheet.waitFor();
     await page.waitForTimeout(150);
 
@@ -145,17 +163,22 @@ test.describe("§6 accessibility contract", () => {
     );
 
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     const openOverflow = await page.evaluate(
       () => document.body.style.overflow,
     );
     expect(openOverflow).toBe("hidden");
 
     await page.keyboard.press("Escape");
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]', {
-      state: "detached",
-      timeout: 5000,
-    });
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      {
+        state: "detached",
+        timeout: 5000,
+      },
+    );
     const closedOverflow = await page.evaluate(
       () => document.body.style.overflow,
     );
@@ -167,7 +190,9 @@ test.describe("§6 accessibility contract", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    const sheet = page.locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     const hasLabel = await sheet.getAttribute("aria-label");
     const hasLabelledBy = await sheet.getAttribute("aria-labelledby");
     expect(Boolean(hasLabel) !== Boolean(hasLabelledBy)).toBe(true);
@@ -179,10 +204,13 @@ test.describe("§6 accessibility contract", () => {
     const close = page.getByRole("button", { name: CLOSE_LABEL });
     await expect(close).toBeVisible();
     await close.click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]', {
-      state: "detached",
-      timeout: 5000,
-    });
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      {
+        state: "detached",
+        timeout: 5000,
+      },
+    );
   });
 
   test("close control is transparent mid-open and fades in once the open finishes", async ({
@@ -190,7 +218,9 @@ test.describe("§6 accessibility contract", () => {
   }) => {
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    const close = page.locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="close"]');
+    const close = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="close"]',
+    );
     await close.waitFor({ state: "attached" });
     expect(await close.evaluate((el) => getComputedStyle(el).opacity)).toBe(
       "0",
@@ -208,7 +238,9 @@ test.describe("§6 accessibility contract", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await page.waitForTimeout(300);
 
     const projectionNodes = await page.locator("[data-projection-id]").count();
@@ -224,14 +256,83 @@ test.describe("§6 accessibility contract", () => {
 
     await page.goto("/");
     await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await page.waitForTimeout(300);
     await page.keyboard.press("Escape");
-    await page.waitForSelector('[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]', {
-      state: "detached",
-      timeout: 5000,
-    });
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      {
+        state: "detached",
+        timeout: 5000,
+      },
+    );
 
     expect(errors).toEqual([]);
+  });
+});
+
+/**
+ * Design settings sheet — a second, independent VistaSheet.Root (`id=
+ * "settings"`). Same dialog contract as the main sheet (it's the same
+ * package component), gated separately here per review finding 4: nothing
+ * previously exercised its accessible name, Escape, or focus-return.
+ */
+test.describe("Design settings sheet accessibility", () => {
+  const SETTINGS_LABEL = "Design settings";
+
+  test('opens as a dialog with accessible name "Design"', async ({ page }) => {
+    await page.goto("/");
+    const trigger = page.getByRole("button", { name: SETTINGS_LABEL });
+    await trigger.click();
+
+    const sheet = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+    );
+    await sheet.waitFor();
+    await expect(sheet).toHaveAttribute("role", "dialog");
+    await expect(sheet).toHaveAttribute("aria-modal", "true");
+
+    const labelledBy = await sheet.getAttribute("aria-labelledby");
+    expect(labelledBy).toBe("settings-sheet-title");
+    const label = page.locator(`#${labelledBy}`);
+    await expect(label).toBeVisible();
+    await expect(label).toHaveText("Design");
+  });
+
+  test("Escape closes it", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    const sheet = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+    );
+    await sheet.waitFor();
+    await page.waitForTimeout(150);
+
+    await page.keyboard.press("Escape");
+    await sheet.waitFor({ state: "detached", timeout: 5000 });
+  });
+
+  test("focus returns to the settings trigger on exit-complete", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const trigger = page.getByRole("button", { name: SETTINGS_LABEL });
+    await trigger.click();
+    const sheet = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+    );
+    await sheet.waitFor();
+    await page.waitForTimeout(150);
+
+    await page.keyboard.press("Escape");
+    await sheet.waitFor({ state: "detached", timeout: 5000 });
+    await page.waitForTimeout(100);
+
+    const isTriggerFocused = await trigger.evaluate(
+      (el) => document.activeElement === el,
+    );
+    expect(isTriggerFocused).toBe(true);
   });
 });

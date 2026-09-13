@@ -5,6 +5,7 @@ import { DialRoot, useDialKit, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
 import { VistaSheet } from "../src/index";
 import { CloseMask } from "./CloseMask";
+import { ALL_ANCHORS, DEFAULT_ANCHOR, type AnchorId } from "../src/anchors";
 import "./example.css";
 
 // Sized to 100% of its parent, not a fixed px value: <VistaSheet.Shared>'s two
@@ -51,14 +52,14 @@ const openDelayOverride = testParams.has("openDelay")
 // keys per control.
 interface DemoSettings {
   iridescent: boolean;
-  darkGround: boolean;
+  darkMode: boolean;
   surface: "neutral" | "warm";
   triggerSize: "small" | "default" | "large";
   showDials: boolean;
 }
 const DEFAULT_SETTINGS: DemoSettings = {
   iridescent: false,
-  darkGround: false,
+  darkMode: false,
   surface: "neutral",
   triggerSize: "default",
   showDials: false,
@@ -68,10 +69,32 @@ function readSettings(): DemoSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    // Defensive parse: `darkGround` (pre-rename field) is ignored rather
+    // than merged in — spreading it in would coexist with `darkMode` under
+    // a name nothing reads anymore.
+    const { darkGround: _darkGround, ...rest } = JSON.parse(raw);
+    return { ...DEFAULT_SETTINGS, ...rest };
   } catch {
     return DEFAULT_SETTINGS;
   }
+}
+
+// The main Root's persisted anchor — same key `usePersistedAnchor` falls
+// back to (DEFAULT_STORAGE_KEY) since main.tsx's <VistaSheet.Root id="main">
+// below passes no `persistKey` override. Read directly here (rather than
+// waiting on `onAnchorChange`, which only fires from a live drag — the
+// mount-time localStorage restore inside usePersistedAnchor sets React
+// state directly and never calls it) so the settings sheet's initial anchor
+// already accounts for a persisted top-right main sheet on first paint.
+const MAIN_ANCHOR_STORAGE_KEY = "vista-sheet-anchor";
+function readMainAnchor(): AnchorId {
+  try {
+    const raw = localStorage.getItem(MAIN_ANCHOR_STORAGE_KEY);
+    if (raw && (ALL_ANCHORS as string[]).includes(raw)) return raw as AnchorId;
+  } catch {
+    // Storage unavailable — keep the default.
+  }
+  return DEFAULT_ANCHOR;
 }
 
 // Main trigger's triggerSize ramp per "Trigger size" select. "Default" passes
@@ -263,12 +286,23 @@ function App() {
       return merged;
     });
   };
-  // Dark ground toggles body-level background/text, not just `.page` (the
+  // Dark mode toggles body-level background/text, not just `.page` (the
   // page div has no explicit height, so a short page would leave the
-  // original light body visible below the fold).
+  // original light body visible below the fold) — and, via example.css's
+  // `body[data-dark-mode="true"]` block, the --vista-sheet-* consumer
+  // tokens both sheets read, so they switch to dark chrome too.
   useEffect(() => {
-    document.body.dataset.darkGround = settings.darkGround ? "true" : "false";
-  }, [settings.darkGround]);
+    document.body.dataset.darkMode = settings.darkMode ? "true" : "false";
+  }, [settings.darkMode]);
+
+  // The settings sheet's anchor is derived, not a user choice: it takes
+  // top-right unless the main sheet already occupies it, in which case it
+  // takes top-left — so the two triggers can never overlap. `mainAnchor`
+  // seeds from the persisted value at mount (readMainAnchor) and tracks
+  // live drags via onAnchorChange below.
+  const [mainAnchor, setMainAnchor] = useState<AnchorId>(readMainAnchor);
+  const settingsAnchor: AnchorId =
+    mainAnchor === "top-right" ? "top-left" : "top-right";
   const iriController = useDialKitController("Iridescent shadow", IRI_DIALS, {
     id: "morph-sheet-iridescent",
     persist: true,
@@ -347,6 +381,7 @@ function App() {
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}
         triggerSize={TRIGGER_SIZE_RAMPS[settings.triggerSize]}
+        onAnchorChange={setMainAnchor}
         transition={
           openDelayOverride !== undefined
             ? {
@@ -421,9 +456,16 @@ function App() {
           fight over stacking order if they ever visually overlap. Not
           draggable — it is a fixed utility control, not the demo subject. */}
       <VistaSheet.Root
+        // Remounted on its own derived anchor (`key`): anchor is
+        // uncontrolled-only in v0.1 (docs/PACKAGE-DESIGN.md §8), so a
+        // `defaultAnchor` change alone wouldn't move an already-mounted
+        // Root. Safe here specifically because this Root is non-draggable
+        // and modal-when-open — the main trigger can't be mid-drag while
+        // this remounts, so there's no in-flight gesture to interrupt.
+        key={settingsAnchor}
         id="settings"
-        defaultAnchor="top-right"
-        persistKey="vista-sheet-settings-anchor"
+        defaultAnchor={settingsAnchor}
+        persistKey={false}
         draggable={false}
         triggerSize={40}
         zIndex={300}
@@ -485,17 +527,17 @@ function App() {
 
             <VistaSheet.Item>
               <div className="settings-row">
-                <span className="settings-label" id="setting-dark-ground-label">
-                  Dark ground
+                <span className="settings-label" id="setting-dark-mode-label">
+                  Dark mode
                 </span>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={settings.darkGround}
-                  aria-labelledby="setting-dark-ground-label"
+                  aria-checked={settings.darkMode}
+                  aria-labelledby="setting-dark-mode-label"
                   className="demo-toggle-switch"
                   onClick={() =>
-                    updateSettings({ darkGround: !settings.darkGround })
+                    updateSettings({ darkMode: !settings.darkMode })
                   }
                 >
                   <span className="demo-toggle-track" aria-hidden="true" />

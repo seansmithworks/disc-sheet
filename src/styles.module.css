@@ -38,7 +38,13 @@
 
 .triggerButton {
   position: relative;
-  display: block;
+  /* flex + centering only affects normal-flow children (a plain Trigger
+   * child per docs/PACKAGE-DESIGN.md: "children render above the seed
+   * surface, inside the button") — .triggerSurface and .shared are both
+   * position:absolute, so they're removed from flow and unaffected. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   border: none;
@@ -57,6 +63,19 @@
 .triggerSurface {
   position: absolute;
   inset: 0;
+  /* Negative stack level, not 0/auto: per CSS2.1 Appendix E, a positioned
+   * element with z-index 0/auto paints in the SAME layer as other
+   * stacking-context-forming descendants, which comes AFTER normal in-flow
+   * static content regardless of DOM order — so a plain (non-Shared)
+   * Trigger child always painted underneath this surface, contradicting
+   * docs/PACKAGE-DESIGN.md's "children render above the seed surface"
+   * contract. A negative z-index moves this to the layer painted BEFORE
+   * normal in-flow content, within the nearest ancestor stacking context
+   * (.dragWrapper, position:fixed) — it can't escape below that ancestor's
+   * own background/borders, only below its own siblings. `.shared[data-
+   * vista-sheet-slot="trigger"]`'s explicit z-index:1 is unaffected either
+   * way. */
+  z-index: -1;
   border-radius: var(--vista-sheet-trigger-radius, 9999px);
   background: var(--vista-sheet-surface, #faf7f2);
   /* 2px, not 1px — .shared[data-vista-sheet-slot="trigger"]'s inset:2px exists to

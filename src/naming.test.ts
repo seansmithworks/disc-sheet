@@ -24,7 +24,7 @@ const ALLOWLIST: Record<string, number[]> = {
   // Frozen dialkit panel/preset ids — renaming these orphans Sean's saved
   // dial history (see the comments at each site).
   "tuner/page.tsx": [26, 27],
-  "example/main.tsx": [124, 244, 273, 303],
+  "example/main.tsx": [147, 267, 307, 337],
   // The one committed tuning snapshot these ids persist under, and every
   // live reference to its filename.
   "docs/tuning/dialkit-morph-sheet-close.json": [1],

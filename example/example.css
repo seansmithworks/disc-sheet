@@ -50,12 +50,28 @@
   text-decoration: underline;
 }
 
-/* Dark ground (Design settings sheet). Toggled via document.body.dataset in
- * main.tsx. Only the outer page's background/text — sheet content colors are
- * a consumer decision made elsewhere in this file and stay as-is. */
-body[data-dark-ground="true"] {
+/* Dark mode (Design settings sheet, renamed from "Dark ground"). Toggled via
+ * document.body.dataset in main.tsx. Besides the page ground, it now also
+ * overrides the --vista-sheet-* consumer tokens on this ancestor, so both
+ * VistaSheet.Root instances (main + settings) read dark chrome rather than
+ * a white sheet on a black page — every VistaSheet.Root's own wrapper div
+ * inherits these custom properties from body. DESIGN.md defines no dark
+ * values, so these are hue-consistent dark neutrals chosen here: surface
+ * near #1c1c1e, elevated near #2c2c2e, a translucent white hairline border,
+ * and shadows deepened (higher alpha) so they still read against a dark
+ * ground instead of washing out. */
+body[data-dark-mode="true"] {
   background: #0b0b0c;
   color: #f5f5f7;
+  --vista-sheet-surface: #1c1c1e;
+  --vista-sheet-surface-elevated: #2c2c2e;
+  --vista-sheet-surface-border: rgba(255, 255, 255, 0.1);
+  --vista-sheet-text: #f5f5f7;
+  --vista-sheet-accent: #f5f5f7;
+  --vista-sheet-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.4), 0 6px 24px rgba(0, 0, 0, 0.45);
+  --vista-sheet-sheet-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Design settings sheet: one label + one control per row. */

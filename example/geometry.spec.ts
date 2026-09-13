@@ -1820,9 +1820,7 @@ test.describe("Design settings sheet", () => {
     await expect(
       page.getByRole("combobox", { name: "Glow palette" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("switch", { name: "Dark ground" }),
-    ).toBeVisible();
+    await expect(page.getByRole("switch", { name: "Dark mode" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Surface" })).toBeVisible();
     await expect(
       page.getByRole("combobox", { name: "Trigger size" }),
@@ -1832,13 +1830,28 @@ test.describe("Design settings sheet", () => {
     ).toBeVisible();
   });
 
-  test("(x) toggling Dark ground changes the page background", async ({
+  // (x2): the review's finding — toggling used to switch the page ground
+  // only, leaving both sheets white-on-black. This asserts BOTH the page
+  // ground and the main sheet's own computed surface background change.
+  // Main sheet is opened/closed BEFORE and AFTER the toggle (not held open
+  // across it) — its backdrop's outside-click dismiss would otherwise
+  // swallow the settings-trigger click in between.
+  test("(x) toggling Dark mode changes the page background and the main sheet's surface", async ({
     page,
   }) => {
     await gotoExample(page, false);
-    const before = await page.evaluate(
+    const bodyBefore = await page.evaluate(
       () => getComputedStyle(document.body).backgroundColor,
     );
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
+    await openSheet(page);
+    const sheetBefore = await sheet.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    await page.keyboard.press("Escape");
+    await sheet.waitFor({ state: "detached", timeout: 5000 });
 
     await page.getByRole("button", { name: SETTINGS_LABEL }).click();
     await page
@@ -1846,16 +1859,27 @@ test.describe("Design settings sheet", () => {
         '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
       )
       .waitFor();
-    await page.getByRole("switch", { name: "Dark ground" }).click();
+    await page.getByRole("switch", { name: "Dark mode" }).click();
     await page.waitForTimeout(50);
+    await page.keyboard.press("Escape");
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor({ state: "detached", timeout: 5000 });
 
-    const after = await page.evaluate(
+    const bodyAfter = await page.evaluate(
       () => getComputedStyle(document.body).backgroundColor,
     );
-    expect(after).not.toBe(before);
+    await openSheet(page);
+    const sheetAfter = await sheet.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    expect(bodyAfter).not.toBe(bodyBefore);
+    expect(sheetAfter).not.toBe(sheetBefore);
   });
 
-  test("(y) Dark ground persists across reload", async ({ page }) => {
+  test("(y) Dark mode persists across reload", async ({ page }) => {
     await gotoExample(page, false);
     await page.getByRole("button", { name: SETTINGS_LABEL }).click();
     await page
@@ -1863,14 +1887,14 @@ test.describe("Design settings sheet", () => {
         '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
       )
       .waitFor();
-    await page.getByRole("switch", { name: "Dark ground" }).click();
+    await page.getByRole("switch", { name: "Dark mode" }).click();
     await page.waitForTimeout(50);
 
     await page.reload();
     await page.waitForSelector(
       '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
     );
-    const isDark = await page.evaluate(() => document.body.dataset.darkGround);
+    const isDark = await page.evaluate(() => document.body.dataset.darkMode);
     expect(isDark).toBe("true");
   });
 
@@ -1884,4 +1908,97 @@ test.describe("Design settings sheet", () => {
     );
     await expect(sheet).toBeVisible();
   });
+
+  // (z2): review finding 1 — .triggerSurface (position:absolute, z-index
+  // auto) always painted above a plain (non-Shared) Trigger child, so the
+  // SlidersIcon never appeared. Sampling the exact centre of the settings
+  // trigger button (the SlidersIcon's middle line runs corner-to-corner
+  // through it by construction) via elementFromPoint: pre-fix this returns
+  // the trigger-surface div (closest("svg") is null); post-fix it returns a
+  // node inside the icon's <svg>.
+  test("(z2) the SlidersIcon paints above the seed surface, not underneath it", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    const trigger = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="trigger"]',
+    );
+    await waitForStableWidth(page, trigger);
+    const box = (await trigger.boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+
+    const hitsIcon = await page.evaluate(
+      ({ x, y }) => {
+        const el = document.elementFromPoint(x, y);
+        return el ? el.closest("svg") !== null : false;
+      },
+      { x: cx, y: cy },
+    );
+    expect(hitsIcon).toBe(true);
+  });
 });
+
+/**
+ * Settings-trigger vs main-trigger collision (review finding 2): with the
+ * main sheet anchored top-right, the settings trigger (also top-right by
+ * default) sat entirely inside the main trigger's larger box at a higher
+ * z-index, swallowing its taps. The settings sheet now derives its anchor
+ * from the main sheet's — top-right unless main occupies it, then
+ * top-left — via `onAnchorChange` (live drags) plus reading the persisted
+ * value directly at mount (the localStorage restore inside
+ * `usePersistedAnchor` never calls `onAnchorChange`).
+ */
+for (const viewport of [
+  { width: 390, height: 844 },
+  { width: 1440, height: 900 },
+] as const) {
+  test.describe(`${viewport.width}x${viewport.height} — settings vs main trigger collision`, () => {
+    test.use({ viewport });
+
+    test("main persisted to top-right pushes the settings trigger to top-left, and both remain independently clickable", async ({
+      page,
+    }) => {
+      await gotoWithAnchor(page, "top-right");
+
+      const mainTrigger = page.locator(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+      );
+      const settingsTrigger = page.locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="trigger"]',
+      );
+      await waitForStableWidth(page, mainTrigger);
+      await waitForStableWidth(page, settingsTrigger);
+
+      const mainBox = (await mainTrigger.boundingBox())!;
+      const settingsBox = (await settingsTrigger.boundingBox())!;
+
+      console.log(
+        `[geometry] ${viewport.width}x${viewport.height} main=${JSON.stringify(mainBox)} settings=${JSON.stringify(settingsBox)}`,
+      );
+
+      // Settings trigger sits at top-left: near the left edge, not the right.
+      expect(settingsBox.x).toBeLessThan(32 + 16);
+      expect(mainBox.x).toBeGreaterThan(viewport.width / 2);
+
+      // The two rects don't intersect.
+      const intersects =
+        settingsBox.x < mainBox.x + mainBox.width &&
+        settingsBox.x + settingsBox.width > mainBox.x &&
+        settingsBox.y < mainBox.y + mainBox.height &&
+        settingsBox.y + settingsBox.height > mainBox.y;
+      expect(intersects).toBe(false);
+
+      // The main trigger still opens its own sheet from its own centre point.
+      await page.mouse.click(
+        mainBox.x + mainBox.width / 2,
+        mainBox.y + mainBox.height / 2,
+      );
+      await page
+        .locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        )
+        .waitFor();
+    });
+  });
+}
