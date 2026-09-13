@@ -418,18 +418,18 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 
 **Overnight v0.2 run — planned, NOT dispatched.** Plan passed /adversarial-plan (separate Opus refuter, 20 findings, verdict REVISE, all absorbed). Revised plan + unedited refutation + prompt + draft: `~/.claude/projects/-Users-seansmith-Code-disc-sheet/memory/plans/v02-overnight/` (kept out of the repo: the refutation quotes frozen old-name ids and would trip `src/naming.test.ts`). Mechanism: one Workflow script, fresh agent per step (spec → one implementer per task → gate → review → fix → gate → re-review), serial in the main worktree (Playwright reuses :4873), no overnight push, perf non-blocking. Smoke Workflow PASSED 2026-09-13: implementer/reviewer/planner agentTypes ran Bash and returned schema JSON with no permission denials.
 
-- [ ] **carried — verify `e59c7a2` WIP first** (review fixes stopped mid-flight at wrap): npm test, `tsc --noEmit` (6 pre-existing errors is baseline), audit:vars, build:lib + banner, test:geometry (116 + new). Fix anything red before the run's base is set.
-- [ ] carried — P2 shapes (circle/squircle/rounded square/square; Shadow follows shape) → branch `v02/p2-shapes` off the verified tip
-- [ ] carried — P1 playground + copy tool → `v02/p1-playground` off P2
-- [ ] carried — P4 video + aspect-ratio sheets → `v02/p4-media` off last green tip (placeholder portrait clip via ffmpeg unless Sean supplies his)
-- [ ] carried — P3 rectangle buttons S/M/L → `v02/p3-buttons` off last green tip
-- [ ] carried — morning: orchestrator re-runs all gates + perf on a quiet machine, captures, then pushes branches after Sean looks. No deploy, no publish, no merge.
+- [x] **carried — verify `e59c7a2` WIP first** (review fixes stopped mid-flight at wrap): npm test, `tsc --noEmit` (6 pre-existing errors is baseline), audit:vars, build:lib + banner, test:geometry (116 + new). Fix anything red before the run's base is set.
+- [x] carried — P2 shapes (circle/squircle/rounded square/square; Shadow follows shape) → branch `v02/p2-shapes` off the verified tip
+- [x] carried — P1 playground + copy tool → `v02/p1-playground` off P2
+- [x] carried — P4 video + aspect-ratio sheets → `v02/p4-media` off last green tip (placeholder portrait clip via ffmpeg unless Sean supplies his)
+- [x] carried — P3 rectangle buttons S/M/L → `v02/p3-buttons` off last green tip
+- [x] carried — morning: orchestrator re-runs all gates + perf on a quiet machine, captures, then pushes branches after Sean looks. No deploy, no publish, no merge. → gates re-run at `98cadb2` + branches pushed 2026-09-13 afternoon; captures carried below.
 
 **Shipped this session (feat/customization-parity):**
 - [x] `0c7dc11` item stagger 40→90ms + example sheets split into title / body / actions Items. Measured beats on index: 284 / 376 / 459ms (was 281 / 322, two beats).
 - [x] `6a7e3a7` Design menu: Shadow speed (Very slow 24s … Fast 3s + Variable, rAF-integrated, no phase jumps) · Glow colour + Glow strength with per-palette Light/Medium/Bold · 8 palettes mildest→wildest (Mono, Midnight Purple, Aurora, Rainbow, Neon Gold, Biolume, Demon Pink, Glitch) · warm × dark as a 4-cell CSS model (Warm + Dark mode painted cream sheets before) · DialRoot `productionEnabled` (Show dials did nothing on Vercel: dialkit defaults to dev-only). Independent review: pass, no blockers.
 - [x] **DECIDED 2026-09-13 (Sean): "we are taking our strawman and hardening it now."** Tonight's values are decisions, not strawmen: 90ms stagger, palettes + strengths, speed steps, warm dark hexes. Older strawmen (snappy/gentle) stay marked.
-- [ ] carried — `e59c7a2` WIP: F1 `<VistaSheet.Shadow asChild>` overwrote the child's ref (package defect, `src/Shadow.tsx` cloneElement) → composed + `src/Shadow.test.ts`; F2 reduced-motion subscribed live; F3 labels hardened; F4 demo uses a ref. UNVERIFIED (see first item).
+- [x] carried — `e59c7a2` WIP: F1 `<VistaSheet.Shadow asChild>` overwrote the child's ref (package defect, `src/Shadow.tsx` cloneElement) → composed + `src/Shadow.test.ts`; F2 reduced-motion subscribed live; F3 labels hardened; F4 demo uses a ref. UNVERIFIED (see first item).
 - [ ] carried — deploy the demo (Sean's explicit go per deploy; `vercel deploy` → `vercel promote`).
 - [ ] parked — stagger length scales with Item count: Design menu 9 rows → last row ~0.92s (was ~0.52s), list example ~0.65s (arithmetic, not measured). If long sheets feel slow, cap total stagger rather than shrink the interval.
 - [ ] parked — design-settings button draggable (unchanged, see above).
@@ -454,3 +454,17 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - P3 gate r1 @ cba8c59: vitest 177/0 · tsc new 0 · audit PASS · build PASS · geometry 248/0 · red-proof proven · dial ok · perf raster 48.0ms/1 dropped/16.7ms longest, all PASS vs baseline
 - P3 gate r2 @ 19dd86f: vitest 177/0 · tsc new 0 · audit PASS · build PASS · geometry 248/0 · red-proof skipped · dial ok · perf raster 64.0ms/1 dropped/16.7ms longest, all PASS vs baseline (load1 6.64 warning)
 - RUN END: P2 green @d011205 · P1 green @8bc9717 · P4 green @2b67c29 · P3 green @e881b97 · last green: P3 (v02/p3-buttons)
+
+## Carried at wrap-continue — 2026-09-13 (afternoon, thread VistaSheet)
+
+**v0.2 built: all four phases green, branches pushed, not merged or deployed.** Tip `v02/p3-buttons` `09d8f2e`. Orchestrator re-ran gates at `98cadb2`: 177/177 vitest · tsc 6 · audit PASS · build+banner · 248 geometry · perf PASS (raster 54.5, load 23.9).
+
+- [ ] carried — independent review of the Shadow per-frame fix `d3f294b`/`09d8f2e`, plus an orchestrator gate re-run on the tip. Agent-reported 249 geometry and perf 52.2; the test budget is ≤6 frames over 1 read, not strict ≤1.
+- [ ] carried — 48px default sheet radius across package + examples (Sean 2026-09-13: "a default sheet corner radius at 48px across board"). WIP `52b4070` on `v02/sheet-radius-48` covers 12 files; sheet-radius test assertions are NOT updated and it's unverified. → cherry-pick onto `v02/p3-buttons`, re-grep 32 incl. P3 additions, full gates.
+- [ ] new — playground live option switching (Sean 2026-09-13): switching circle → rounded square reloads the specimen and replays its entrance. Strawman: the stage applies state in place without remounting Root; a test asserts Root's DOM node survives a shape change with no entrance animation. Inferred cause near `example/play/Controls.tsx:117` (unverified).
+- [ ] carried — `play.html` captures per shape at 390×844 + 1440×900, sent to Sean.
+- [ ] carried — Sean apply-or-redline (strawmen live in code): squircle sheet corners = squircle (`9da07db`) · circle shadow mid-morph = surface curve (`c298df5`) · flagship 36→48 inside the radius change · dials: rounded square 25%, squircle fallback 27.16% (`src/shape.ts`).
+- [ ] carried — Sean's real portrait video replaces the ffmpeg placeholder.
+- [ ] parked — DESIGN.md §4.1 one-line exception for DOM-read radius (Shadow, Media); Sean's doc.
+- [ ] parked — merge, release cut line, demo deploy, npm publish (each needs Sean's go).
+- [ ] noted — stray RUN END ledger commit `9ad603e` on `v02/p4-media` (outside the P3 stack; harmless).
