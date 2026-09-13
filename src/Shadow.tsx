@@ -101,6 +101,8 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
   // of falling back to the analytic curve. See the note at its read site.
   const SURFACE_READ_GRACE_MS = 300;
   const lastActiveAtRef = useRef(0);
+  const NEAR_REST_EPS = 0.02;
+  const isInFlight = (p: number) => p > NEAR_REST_EPS && p < 1 - NEAR_REST_EPS;
 
   useEffect(() => {
     const apply = () => {
@@ -187,8 +189,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       // that tail instead of switching back to the analytic curve the
       // instant p lands on 0/1, which is what let Motion's post-settle
       // rewrite paint a value this shadow had already stopped tracking.
-      const NEAR_REST_EPS = 0.02;
-      const inFlight = p > NEAR_REST_EPS && p < 1 - NEAR_REST_EPS;
+      const inFlight = isInFlight(p);
       const withinSettleGrace =
         performance.now() - lastActiveAtRef.current < SURFACE_READ_GRACE_MS;
       const sheetRadius = readVarPx(el, "--vista-sheet-sheet-radius", 32);
@@ -262,35 +263,97 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
     };
 
     apply();
-    const unsubscribeProgress = collapseProgress.on("change", () => {
-      lastActiveAtRef.current = performance.now();
-      apply();
-    });
-    // Drag frames must re-run apply() too, or the shadow only picks up the
-    // drag offset on the NEXT collapseProgress tick (i.e. never, while the
-    // sheet sits fully open at p=0 with no progress change in flight) — this
-    // is the D1 fix.
-    const unsubscribeDrag = sheetDragY.on("change", () => {
-      lastActiveAtRef.current = performance.now();
-      apply();
-    });
 
-    // Strawman (v0.2): while the DOM-read branch above is live (in flight,
-    // or within its settle grace window), a MutationObserver on the surface
-    // re-runs `apply()` every time Motion itself writes a new inline style —
-    // including the post-settle border-radius rewrite (the "0px" glitch)
-    // that keeps happening for ~85ms after collapseProgress's own "change"
-    // events have already stopped firing (confirmed by direct measurement,
-    // task 3's investigation). Reacting to the surface's ACTUAL mutation,
-    // rather than polling it on an independent requestAnimationFrame, is
-    // what makes this "one clock" by construction (DESIGN.md §4.1): a
-    // separate rAF loop races Motion's own writes frame-to-frame (measured:
-    // still landing a full glitch-width late); a MutationObserver's
-    // microtask callback runs in the SAME task Motion's write lands in,
-    // before the browser's next paint, so whatever the surface shows at
-    // paint time is always what this last observed and copied.
+    // collapseProgress's "change" fires synchronously the instant its spring
+    // value updates — BEFORE Motion's own layout-projection system (a
+    // SEPARATE clock, see Root.tsx's clock-coupling note) writes the
+    // surface's actual border-radius for that same frame. Reading
+    // synchronously from that handler therefore reads last frame's surface
+    // radius, one step stale; deferring the read to a microtask lets
+    // Motion's write for the CURRENT task land first while still running
+    // well before the browser's next paint — the same "read after the
+    // write, still pre-paint" guarantee the settle-tail MutationObserver
+    // below relies on, applied to the in-flight path too. `scheduleApply`
+    // coalesces repeat triggers within one task into a single deferred
+    // apply() call.
+    let applyScheduled = false;
+    const scheduleApply = () => {
+      if (applyScheduled) return;
+      applyScheduled = true;
+      queueMicrotask(() => {
+        applyScheduled = false;
+        apply();
+      });
+    };
+
+    // The MutationObserver below exists only to cover the POST-settle tail
+    // (see its comment) — while collapseProgress is actually ticking,
+    // scheduleApply() above already covers every frame, timed to read AFTER
+    // Motion's write lands. Connecting the observer for that same window as
+    // well used to double both the write below AND the forced layout read
+    // inside apply() (readRenderedCornerRadius), every frame of the morph.
+    //
+    // Gating the observer on `p` being away from the rest endpoints (the
+    // same NEAR_REST_EPS apply() itself reads) does NOT work here: a
+    // spring's final decay frames sit inside that epsilon band — p keeps
+    // producing real per-frame "change" events for a stretch after it reads
+    // as "near rest" — so an epsilon-based arm/disarm re-connects the
+    // observer while collapseProgress is still actively ticking, right back
+    // into the double-apply bug. What actually distinguishes "the tail this
+    // observer exists for" is collapseProgress having stopped EMITTING
+    // changes at all, regardless of how close to rest its value sits — so
+    // arming is debounced on quiet, not gated on value: every progress tick
+    // disarms and reschedules a one-frame quiet-check via requestAnimationFrame
+    // (registered AFTER Motion's own next-frame request, so a still-ticking
+    // spring's next tick always cancels ours before it can fire). Only once
+    // a tick fails to arrive for one whole frame (the spring's own ticker
+    // has genuinely stopped) does the observer connect, for the
+    // SURFACE_READ_GRACE_MS tail. One scheduling path covers any one frame,
+    // never both.
     const rootEl = elRef.current?.closest("[data-vista-sheet-root]") ?? null;
     let mutationObserver: MutationObserver | null = null;
+    let observing = false;
+    let graceTimeout: ReturnType<typeof setTimeout> | null = null;
+    let armRafId: number | null = null;
+
+    const disarmObserver = () => {
+      if (graceTimeout !== null) {
+        clearTimeout(graceTimeout);
+        graceTimeout = null;
+      }
+      if (observing) {
+        mutationObserver?.disconnect();
+        observing = false;
+      }
+    };
+
+    // Strawman (v0.2): re-arms (and extends) the settle-grace window every
+    // time either a progress tick lands at rest or the observer itself
+    // catches Motion still rewriting the surface — the post-settle
+    // border-radius rewrite (the "0px" glitch) keeps happening for ~85ms
+    // after collapseProgress's own "change" events have already stopped
+    // firing (confirmed by direct measurement, task 3's investigation).
+    // Reacting to the surface's ACTUAL mutation, rather than polling it on
+    // an independent requestAnimationFrame, is what makes this "one clock"
+    // by construction (DESIGN.md §4.1): a separate rAF loop races Motion's
+    // own writes frame-to-frame (measured: still landing a full
+    // glitch-width late); a MutationObserver's microtask callback runs in
+    // the SAME task Motion's write lands in, before the browser's next
+    // paint, so whatever the surface shows at paint time is always what
+    // this last observed and copied.
+    const armObserverForGrace = () => {
+      if (graceTimeout !== null) clearTimeout(graceTimeout);
+      if (rootEl && mutationObserver && !observing) {
+        mutationObserver.observe(rootEl, {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["style"],
+        });
+        observing = true;
+      }
+      graceTimeout = setTimeout(disarmObserver, SURFACE_READ_GRACE_MS);
+    };
+
     if (rootEl && typeof MutationObserver !== "undefined") {
       mutationObserver = new MutationObserver((mutations) => {
         // Exclude this shadow element's own style writes (apply() sets
@@ -299,19 +362,40 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
         const relevant = mutations.some((m) => m.target !== elRef.current);
         if (!relevant) return;
         lastActiveAtRef.current = performance.now();
+        armObserverForGrace();
         apply();
       });
-      mutationObserver.observe(rootEl, {
-        subtree: true,
-        attributes: true,
-        attributeFilter: ["style"],
-      });
     }
+
+    const unsubscribeProgress = collapseProgress.on("change", () => {
+      lastActiveAtRef.current = performance.now();
+      // A live tick is covering this frame's apply() itself — the observer
+      // would just re-run it a second time for the same Motion write, so it
+      // stays off. Reschedule the one-frame quiet-check: only once a tick
+      // fails to arrive for a whole frame does the tail actually need the
+      // observer.
+      disarmObserver();
+      if (armRafId !== null) cancelAnimationFrame(armRafId);
+      armRafId = requestAnimationFrame(() => {
+        armRafId = null;
+        armObserverForGrace();
+      });
+      scheduleApply();
+    });
+    // Drag frames must re-run apply() too, or the shadow only picks up the
+    // drag offset on the NEXT collapseProgress tick (i.e. never, while the
+    // sheet sits fully open at p=0 with no progress change in flight) — this
+    // is the D1 fix.
+    const unsubscribeDrag = sheetDragY.on("change", () => {
+      lastActiveAtRef.current = performance.now();
+      scheduleApply();
+    });
 
     return () => {
       unsubscribeProgress();
       unsubscribeDrag();
-      mutationObserver?.disconnect();
+      if (armRafId !== null) cancelAnimationFrame(armRafId);
+      disarmObserver();
     };
   }, [collapseProgress, triggerRect, sheetRect, sheetDragY, shape]);
 
