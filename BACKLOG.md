@@ -322,8 +322,13 @@ Plan (reviewed by a second agent): https://claude.ai/code/artifact/1ab67c7c-1efc
 - [ ] Custom shapes definable by any developer or agent, beyond the presets. (new) — reopens SCOPE LOCK → DEFERRED 2026-09-13 (Sean): future release, not v0.2.
 - [ ] Button-style triggers: rectangle/pill at small/medium/large with icon, icon+text, or text; by extension a search box or chat input as the trigger. (new)
 - [ ] Sheet content presets: list, grid, navigation, media. (extends: line 203 "Content layouts as package exports") — reopens SCOPE LOCK
-- [ ] Video sheet: a circle with Sean's picture expands to full video content. (extends: line 42 "icon to advertisement")
-- [ ] Media aspect ratios — the sheet sizes to the media, whether tall/phone portrait, wide, or narrow. (extends: line 148 "Shape + size variations")
+- [x] Video sheet: a circle with Sean's picture expands to full video content. (extends: line 42 "icon to advertisement") — P4 on v02/p4-media (placeholder clip; Sean swaps in his video)
+- [x] Media aspect ratios — the sheet sizes to the media, whether tall/phone portrait, wide, or narrow. (extends: line 148 "Shape + size variations") — P4 on v02/p4-media (placeholder clip; Sean swaps in his video)
+P4 deferred (2026-09-13):
+- [ ] Playback-time handoff between the trigger and sheet Media instances (today both start at 0; visible as a content cut mid-close).
+- [ ] A cover focal point for a real portrait (centred crop may cut a face in the disc).
+- [ ] Safari/iOS untested for aspect sheets (px size from innerHeight vs the dvh max-height cap).
+- [ ] Sean eyeball pass on the video close crossfade and the close-button contrast over footage.
 - [ ] The intent is prepackaged presets that show how flexible the tool is. (extends: line 182 "Showcase examples with media")
 
 ## Carried at wrap-continue — 2026-09-02

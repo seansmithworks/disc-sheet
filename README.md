@@ -219,49 +219,44 @@ approximation.
 
 ### Media and aspect-ratio sheets
 
-`<VistaSheet.Sheet aspectRatio>` (width / height, e.g. `9 / 16`) contain-fits
-the sheet to that ratio inside `sheetMaxWidth` and the current anchor's max
-height, instead of the default fit-content height. A value that isn't a
-finite positive number is ignored and the sheet behaves exactly as it does
-today.
-
-`<VistaSheet.Media src? poster aspectRatio alt? className?>` is the
-video/img fill for a trigger or sheet, rendered twice like
-`<VistaSheet.Shared>` — once as a direct child of `<VistaSheet.Trigger>`,
-once as a direct child of `<VistaSheet.Sheet>`:
-
 ```tsx
-<VistaSheet.Trigger aria-label="Open portrait video">
-  <VistaSheet.Media
-    src="/clip.mp4"
-    poster="/poster.jpg"
-    aspectRatio={9 / 16}
-  />
-</VistaSheet.Trigger>
+const ratio = 9 / 16;
 
-<VistaSheet.Sheet aria-label="Portrait video" aspectRatio={9 / 16}>
-  <VistaSheet.Media
-    src="/clip.mp4"
-    poster="/poster.jpg"
-    aspectRatio={9 / 16}
-  />
-  <VistaSheet.Close aria-label="Close" />
-</VistaSheet.Sheet>
+<VistaSheet.Root>
+  <VistaSheet.Shadow />
+
+  <VistaSheet.Trigger aria-label="Play intro">
+    <VistaSheet.Media
+      src="/intro.mp4"
+      poster="/intro.jpg"
+      aspectRatio={ratio}
+    />
+  </VistaSheet.Trigger>
+
+  <VistaSheet.Sheet aria-label="Intro video" aspectRatio={ratio}>
+    <VistaSheet.Media
+      src="/intro.mp4"
+      poster="/intro.jpg"
+      aspectRatio={ratio}
+    />
+    <VistaSheet.Close aria-label="Close" />
+  </VistaSheet.Sheet>
+</VistaSheet.Root>
 ```
 
-`aspectRatio` is required on `Media` itself (not inherited from `Sheet`):
-the trigger-side instance can't see `Sheet`'s props, and video metadata
-loads too late to size the very first morph frame. `poster` is the still,
-frame-0 image, and is also what reduced-motion users see, paused, with no
-autoplay attribute.
-
-The video always covers its box (like CSS `object-fit: cover`, centered, no
-focal-point control) and never squashes through the morph, even while the
-surface it fills scales non-uniformly — a `<VistaSheet.Media>` mounted with
-`src` autoplays muted, loops, and plays inline. There is no playback-time
-handoff between the trigger and sheet instances; both start at 0. `Media` is
-decorative (`aria-hidden`) unless you pass `alt`, and must be a direct child
-of `Trigger` or `Sheet` (not guarded, just how it's built).
+- `Sheet`'s `aspectRatio` (width / height) contain-fits the sheet inside
+  `sheetMaxWidth` and the current anchor's max height — tall (`9 / 16`), wide
+  (`16 / 9`) and narrow (`1 / 2`) all work.
+- `Media` is rendered twice like `Shared` and fills and covers its box. It
+  scales uniformly through the morph and never squashes.
+- `aspectRatio` is required on `Media` because it sizes the media before the
+  file loads.
+- The video autoplays muted, loops and plays inline. Reduced-motion users get
+  the poster, paused.
+- Use `Media` in place of `Shared`, as a direct child of `Trigger` or `Sheet`.
+- The two instances don't share playback time; make `poster` the clip's first
+  frame.
+- `alt` makes it non-decorative.
 
 ### The escape hatch
 
@@ -349,7 +344,7 @@ to find the live element from outside the package via `useVistaSheet()` + a
 | `trigger` | The trigger `<button>` |
 | `trigger-surface` | The trigger's seed surface (the FLIP source) |
 | `shared` | `<VistaSheet.Shared>`, on both its trigger- and sheet-side instances |
-| `media` | `<VistaSheet.Media>`, on both its trigger- and sheet-side instances |
+| `media` | `<VistaSheet.Media>`'s wrapper, on both its trigger- and sheet-side instances (the trigger-side one renders inside `trigger-surface`) |
 | `sheet` | `<VistaSheet.Sheet>`'s panel |
 | `backdrop` | The invisible outside-click catcher (only when `dismissOnBackdrop`) |
 | `content` | `<VistaSheet.Content>`'s scroll region |
@@ -360,7 +355,7 @@ to find the live element from outside the package via `useVistaSheet()` + a
 `<VistaSheet.Shared>` additionally carries `data-vista-sheet-slot="trigger"` or
 `"sheet"`, so consumer CSS (or the package's own
 `.shared[data-vista-sheet-slot=…]` rules) can target either instance without
-relying on className precedence.
+relying on className precedence. `<VistaSheet.Media>` carries it too.
 
 `trigger-root` additionally carries `data-vista-sheet-closing` (empty string),
 present only while a close is in flight (removed once the sheet has fully
