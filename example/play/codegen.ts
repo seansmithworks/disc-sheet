@@ -222,15 +222,6 @@ export function printJsxFile(state: PlayState): string {
   ].join("\n");
 }
 
-/**
- * The stage's remount key. JSX-affecting controls remount the specimen
- * closed; a drag re-anchor must not, so `anchor` is pinned to the package
- * default before printing — every anchor produces the same key.
- */
-export function jsxKey(state: PlayState): string {
-  return printJsxFile({ ...state, anchor: "bottom-center" });
-}
-
 function norm(value: string): string {
   return value.trim().toLowerCase();
 }

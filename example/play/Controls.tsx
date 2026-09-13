@@ -114,7 +114,9 @@ function ColorRow({ id, label, value, onCommit }: ColorRowProps) {
  * Strawman (v0.2): every JSX-affecting control here is discrete (a select, a
  * radio, or a checkbox) — never a text field or a live-typed range — so
  * dragging a range control (sheet radius, sheet padding) only ever changes
- * CSS-var values and can never remount the specimen mid-drag.
+ * CSS-var values. The specimen never remounts from any control here: the
+ * stage renders it under a constant key, so every control — JSX-affecting
+ * or not — patches the live tree in place.
  *
  * Motion has no control at all here: no preset, transition or spring input.
  * `snappy`/`gentle` are un-dialled and stay out of the copy tool; the tuner
