@@ -215,10 +215,26 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     const unsubX = x.on("change", update);
     const unsubY = y.on("change", update);
     window.addEventListener("resize", update);
+    // Strawman (v0.2): a plain mount-time getBoundingClientRect() can race a
+    // same-commit CSS change (here, Root's scoped --vista-sheet-trigger-size
+    // <style> block) in WebKit — observed via direct instrumentation: the
+    // very first rAF after mount read the trigger button's width before
+    // WebKit had resolved the @media rule that sizes it, committing a
+    // radius many px too small into `triggerRect` with nothing (no resize,
+    // no drag) left to ever re-measure it. A ResizeObserver reports the
+    // element's SETTLED box size whenever it actually changes — including
+    // that first post-CSS-application resize — so it self-corrects the
+    // stale first measurement without guessing a delay.
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    if (resizeObserver && triggerRef.current) {
+      resizeObserver.observe(triggerRef.current);
+    }
     return () => {
       unsubX();
       unsubY();
       window.removeEventListener("resize", update);
+      resizeObserver?.disconnect();
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
     };
   }, [x, y, setTriggerRect]);

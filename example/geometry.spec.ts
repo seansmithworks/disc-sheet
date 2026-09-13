@@ -1536,8 +1536,20 @@ for (const shape of ALL_SHAPES) {
         );
         expect(openRest!.sharedMask).toBe("none");
       } else if (shape === "rounded-square") {
+        // The rounded-square radius formula (styles.module.css) is 25% of
+        // --vista-sheet-trigger-size minus the 2px ring inset, on BOTH
+        // slots — deliberately the SAME source value regardless of slot "so
+        // the Shared FLIP has no radius pop" (that CSS's own comment). The
+        // trigger's own surface (closedRest!.surfaceWidth) IS
+        // --vista-sheet-trigger-size exactly; <Shared> itself renders 4px
+        // narrower (its "-4px" inset-ring sizing), so comparing against its
+        // own rendered width, or the sheet's much larger outer box, both
+        // miss the actual formula input — trigger-size is only recoverable
+        // here via the trigger's own surface width, already captured above.
+        // Not sheetWidth (the sheet's own, unrelated, much larger box) —
+        // that was this assertion's bug before this fix (P2 FIX round 1).
         expect(
-          Math.abs(sheetSharedPx - (openRest!.sheetWidth * 0.25 - 2)),
+          Math.abs(sheetSharedPx - (closedRest!.surfaceWidth * 0.25 - 2)),
         ).toBeLessThanOrEqual(0.5);
         expect(openRest!.sharedMask).toBe("none");
       } else if (shape === "square") {

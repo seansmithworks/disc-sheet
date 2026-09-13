@@ -96,6 +96,11 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
     shape,
   } = ctx;
   const elRef = useRef<HTMLElement | null>(null);
+  // Strawman (v0.2): how long, after the last collapseProgress/sheetDragY
+  // "change", the DOM-read branch below keeps sampling the surface instead
+  // of falling back to the analytic curve. See the note at its read site.
+  const SURFACE_READ_GRACE_MS = 300;
+  const lastActiveAtRef = useRef(0);
 
   useEffect(() => {
     const apply = () => {
@@ -170,8 +175,19 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       // being away from either rest endpoint. Near either endpoint the
       // analytic curve already IS the resting value, so there's nothing to
       // gain from the DOM read there anyway.
+      // Strawman (v0.2): this window also has to cover a few frames AFTER
+      // p itself reaches an endpoint — measured directly, Motion's own
+      // shared-layoutId settle can still be rewriting the SURFACE's inline
+      // border-radius (including the literal "0px" glitch above) for a few
+      // frames past the point collapseProgress calls the morph done. The
+      // grace-period loop below (GRACE_MS) keeps this DOM read live through
+      // that tail instead of switching back to the analytic curve the
+      // instant p lands on 0/1, which is what let Motion's post-settle
+      // rewrite paint a value this shadow had already stopped tracking.
       const NEAR_REST_EPS = 0.02;
       const inFlight = p > NEAR_REST_EPS && p < 1 - NEAR_REST_EPS;
+      const withinSettleGrace =
+        performance.now() - lastActiveAtRef.current < SURFACE_READ_GRACE_MS;
       const sheetRadius = readVarPx(el, "--vista-sheet-sheet-radius", 32);
       const surfaceEl = el
         .closest("[data-vista-sheet-root]")
@@ -179,7 +195,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
           '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
         );
       let radius: number;
-      if (surfaceEl && inFlight) {
+      if (surfaceEl && (inFlight || withinSettleGrace)) {
         radius = readRenderedCornerRadius(surfaceEl);
       } else {
         const token = readVarPx(el, "--vista-sheet-trigger-radius", 9999);
@@ -243,15 +259,56 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
     };
 
     apply();
-    const unsubscribeProgress = collapseProgress.on("change", apply);
+    const unsubscribeProgress = collapseProgress.on("change", () => {
+      lastActiveAtRef.current = performance.now();
+      apply();
+    });
     // Drag frames must re-run apply() too, or the shadow only picks up the
     // drag offset on the NEXT collapseProgress tick (i.e. never, while the
     // sheet sits fully open at p=0 with no progress change in flight) — this
     // is the D1 fix.
-    const unsubscribeDrag = sheetDragY.on("change", apply);
+    const unsubscribeDrag = sheetDragY.on("change", () => {
+      lastActiveAtRef.current = performance.now();
+      apply();
+    });
+
+    // Strawman (v0.2): while the DOM-read branch above is live (in flight,
+    // or within its settle grace window), a MutationObserver on the surface
+    // re-runs `apply()` every time Motion itself writes a new inline style —
+    // including the post-settle border-radius rewrite (the "0px" glitch)
+    // that keeps happening for ~85ms after collapseProgress's own "change"
+    // events have already stopped firing (confirmed by direct measurement,
+    // task 3's investigation). Reacting to the surface's ACTUAL mutation,
+    // rather than polling it on an independent requestAnimationFrame, is
+    // what makes this "one clock" by construction (DESIGN.md §4.1): a
+    // separate rAF loop races Motion's own writes frame-to-frame (measured:
+    // still landing a full glitch-width late); a MutationObserver's
+    // microtask callback runs in the SAME task Motion's write lands in,
+    // before the browser's next paint, so whatever the surface shows at
+    // paint time is always what this last observed and copied.
+    const rootEl = elRef.current?.closest("[data-vista-sheet-root]") ?? null;
+    let mutationObserver: MutationObserver | null = null;
+    if (rootEl && typeof MutationObserver !== "undefined") {
+      mutationObserver = new MutationObserver((mutations) => {
+        // Exclude this shadow element's own style writes (apply() sets
+        // several inline properties every call) — otherwise observing the
+        // shadow's own mutations would re-trigger apply() on itself forever.
+        const relevant = mutations.some((m) => m.target !== elRef.current);
+        if (!relevant) return;
+        lastActiveAtRef.current = performance.now();
+        apply();
+      });
+      mutationObserver.observe(rootEl, {
+        subtree: true,
+        attributes: true,
+        attributeFilter: ["style"],
+      });
+    }
+
     return () => {
       unsubscribeProgress();
       unsubscribeDrag();
+      mutationObserver?.disconnect();
     };
   }, [collapseProgress, triggerRect, sheetRect, sheetDragY, shape]);
 
