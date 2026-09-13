@@ -284,6 +284,8 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
           rect.top + rect.height / 2,
           vpW,
           vpH,
+          rect.width,
+          rect.height,
         );
       }
 

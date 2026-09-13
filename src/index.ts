@@ -66,16 +66,3 @@ export type {
   DurationSpring,
   TriggerShape,
 } from "./types";
-
-export {
-  anchorCenter,
-  nearestAnchor,
-  restingLeft,
-  restingTop,
-  sheetPlacement,
-} from "./anchors";
-export type {
-  AnchorVertical,
-  AnchorHorizontal,
-  SheetPlacement,
-} from "./anchors";

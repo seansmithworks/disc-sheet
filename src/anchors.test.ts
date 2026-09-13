@@ -20,23 +20,23 @@ describe("nearestAnchor", () => {
   // anchor (AC2), not a regression in the six-anchor pins below, which are
   // asserted separately against hard-coded numbers.
   it("maps the exact center to center (the new middle-third region)", () => {
-    expect(nearestAnchor(720, 450, 1440, 900)).toBe("center");
+    expect(nearestAnchor(720, 450, 1440, 900, 0, 0)).toBe("center");
   });
 
   it("maps the top-left region", () => {
-    expect(nearestAnchor(50, 50, 1440, 900)).toBe("top-left");
+    expect(nearestAnchor(50, 50, 1440, 900, 0, 0)).toBe("top-left");
   });
 
   it("maps the top-right region", () => {
-    expect(nearestAnchor(1400, 50, 1440, 900)).toBe("top-right");
+    expect(nearestAnchor(1400, 50, 1440, 900, 0, 0)).toBe("top-right");
   });
 
   it("maps the bottom-left region", () => {
-    expect(nearestAnchor(50, 850, 1440, 900)).toBe("bottom-left");
+    expect(nearestAnchor(50, 850, 1440, 900, 0, 0)).toBe("bottom-left");
   });
 
   it("maps the bottom-right region", () => {
-    expect(nearestAnchor(1400, 850, 1440, 900)).toBe("bottom-right");
+    expect(nearestAnchor(1400, 850, 1440, 900, 0, 0)).toBe("bottom-right");
   });
 
   // (50, vpH/2) sits in the LEFT column, which still splits into halves
@@ -44,42 +44,50 @@ describe("nearestAnchor", () => {
   // the exact vertical midline in a side column must still resolve to one
   // of the two anchors that column actually has.
   it("maps the vertical midline in a side column to bottom (no middle-left)", () => {
-    expect(nearestAnchor(50, 450, 1440, 900)).toBe("bottom-left");
+    expect(nearestAnchor(50, 450, 1440, 900, 0, 0)).toBe("bottom-left");
   });
 
   it("resolves column boundaries at exact thirds (left-inclusive)", () => {
     const third = 1440 / 3;
-    expect(nearestAnchor(third - 1, 50, 1440, 900)).toBe("top-left");
-    expect(nearestAnchor(third, 50, 1440, 900)).toBe("top-center");
-    expect(nearestAnchor(third * 2, 50, 1440, 900)).toBe("top-right");
+    expect(nearestAnchor(third - 1, 50, 1440, 900, 0, 0)).toBe("top-left");
+    expect(nearestAnchor(third, 50, 1440, 900, 0, 0)).toBe("top-center");
+    expect(nearestAnchor(third * 2, 50, 1440, 900, 0, 0)).toBe("top-right");
   });
 
   it("resolves the center column's row boundaries at exact thirds (top-inclusive)", () => {
     const vpH = 900;
     const rowThird = vpH / 3;
     // x=720 stays in the center column throughout.
-    expect(nearestAnchor(720, rowThird - 1, 1440, vpH)).toBe("top-center");
-    expect(nearestAnchor(720, rowThird, 1440, vpH)).toBe("center");
-    expect(nearestAnchor(720, rowThird * 2 - 1, 1440, vpH)).toBe("center");
-    expect(nearestAnchor(720, rowThird * 2, 1440, vpH)).toBe("bottom-center");
+    expect(nearestAnchor(720, rowThird - 1, 1440, vpH, 0, 0)).toBe(
+      "top-center",
+    );
+    expect(nearestAnchor(720, rowThird, 1440, vpH, 0, 0)).toBe("center");
+    expect(nearestAnchor(720, rowThird * 2 - 1, 1440, vpH, 0, 0)).toBe(
+      "center",
+    );
+    expect(nearestAnchor(720, rowThird * 2, 1440, vpH, 0, 0)).toBe(
+      "bottom-center",
+    );
   });
 
   it("center's snap zone is the middle ninth of the viewport", () => {
     const vpW = 1440;
     const vpH = 900;
     // Middle of the middle third on both axes.
-    expect(nearestAnchor(vpW / 2, vpH / 2, vpW, vpH)).toBe("center");
+    expect(nearestAnchor(vpW / 2, vpH / 2, vpW, vpH, 0, 0)).toBe("center");
     // Just inside each edge of the middle-ninth box.
-    expect(nearestAnchor(vpW / 3 + 1, vpH / 3 + 1, vpW, vpH)).toBe("center");
-    expect(nearestAnchor((vpW * 2) / 3 - 1, (vpH * 2) / 3 - 1, vpW, vpH)).toBe(
+    expect(nearestAnchor(vpW / 3 + 1, vpH / 3 + 1, vpW, vpH, 0, 0)).toBe(
       "center",
     );
+    expect(
+      nearestAnchor((vpW * 2) / 3 - 1, (vpH * 2) / 3 - 1, vpW, vpH, 0, 0),
+    ).toBe("center");
   });
 
   it("returns a valid anchor id for out-of-range input", () => {
-    expect(ALL_ANCHORS).toContain(nearestAnchor(-500, -500, 1440, 900));
-    expect(ALL_ANCHORS).toContain(nearestAnchor(99999, 99999, 1440, 900));
-    expect(ALL_ANCHORS).toContain(nearestAnchor(NaN, NaN, 1440, 900));
+    expect(ALL_ANCHORS).toContain(nearestAnchor(-500, -500, 1440, 900, 0, 0));
+    expect(ALL_ANCHORS).toContain(nearestAnchor(99999, 99999, 1440, 900, 0, 0));
+    expect(ALL_ANCHORS).toContain(nearestAnchor(NaN, NaN, 1440, 900, 0, 0));
   });
 });
 
@@ -152,7 +160,7 @@ describe("anchorCenter", () => {
     const anchor = "top-left" as const;
     const vpW = 1440;
     const vpH = 900;
-    const center = anchorCenter(anchor, vpW, vpH, triggerSize);
+    const center = anchorCenter(anchor, vpW, vpH, triggerSize, triggerSize);
     expect(center.x).toBe(
       restingLeft(anchor, vpW, triggerSize) + triggerSize / 2,
     );
@@ -162,7 +170,7 @@ describe("anchorCenter", () => {
   });
 
   it("centers a center anchor on the viewport midpoint", () => {
-    const center = anchorCenter("bottom-center", 1440, 900, 128);
+    const center = anchorCenter("bottom-center", 1440, 900, 128, 128);
     expect(center.x).toBe(720);
   });
 
@@ -177,8 +185,16 @@ describe("anchorCenter", () => {
     for (const anchor of ALL_ANCHORS) {
       it(`${anchor}'s resting point round-trips through nearestAnchor at ${vpW}x${vpH}`, () => {
         const triggerSize = 96;
-        const { x, y } = anchorCenter(anchor, vpW, vpH, triggerSize);
-        expect(nearestAnchor(x, y, vpW, vpH)).toBe(anchor);
+        const { x, y } = anchorCenter(
+          anchor,
+          vpW,
+          vpH,
+          triggerSize,
+          triggerSize,
+        );
+        expect(nearestAnchor(x, y, vpW, vpH, triggerSize, triggerSize)).toBe(
+          anchor,
+        );
       });
     }
   }

@@ -102,43 +102,61 @@ function axesToAnchor(
 /**
  * Derive which anchor a drag-released trigger center belongs to.
  *
- * Region map (3 cols x rows-per-column):
- *   Horizontal split: left/center/right thirds (vpW / 3 boundaries).
- *   Vertical split: the left/right columns split into halves (top vs
- *   bottom, midline = vpH / 2) — unchanged from the original 6-anchor model.
- *   The center column splits into thirds (vpH / 3 boundaries) instead,
- *   because it now holds 3 anchors (top-center, center, bottom-center) —
- *   center's own snap zone is therefore the middle third of the center
- *   column, i.e. the middle ninth of the viewport.
+ * Regions are thirds (halves for side-column rows) of the room the trigger
+ * can travel in, measured from its leading edge — the range
+ * `[0, vpW - triggerWidth]` / `[0, vpH - triggerHeight]`. That is the same
+ * range as Trigger.tsx's dragConstraints, and the inverse view of
+ * restingLeft/restingTop (which place a trigger at alignment 0 / 0.5 / 1
+ * within that same range).
+ *
+ * A zero-size trigger reproduces the old viewport thirds exactly: `offsetX`
+ * collapses to `triggerCenterX` and `roomX` to `vpW`, so `offsetX*3 < roomX`
+ * is `triggerCenterX < vpW/3`, etc.
+ *
+ * Any trigger's resting spot maps back to its own anchor while it has more
+ * than 48px of room: restingLeft/Top place it at exactly 0, half, or all of
+ * its room, and thirds boundaries sit at room/3 and 2*room/3 — at least 16px
+ * from either end once room exceeds 48px.
+ *
+ * Strawman (v0.2): a trigger with no room to travel on an axis resolves to
+ * the centre column / middle (bottom in side columns).
  */
 export function nearestAnchor(
   triggerCenterX: number,
   triggerCenterY: number,
   vpW: number,
   vpH: number,
+  triggerWidth: number,
+  triggerHeight: number,
 ): AnchorId {
-  const third = vpW / 3;
+  const offsetX = triggerCenterX - triggerWidth / 2;
+  const roomX = vpW - triggerWidth;
   let horizontal: AnchorHorizontal;
-  if (triggerCenterX < third) {
+  if (roomX <= 0) {
+    horizontal = "center";
+  } else if (offsetX * 3 < roomX) {
     horizontal = "left";
-  } else if (triggerCenterX < third * 2) {
+  } else if (offsetX * 3 < roomX * 2) {
     horizontal = "center";
   } else {
     horizontal = "right";
   }
 
+  const offsetY = triggerCenterY - triggerHeight / 2;
+  const roomY = vpH - triggerHeight;
   let vertical: AnchorVertical;
   if (horizontal === "center") {
-    const rowThird = vpH / 3;
-    if (triggerCenterY < rowThird) {
+    if (roomY <= 0) {
+      vertical = "middle";
+    } else if (offsetY * 3 < roomY) {
       vertical = "top";
-    } else if (triggerCenterY < rowThird * 2) {
+    } else if (offsetY * 3 < roomY * 2) {
       vertical = "middle";
     } else {
       vertical = "bottom";
     }
   } else {
-    vertical = triggerCenterY >= vpH / 2 ? "bottom" : "top";
+    vertical = roomY <= 0 || offsetY * 2 >= roomY ? "bottom" : "top";
   }
 
   return axesToAnchor(vertical, horizontal);
@@ -146,19 +164,19 @@ export function nearestAnchor(
 
 /**
  * Left edge (viewport px) of the trigger at its resting position for the
- * given anchor: `EDGE_MARGIN + (vpW - triggerSize - 2*EDGE_MARGIN) * alignment`,
+ * given anchor: `EDGE_MARGIN + (vpW - triggerWidth - 2*EDGE_MARGIN) * alignment`,
  * where alignment is the anchor's horizontal alignment (0 / 0.5 / 1). This
  * collapses to the original per-case formulas exactly: alignment 0 ->
- * EDGE_MARGIN, alignment 1 -> vpW - triggerSize - EDGE_MARGIN, alignment 0.5
- * -> vpW/2 - triggerSize/2.
+ * EDGE_MARGIN, alignment 1 -> vpW - triggerWidth - EDGE_MARGIN, alignment 0.5
+ * -> vpW/2 - triggerWidth/2.
  */
 export function restingLeft(
   anchor: AnchorId,
   vpW: number,
-  triggerSize: number,
+  triggerWidth: number,
 ): number {
   const alignment = HORIZONTAL_ALIGNMENT[ANCHOR_AXES[anchor].horizontal];
-  return EDGE_MARGIN + (vpW - triggerSize - 2 * EDGE_MARGIN) * alignment;
+  return EDGE_MARGIN + (vpW - triggerWidth - 2 * EDGE_MARGIN) * alignment;
 }
 
 /**
@@ -170,10 +188,10 @@ export function restingLeft(
 export function restingTop(
   anchor: AnchorId,
   vpH: number,
-  triggerSize: number,
+  triggerHeight: number,
 ): number {
   const alignment = VERTICAL_ALIGNMENT[ANCHOR_AXES[anchor].vertical];
-  return EDGE_MARGIN + (vpH - triggerSize - 2 * EDGE_MARGIN) * alignment;
+  return EDGE_MARGIN + (vpH - triggerHeight - 2 * EDGE_MARGIN) * alignment;
 }
 
 /**
@@ -183,12 +201,12 @@ export function anchorCenter(
   anchor: AnchorId,
   vpW: number,
   vpH: number,
-  triggerSize: number,
+  triggerWidth: number,
+  triggerHeight: number,
 ): { x: number; y: number } {
-  const half = triggerSize / 2;
   return {
-    x: restingLeft(anchor, vpW, triggerSize) + half,
-    y: restingTop(anchor, vpH, triggerSize) + half,
+    x: restingLeft(anchor, vpW, triggerWidth) + triggerWidth / 2,
+    y: restingTop(anchor, vpH, triggerHeight) + triggerHeight / 2,
   };
 }
 
@@ -284,12 +302,12 @@ export function sheetPlacement(
   anchor: AnchorId,
   vpW: number,
   vpH: number,
-  triggerSize: number,
+  triggerWidth: number,
   sheetMaxWidth: number,
   aspectRatio?: number,
 ): SheetPlacement {
   const SHEET_MARGIN = 16;
-  const center = anchorCenter(anchor, vpW, vpH, triggerSize);
+  const centerX = restingLeft(anchor, vpW, triggerWidth) + triggerWidth / 2;
 
   const hasValidRatio =
     typeof aspectRatio === "number" &&
@@ -316,7 +334,7 @@ export function sheetPlacement(
   }
 
   const clampedSheetCenterX = Math.min(
-    Math.max(center.x, sheetHalfWidth + SHEET_MARGIN),
+    Math.max(centerX, sheetHalfWidth + SHEET_MARGIN),
     vpW - sheetHalfWidth - SHEET_MARGIN,
   );
   const clampedAnchorX = Math.max(
