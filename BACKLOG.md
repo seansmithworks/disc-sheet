@@ -407,3 +407,24 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [ ] **new — settings button draggable (Sean 2026-09-13: "should be draggable since it is a vistasheet").** Settings Root in example/main.tsx is `draggable={false}` with a derived anchor (top-right unless main occupies it → top-left, applied only while closed). Making it draggable means both sheets can target the same anchor: needs a symmetric yield rule (the sheet that didn't just move takes the opposite top corner), its own persistKey, and geometry tests for drag-into-occupied at 390×844 and 1440×900.
 - [ ] **carried — open plan calls, strawmen already in the Artifact:** reopen SCOPE LOCK for P3 buttons + P4 aspect ratio (rec: yes) · squircle = superellipse vs rounded square = ~25% radius · rectangle width sized to label by default.
 - [x] Settings panel fixes live on Vercel (d70a954 build; icon, collision, dark mode) — promoted 2026-09-13.
+  → Cut line + plan calls RESOLVED 2026-09-13 (see next section): Sean chose an overnight run of all four phases; plan calls accepted (reopen lock for P3+P4 · squircle = superellipse, rounded square ≈25% radius · rectangle width from label).
+
+## Carried at wrap-continue — 2026-09-13 (early morning, thread DiskSheet)
+
+**Overnight v0.2 run — planned, NOT dispatched.** Plan passed /adversarial-plan (separate Opus refuter, 20 findings, verdict REVISE, all absorbed). Revised plan + unedited refutation + prompt + draft: `~/.claude/projects/-Users-seansmith-Code-disc-sheet/memory/plans/v02-overnight/` (kept out of the repo: the refutation quotes frozen old-name ids and would trip `src/naming.test.ts`). Mechanism: one Workflow script, fresh agent per step (spec → one implementer per task → gate → review → fix → gate → re-review), serial in the main worktree (Playwright reuses :4873), no overnight push, perf non-blocking. Smoke Workflow PASSED 2026-09-13: implementer/reviewer/planner agentTypes ran Bash and returned schema JSON with no permission denials.
+
+- [ ] **carried — verify `e59c7a2` WIP first** (review fixes stopped mid-flight at wrap): npm test, `tsc --noEmit` (6 pre-existing errors is baseline), audit:vars, build:lib + banner, test:geometry (116 + new). Fix anything red before the run's base is set.
+- [ ] carried — P2 shapes (circle/squircle/rounded square/square; Shadow follows shape) → branch `v02/p2-shapes` off the verified tip
+- [ ] carried — P1 playground + copy tool → `v02/p1-playground` off P2
+- [ ] carried — P4 video + aspect-ratio sheets → `v02/p4-media` off last green tip (placeholder portrait clip via ffmpeg unless Sean supplies his)
+- [ ] carried — P3 rectangle buttons S/M/L → `v02/p3-buttons` off last green tip
+- [ ] carried — morning: orchestrator re-runs all gates + perf on a quiet machine, captures, then pushes branches after Sean looks. No deploy, no publish, no merge.
+
+**Shipped this session (feat/customization-parity):**
+- [x] `0c7dc11` item stagger 40→90ms + example sheets split into title / body / actions Items. Measured beats on index: 284 / 376 / 459ms (was 281 / 322, two beats).
+- [x] `6a7e3a7` Design menu: Shadow speed (Very slow 24s … Fast 3s + Variable, rAF-integrated, no phase jumps) · Glow colour + Glow strength with per-palette Light/Medium/Bold · 8 palettes mildest→wildest (Mono, Midnight Purple, Aurora, Rainbow, Neon Gold, Biolume, Demon Pink, Glitch) · warm × dark as a 4-cell CSS model (Warm + Dark mode painted cream sheets before) · DialRoot `productionEnabled` (Show dials did nothing on Vercel: dialkit defaults to dev-only). Independent review: pass, no blockers.
+- [x] **DECIDED 2026-09-13 (Sean): "we are taking our strawman and hardening it now."** Tonight's values are decisions, not strawmen: 90ms stagger, palettes + strengths, speed steps, warm dark hexes. Older strawmen (snappy/gentle) stay marked.
+- [ ] carried — `e59c7a2` WIP: F1 `<VistaSheet.Shadow asChild>` overwrote the child's ref (package defect, `src/Shadow.tsx` cloneElement) → composed + `src/Shadow.test.ts`; F2 reduced-motion subscribed live; F3 labels hardened; F4 demo uses a ref. UNVERIFIED (see first item).
+- [ ] carried — deploy the demo (Sean's explicit go per deploy; `vercel deploy` → `vercel promote`).
+- [ ] parked — stagger length scales with Item count: Design menu 9 rows → last row ~0.92s (was ~0.52s), list example ~0.65s (arithmetic, not measured). If long sheets feel slow, cap total stagger rather than shrink the interval.
+- [ ] parked — design-settings button draggable (unchanged, see above).
