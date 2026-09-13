@@ -50,12 +50,19 @@ const openDelayOverride = testParams.has("openDelay")
 // palette, main trigger size, dial visibility). One key, one try/catch, so a
 // reload keeps every setting together rather than scattering localStorage
 // keys per control.
+type GlowStrength = "Light" | "Medium" | "Bold";
+// "Variable" wanders continuously between the Very slow and Fast fixed
+// steps (see SPIN_SPEED_STEPS below) rather than picking one of them.
+type SpinSpeed = (typeof SPIN_SPEED_STEPS)[number]["label"] | "Variable";
+
 interface DemoSettings {
   iridescent: boolean;
   darkMode: boolean;
   surface: "neutral" | "warm";
   triggerSize: "small" | "default" | "large";
   showDials: boolean;
+  glowStrength: GlowStrength;
+  spinSpeed: SpinSpeed;
 }
 const DEFAULT_SETTINGS: DemoSettings = {
   iridescent: false,
@@ -63,20 +70,26 @@ const DEFAULT_SETTINGS: DemoSettings = {
   surface: "neutral",
   triggerSize: "default",
   showDials: false,
+  glowStrength: "Bold",
+  spinSpeed: "Moderate",
 };
 const SETTINGS_KEY = "vista-sheet-example:settings";
-function readSettings(): DemoSettings {
+function readRawSettings(): Record<string, unknown> | null {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    // Defensive parse: `darkGround` (pre-rename field) is ignored rather
-    // than merged in — spreading it in would coexist with `darkMode` under
-    // a name nothing reads anymore.
-    const { darkGround: _darkGround, ...rest } = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...rest };
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return DEFAULT_SETTINGS;
+    return null;
   }
+}
+function readSettings(): DemoSettings {
+  const rest = readRawSettings();
+  if (!rest) return DEFAULT_SETTINGS;
+  // Defensive parse: `darkGround` (pre-rename field) is ignored rather
+  // than merged in — spreading it in would coexist with `darkMode` under
+  // a name nothing reads anymore.
+  const { darkGround: _darkGround, ...clean } = rest;
+  return { ...DEFAULT_SETTINGS, ...clean };
 }
 
 // The main Root's persisted anchor — same key `usePersistedAnchor` falls
@@ -109,16 +122,34 @@ const TRIGGER_SIZE_RAMPS: Record<
   large: { base: 112, md: 144, xl: 168 },
 };
 
-// Package default palette (DESIGN.md "Package defaults" column) — applied as
-// an inline override when "Surface" is set to Warm, since example.css's
-// :root block hard-codes the neutral example palette.
-const SURFACE_WARM_STYLE = {
-  "--vista-sheet-surface": "#faf7f2",
-  "--vista-sheet-surface-elevated": "#f4f0e8",
-  "--vista-sheet-surface-border": "#e6dfd2",
-  "--vista-sheet-text": "#1a1610",
-  "--vista-sheet-accent": "#b4512e",
-} as CSSProperties;
+// Fixed spin-speed steps for the glow's rotation (item 1). "Variable" (see
+// SpinSpeed above) isn't one of these — it wanders continuously between the
+// slowest (Very slow) and fastest (Fast) rates instead of picking a step.
+const SPIN_SPEED_STEPS = [
+  { label: "Very slow", seconds: 24 },
+  { label: "Slow", seconds: 16 },
+  { label: "Moderate", seconds: 10 },
+  { label: "Quick", seconds: 6 },
+  { label: "Fast", seconds: 3 },
+] as const;
+
+// Nearest fixed step to a given spinSeconds value, ties going to the slower
+// (larger-seconds) option — used both as the Speed select's default and to
+// re-point it whenever a palette (with its own spinSeconds) is chosen.
+function nearestSpinStep(
+  spinSeconds: number,
+): (typeof SPIN_SPEED_STEPS)[number]["label"] {
+  let best: (typeof SPIN_SPEED_STEPS)[number] = SPIN_SPEED_STEPS[0];
+  let bestDist = Infinity;
+  for (const step of SPIN_SPEED_STEPS) {
+    const dist = Math.abs(step.seconds - spinSeconds);
+    if (dist < bestDist || (dist === bestDist && step.seconds > best.seconds)) {
+      bestDist = dist;
+      best = step;
+    }
+  }
+  return best.label;
+}
 
 function SlidersIcon() {
   return (
@@ -143,13 +174,221 @@ function SlidersIcon() {
   );
 }
 
+// Strawman palette presets for the "palette" select below — chosen for how
+// they read on video, not for a rebuild of the glow. Selecting one pushes
+// colours + saturation + spin onto the existing dials; the strength select
+// (Light/Medium/Bold) then supplies opacity/length/blur for that palette.
+// Every slider stays live and tweakable after either choice. One ordered
+// array is the single source of truth for the palette list (mildest to
+// wildest) — appending a palette here is the whole job, no other file to
+// touch. Bold is each palette's original opacity/length/blur; Light/Medium
+// are un-dialled strawmen (2026-09-13).
+type GlowStrengthValues = { opacity: number; length: number; blur: number };
+type IriPreset = {
+  saturation: number;
+  spinSeconds: number;
+  colors: {
+    one: string;
+    two: string;
+    three: string;
+    four: string;
+    five: string;
+    six: string;
+  };
+  strengths: Record<GlowStrength, GlowStrengthValues>;
+};
+const IRI_PALETTE_LIST: Array<{ name: string; preset: IriPreset }> = [
+  // Texture over hue shift: near-neutral stops with small value/temperature
+  // steps, a bit more opacity/blur so the moving light reads as texture
+  // rather than a colour wheel, and a slower spin.
+  {
+    name: "Mono",
+    preset: {
+      saturation: 0.5,
+      spinSeconds: 14,
+      colors: {
+        one: "#f5f3f0",
+        two: "#c9ced4",
+        three: "#b9b3c4",
+        four: "#4a4a50",
+        five: "#ffffff",
+        six: "#8a94a6",
+      },
+      strengths: {
+        Light: { opacity: 0.32, length: 46, blur: 42 },
+        Medium: { opacity: 0.5, length: 56, blur: 52 },
+        Bold: { opacity: 0.65, length: 64, blur: 60 },
+      },
+    },
+  },
+  // Nissan R34 GT-R V-Spec "Midnight Purple III" (LV4) colour-flop pearl:
+  // deep violet through plum, a teal-green flop, a bronze/copper glint, and
+  // a magenta highlight. Slow spin so the flop reads as a paint shift.
+  {
+    name: "Midnight Purple",
+    preset: {
+      saturation: 1.3,
+      spinSeconds: 16,
+      colors: {
+        one: "#3a1250",
+        two: "#5c1f4a",
+        three: "#1f5c52",
+        four: "#a86a3d",
+        five: "#b8228a",
+        six: "#180a24",
+      },
+      strengths: {
+        Light: { opacity: 0.3, length: 44, blur: 34 },
+        Medium: { opacity: 0.44, length: 52, blur: 38 },
+        Bold: { opacity: 0.55, length: 60, blur: 44 },
+      },
+    },
+  },
+  // Cool northern-lights drift — green/teal curtains with one violet-to-pink
+  // flash and a deep-navy floor. Slow spin so the curtains read as drift,
+  // not a spin.
+  {
+    name: "Aurora",
+    preset: {
+      saturation: 1.1,
+      spinSeconds: 18,
+      colors: {
+        one: "#2ee59d",
+        two: "#a6ffd9",
+        three: "#18b3b0",
+        four: "#6a4cff",
+        five: "#d45cf0",
+        six: "#121a4a",
+      },
+      strengths: {
+        Light: { opacity: 0.26, length: 50, blur: 40 },
+        Medium: { opacity: 0.42, length: 62, blur: 48 },
+        Bold: { opacity: 0.55, length: 72, blur: 56 },
+      },
+    },
+  },
+  {
+    name: "Rainbow",
+    preset: {
+      saturation: 1.15,
+      spinSeconds: 8,
+      colors: {
+        one: "#ff6ec7",
+        two: "#7cc4ff",
+        three: "#6effc6",
+        four: "#ffe66e",
+        five: "#ff9f6e",
+        six: "#b28bff",
+      },
+      strengths: {
+        Light: { opacity: 0.26, length: 40, blur: 28 },
+        Medium: { opacity: 0.38, length: 48, blur: 34 },
+        Bold: { opacity: 0.5, length: 56, blur: 40 },
+      },
+    },
+  },
+  // Luminous, not metallic: amber/yellow/orange with a pale butter highlight,
+  // higher saturation. Glow, not chrome.
+  {
+    name: "Neon Gold",
+    preset: {
+      saturation: 1.4,
+      spinSeconds: 10,
+      colors: {
+        one: "#ffb833",
+        two: "#fff066",
+        three: "#ff8c1a",
+        four: "#fff3c2",
+        five: "#ffd166",
+        six: "#ff6a00",
+      },
+      strengths: {
+        Light: { opacity: 0.3, length: 42, blur: 32 },
+        Medium: { opacity: 0.45, length: 52, blur: 40 },
+        Bold: { opacity: 0.6, length: 60, blur: 46 },
+      },
+    },
+  },
+  // Electric cyan against deep navy — bioluminescent plankton stirred in
+  // dark water. Quick spin so the sparks read as agitation.
+  {
+    name: "Biolume",
+    preset: {
+      saturation: 1.5,
+      spinSeconds: 7,
+      colors: {
+        one: "#00e5ff",
+        two: "#0a3d7a",
+        three: "#3d7bff",
+        four: "#041a33",
+        five: "#9ff6ff",
+        six: "#0077b6",
+      },
+      strengths: {
+        Light: { opacity: 0.28, length: 42, blur: 28 },
+        Medium: { opacity: 0.46, length: 52, blur: 34 },
+        Bold: { opacity: 0.6, length: 60, blur: 40 },
+      },
+    },
+  },
+  // Magenta/violet fire with gold and a pearl highlight. Quick spin, high
+  // saturation — reads hot rather than jewel-toned.
+  {
+    name: "Demon Pink",
+    preset: {
+      saturation: 1.6,
+      spinSeconds: 5,
+      colors: {
+        one: "#ffc53d",
+        two: "#ff3d8b",
+        three: "#ff2fd0",
+        four: "#9a2bff",
+        five: "#2a0845",
+        six: "#ffd1f0",
+      },
+      strengths: {
+        Light: { opacity: 0.25, length: 44, blur: 30 },
+        Medium: { opacity: 0.41, length: 54, blur: 38 },
+        Bold: { opacity: 0.55, length: 64, blur: 44 },
+      },
+    },
+  },
+  // Comic misprint: cyan/magenta/yellow/red with dark ink gaps between
+  // them. Blur deliberately about half the length (vs. ~0.7x elsewhere) so
+  // the stops stay separated rather than blending into a smooth wash, and
+  // the fastest spin of the set.
+  {
+    name: "Glitch",
+    preset: {
+      saturation: 1.8,
+      spinSeconds: 3,
+      colors: {
+        one: "#ff0a8c",
+        two: "#00e0ff",
+        three: "#1b1040",
+        four: "#fff200",
+        five: "#ff2a1a",
+        six: "#2a0a2e",
+      },
+      strengths: {
+        Light: { opacity: 0.27, length: 34, blur: 16 },
+        Medium: { opacity: 0.45, length: 42, blur: 20 },
+        Bold: { opacity: 0.6, length: 48, blur: 24 },
+      },
+    },
+  },
+];
+const IRI_PALETTES: Record<string, IriPreset> = Object.fromEntries(
+  IRI_PALETTE_LIST.map(({ name, preset }) => [name, preset]),
+);
+
 // Live dials for the glow, shown only while the toggle is on. Persisted under
 // dialkit:morph-sheet-iridescent. That key predates the VistaSheet rename —
 // changing it orphans Sean's saved dial history, so the id below stays as-is.
 const IRI_DIALS = {
   palette: {
     type: "select" as const,
-    options: ["Rainbow", "Mono", "Midnight Purple", "Neon Gold"],
+    options: IRI_PALETTE_LIST.map((p) => p.name),
     default: "Rainbow",
   },
   opacity: [0.5, 0, 1, 0.01] as [number, number, number, number],
@@ -164,97 +403,6 @@ const IRI_DIALS = {
     four: "#ffe66e",
     five: "#ff9f6e",
     six: "#b28bff",
-  },
-};
-
-// Strawman palette presets for the "palette" select above — chosen for how
-// they read on video, not for a rebuild of the glow. Selecting one just
-// pushes these onto the existing dials (colors + saturation/blur/opacity/
-// spin/length); every slider stays live and tweakable after. Rainbow mirrors
-// IRI_DIALS' own defaults so the select's default option is a no-op.
-type IriPreset = {
-  opacity: number;
-  length: number;
-  blur: number;
-  saturation: number;
-  spinSeconds: number;
-  colors: {
-    one: string;
-    two: string;
-    three: string;
-    four: string;
-    five: string;
-    six: string;
-  };
-};
-const IRI_PALETTES: Record<string, IriPreset> = {
-  Rainbow: {
-    opacity: 0.5,
-    length: 56,
-    blur: 40,
-    saturation: 1.15,
-    spinSeconds: 8,
-    colors: {
-      one: "#ff6ec7",
-      two: "#7cc4ff",
-      three: "#6effc6",
-      four: "#ffe66e",
-      five: "#ff9f6e",
-      six: "#b28bff",
-    },
-  },
-  // Texture over hue shift: near-neutral stops with small value/temperature
-  // steps, a bit more opacity/blur so the moving light reads as texture
-  // rather than a colour wheel, and a slower spin.
-  Mono: {
-    opacity: 0.65,
-    length: 64,
-    blur: 60,
-    saturation: 0.5,
-    spinSeconds: 14,
-    colors: {
-      one: "#f5f3f0",
-      two: "#c9ced4",
-      three: "#b9b3c4",
-      four: "#4a4a50",
-      five: "#ffffff",
-      six: "#8a94a6",
-    },
-  },
-  // Nissan R34 GT-R V-Spec "Midnight Purple III" (LV4) colour-flop pearl:
-  // deep violet through plum, a teal-green flop, a bronze/copper glint, and
-  // a magenta highlight. Slow spin so the flop reads as a paint shift.
-  "Midnight Purple": {
-    opacity: 0.55,
-    length: 60,
-    blur: 44,
-    saturation: 1.3,
-    spinSeconds: 16,
-    colors: {
-      one: "#3a1250",
-      two: "#5c1f4a",
-      three: "#1f5c52",
-      four: "#a86a3d",
-      five: "#b8228a",
-      six: "#180a24",
-    },
-  },
-  // Luminous, not metallic: amber/yellow/orange with a pale butter highlight,
-  // higher saturation. Glow, not chrome.
-  "Neon Gold": {
-    opacity: 0.6,
-    length: 60,
-    blur: 46,
-    saturation: 1.4,
-    spinSeconds: 10,
-    colors: {
-      one: "#ffb833",
-      two: "#fff066",
-      three: "#ff8c1a",
-      four: "#fff3c2",
-      five: "#ffd166",
-      six: "#ff6a00",
-    },
   },
 };
 
@@ -294,6 +442,15 @@ function App() {
   useEffect(() => {
     document.body.dataset.darkMode = settings.darkMode ? "true" : "false";
   }, [settings.darkMode]);
+  // Surface (Neutral/Warm) also toggles on body, not an inline style on
+  // `.page`: an inline custom property always wins the cascade over
+  // body[data-dark-mode]'s dark tokens, which is what made Warm + Dark mode
+  // paint cream sheets on a black page (bug fix 2026-09-13). The palette now
+  // resolves from the (surface × darkMode) pair as four CSS cells in
+  // example.css, with no inline override able to outrank dark mode.
+  useEffect(() => {
+    document.body.dataset.surface = settings.surface;
+  }, [settings.surface]);
 
   // The settings sheet's anchor is derived, not a user choice: it takes
   // top-right unless the main sheet already occupies it, in which case it
@@ -327,17 +484,22 @@ function App() {
   const dials = iriController.values;
   // Applies a palette's preset values onto the live dials the moment the
   // "palette" select changes, so every slider updates but stays tweakable
-  // afterward. Guarded by a ref (not state) so it never re-fires just
-  // because a slider moved, and never fires on mount for the default.
+  // afterward — colours, saturation and spin here; opacity/length/blur come
+  // from the currently-selected glow strength (see the strength effect
+  // below), same as today's palette apply pushes them all via setValue.
+  // Guarded by a ref (not state) so it never re-fires just because a slider
+  // moved, and never fires on mount for the default.
   const lastPalette = useRef(dials.palette);
+  const lastStrength = useRef(settings.glowStrength);
   useEffect(() => {
     if (dials.palette === lastPalette.current) return;
     lastPalette.current = dials.palette;
     const preset = IRI_PALETTES[dials.palette];
     if (!preset) return;
-    iriController.setValue("opacity", preset.opacity);
-    iriController.setValue("length", preset.length);
-    iriController.setValue("blur", preset.blur);
+    const strength = preset.strengths[lastStrength.current];
+    iriController.setValue("opacity", strength.opacity);
+    iriController.setValue("length", strength.length);
+    iriController.setValue("blur", strength.blur);
     iriController.setValue("saturation", preset.saturation);
     iriController.setValue("spinSeconds", preset.spinSeconds);
     iriController.setValue("colors.one", preset.colors.one);
@@ -346,8 +508,74 @@ function App() {
     iriController.setValue("colors.four", preset.colors.four);
     iriController.setValue("colors.five", preset.colors.five);
     iriController.setValue("colors.six", preset.colors.six);
+    // Speed-select re-pointing is NOT done here: this effect also fires when
+    // dialkit hydrates `dials.palette` from its own persisted storage after
+    // mount, which looks identical to a user picking a new palette. Doing
+    // it here clobbered a just-loaded `spinSpeed` on reload. The "Glow
+    // colour" select's onChange below (a real user/test interaction only)
+    // does the re-point instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dials.palette]);
+  // Applies the newly-chosen strength's opacity/length/blur for the
+  // currently-selected palette, leaving colours/saturation/spin untouched
+  // (those are the palette effect's job) so switching strength never
+  // silently resets a manually-chosen spin speed.
+  useEffect(() => {
+    if (settings.glowStrength === lastStrength.current) return;
+    lastStrength.current = settings.glowStrength;
+    const preset = IRI_PALETTES[dials.palette];
+    if (!preset) return;
+    const strength = preset.strengths[settings.glowStrength];
+    iriController.setValue("opacity", strength.opacity);
+    iriController.setValue("length", strength.length);
+    iriController.setValue("blur", strength.blur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.glowStrength]);
+  // Drives --iri-angle by rAF rather than a CSS animation-duration, so
+  // switching speed (including into/out of "Variable") only ever changes
+  // the rate the angle accumulates at, never its position — a duration
+  // change on a running CSS animation would otherwise jump the rotation
+  // phase (item 1). "Variable" oscillates the angular velocity smoothly and
+  // continuously between the Very slow and Fast steps' rates (never
+  // reversing direction) via a sine, so there is no jump entering or
+  // leaving it either. Reduced motion: exactly as before, the glow simply
+  // never turns (no rAF loop started).
+  const iriAngleRef = useRef(0);
+  useEffect(() => {
+    if (!iri) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Queried by class rather than a ref: <VistaSheet.Shadow asChild> clones
+    // this div via its own Slot, which isn't guaranteed to compose a
+    // consumer-supplied ref onto the clone. The class is stable and
+    // unportalled for as long as `iri` is true (this effect's own guard),
+    // so a live query is exactly as reliable here.
+    const el = document.querySelector<HTMLElement>(".iri-shadow");
+    if (!el) return;
+    const VARIABLE_PERIOD_MS = 24000;
+    const vMin = 360 / SPIN_SPEED_STEPS[0].seconds; // Very slow
+    const vMax = 360 / SPIN_SPEED_STEPS[SPIN_SPEED_STEPS.length - 1].seconds; // Fast
+    const start = performance.now();
+    let last = start;
+    let raf = 0;
+    const frame = (now: number) => {
+      const dtSec = (now - last) / 1000;
+      last = now;
+      let velocityDegPerSec: number;
+      if (settings.spinSpeed === "Variable") {
+        const phase = ((now - start) / VARIABLE_PERIOD_MS) * Math.PI * 2;
+        const t = (Math.sin(phase) + 1) / 2;
+        velocityDegPerSec = vMin + (vMax - vMin) * t;
+      } else {
+        velocityDegPerSec = 360 / dials.spinSeconds;
+      }
+      iriAngleRef.current =
+        (iriAngleRef.current + velocityDegPerSec * dtSec) % 360;
+      el.style.setProperty("--iri-angle", `${iriAngleRef.current}deg`);
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [iri, settings.spinSpeed, dials.spinSeconds]);
   const shadowCrossfade = useDialKit(
     "Sheet shadow crossfade",
     SHADOW_CROSSFADE_DIALS,
@@ -359,7 +587,6 @@ function App() {
     "--iri-length": `${dials.length}px`,
     "--iri-blur": `${dials.blur}px`,
     "--iri-saturation": dials.saturation,
-    "--iri-spin": `${dials.spinSeconds}s`,
     "--iri-colors": [c.one, c.two, c.three, c.four, c.five, c.six, c.one].join(
       ", ",
     ),
@@ -373,10 +600,7 @@ function App() {
     "--vista-sheet-sheet-shadow-fade-start": shadowCrossfade.fadeStart,
     "--vista-sheet-sheet-shadow-fade-end": shadowCrossfade.fadeEnd,
   } as CSSProperties;
-  const pageStyle = {
-    ...shadowCrossfadeStyle,
-    ...(settings.surface === "warm" ? SURFACE_WARM_STYLE : {}),
-  } as CSSProperties;
+  const pageStyle = shadowCrossfadeStyle;
 
   return (
     <div className="page" style={pageStyle}>
@@ -385,8 +609,12 @@ function App() {
           the morph trigger at narrow viewports and intercepts its clicks,
           which broke 20 geometry.spec.ts tests when this was unconditional.
           The Sheet shadow crossfade panel registered below still shows up
-          here once "Show dials" is on. */}
-      {settings.showDials && <DialRoot position="bottom-right" />}
+          here once "Show dials" is on. `productionEnabled` unlocks
+          dialkit's own dev-only default (it renders nothing in a production
+          build otherwise) — still fully gated by the toggle above. */}
+      {settings.showDials && (
+        <DialRoot position="bottom-right" productionEnabled />
+      )}
       <h1>vista-sheet</h1>
       <p className="sub">
         A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
@@ -529,22 +757,85 @@ function App() {
             <VistaSheet.Item>
               <div className="settings-row">
                 <label className="settings-label" htmlFor="setting-palette">
-                  Glow palette
+                  Glow colour
                 </label>
                 <select
                   id="setting-palette"
                   className="settings-select"
                   value={dials.palette}
                   disabled={!settings.iridescent}
-                  onChange={(e) =>
-                    iriController.setValue("palette", e.target.value)
-                  }
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    iriController.setValue("palette", next);
+                    const preset = IRI_PALETTES[next];
+                    if (preset) {
+                      updateSettings({
+                        spinSpeed: nearestSpinStep(preset.spinSeconds),
+                      });
+                    }
+                  }}
                 >
                   {IRI_DIALS.palette.options.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
                   ))}
+                </select>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <label className="settings-label" htmlFor="setting-strength">
+                  Glow strength
+                </label>
+                <select
+                  id="setting-strength"
+                  className="settings-select"
+                  value={settings.glowStrength}
+                  disabled={!settings.iridescent}
+                  onChange={(e) =>
+                    updateSettings({
+                      glowStrength: e.target.value as GlowStrength,
+                    })
+                  }
+                >
+                  <option value="Light">Light</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Bold">Bold</option>
+                </select>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <label className="settings-label" htmlFor="setting-speed">
+                  Shadow speed
+                </label>
+                <select
+                  id="setting-speed"
+                  className="settings-select"
+                  value={settings.spinSpeed}
+                  disabled={!settings.iridescent}
+                  onChange={(e) => {
+                    const next = e.target.value as SpinSpeed;
+                    updateSettings({ spinSpeed: next });
+                    if (next !== "Variable") {
+                      const step = SPIN_SPEED_STEPS.find(
+                        (s) => s.label === next,
+                      );
+                      if (step) {
+                        iriController.setValue("spinSeconds", step.seconds);
+                      }
+                    }
+                  }}
+                >
+                  {SPIN_SPEED_STEPS.map((step) => (
+                    <option key={step.label} value={step.label}>
+                      {step.label} ({step.seconds}s)
+                    </option>
+                  ))}
+                  <option value="Variable">Variable</option>
                 </select>
               </div>
             </VistaSheet.Item>

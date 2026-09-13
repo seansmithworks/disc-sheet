@@ -87,6 +87,39 @@ body[data-dark-mode="true"] {
   --demo-text-muted: #a1a1a6;
 }
 
+/* Warm surface — package defaults (DESIGN.md "Package defaults" column).
+ * Set on body (not an inline style on `.page`, bug fix 2026-09-13): an
+ * inline custom property always wins the cascade over
+ * body[data-dark-mode]'s dark tokens above, which made Warm + Dark mode
+ * paint cream sheets on a black page. The palette now resolves from the
+ * (surface × darkMode) pair as four cells — this one, the neutral :root
+ * default, the neutral dark cell above, and the warm dark cell below —
+ * with no inline override able to outrank any of them. */
+body[data-surface="warm"] {
+  --vista-sheet-surface: #faf7f2;
+  --vista-sheet-surface-elevated: #f4f0e8;
+  --vista-sheet-surface-border: #e6dfd2;
+  --vista-sheet-text: #1a1610;
+  --vista-sheet-accent: #b4512e;
+}
+
+/* Warm + Dark mode — strawman (2026-09-13), un-dialled. Same warm hue
+ * family as the light warm cell above, darkened the way the neutral dark
+ * cell darkens the neutral palette. Higher specificity than either single
+ * attribute selector above, so it wins whenever both attributes are set. */
+body[data-dark-mode="true"][data-surface="warm"] {
+  --vista-sheet-surface: #1f1b17;
+  --vista-sheet-surface-elevated: #29241f;
+  --vista-sheet-surface-border: #3a332b;
+  --vista-sheet-text: #f2ece3;
+  --vista-sheet-accent: #f2ece3;
+  --vista-sheet-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.4), 0 6px 24px rgba(0, 0, 0, 0.45);
+  --vista-sheet-sheet-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --demo-text-muted: #c9beae;
+}
+
 /* Settings trigger: <button> elements don't inherit `color` from the page
  * (UA stylesheets set it directly on form controls), so body's dark-mode
  * override of --vista-sheet-text never reached the SlidersIcon's
@@ -169,10 +202,20 @@ body[data-dark-mode="true"] {
 /* Iridescent shadow: a slowly turning conic gradient, blurred into a long
  * soft falloff around the silhouette. Its opacity follows
  * --vista-sheet-collapse (0 open, 1 closed), so it blooms with the open and
- * is gone at the trigger. The plain box-shadow stays underneath. */
+ * is gone at the trigger. The plain box-shadow stays underneath.
+ *
+ * --iri-angle is driven by a rAF loop in main.tsx rather than a CSS
+ * `animation` (2026-09-13): a CSS animation's speed comes from its
+ * `animation-duration`, and changing that on a live animation re-derives
+ * progress as elapsed/duration — jumping the rotation phase. The "Shadow
+ * speed" select needs to change rate without ever jumping position (most of
+ * all for "Variable", which wanders the rate continuously), so main.tsx
+ * integrates the angle itself and writes it here every frame. `inherits:
+ * true` so main.tsx can set it once on `.iri-shadow` (the div it already
+ * has a ref to) and have it reach this pseudo-element. */
 @property --iri-angle {
   syntax: "<angle>";
-  inherits: false;
+  inherits: true;
   initial-value: 0deg;
 }
 
@@ -206,17 +249,4 @@ body[data-dark-mode="true"] {
   );
   filter: blur(var(--iri-blur, 40px)) saturate(var(--iri-saturation, 1.15));
   opacity: calc((1 - var(--vista-sheet-collapse, 1)) * var(--iri-opacity, 0.5));
-  animation: iri-turn var(--iri-spin, 8s) linear infinite;
-}
-
-@keyframes iri-turn {
-  to {
-    --iri-angle: 360deg;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .iri-shadow::before {
-    animation: none;
-  }
 }

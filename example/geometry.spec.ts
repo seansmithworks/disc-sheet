@@ -1805,7 +1805,7 @@ test.describe("Design settings sheet", () => {
     expect(box.y).toBeLessThan(32);
   });
 
-  test("(w) opening it shows the 6 controls", async ({ page }) => {
+  test("(w) opening it shows the 8 controls", async ({ page }) => {
     await gotoExample(page, false);
     await page.getByRole("button", { name: SETTINGS_LABEL }).click();
     await page
@@ -1818,7 +1818,13 @@ test.describe("Design settings sheet", () => {
       page.getByRole("switch", { name: "Iridescent shadow" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("combobox", { name: "Glow palette" }),
+      page.getByRole("combobox", { name: "Glow colour" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Glow strength" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Shadow speed" }),
     ).toBeVisible();
     await expect(page.getByRole("switch", { name: "Dark mode" })).toBeVisible();
     await expect(page.getByRole("combobox", { name: "Surface" })).toBeVisible();
@@ -1936,6 +1942,131 @@ test.describe("Design settings sheet", () => {
       { x: cx, y: cy },
     );
     expect(hitsIcon).toBe(true);
+  });
+
+  // (z3): Warm surface's palette used to be an inline style on `.page`,
+  // which always outranks body[data-dark-mode]'s dark tokens in the cascade
+  // — Warm + Dark mode painted cream sheets on a black page. Now both
+  // resolve from body[data-surface]/[data-dark-mode] cells with no inline
+  // override to win.
+  test("(z3) Warm + Dark mode paints the warm dark cell, not the light warm surface", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+    await page.getByRole("combobox", { name: "Surface" }).selectOption("warm");
+    await page.getByRole("switch", { name: "Dark mode" }).click();
+    await page.waitForTimeout(50);
+    await page.keyboard.press("Escape");
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor({ state: "detached", timeout: 5000 });
+
+    await openSheet(page);
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
+    const bg = await sheet.evaluate(
+      (el) => getComputedStyle(el).backgroundColor,
+    );
+    // #f4f0e8 (light warm's elevated/sheet colour) would be
+    // rgb(244, 240, 232) — the bug this guards against. #29241f (warm dark
+    // strawman's elevated/sheet colour) is rgb(41, 36, 31).
+    expect(bg).not.toBe("rgb(244, 240, 232)");
+    expect(bg).toBe("rgb(41, 36, 31)");
+  });
+
+  // (z4): Glow strength (Light/Medium/Bold) supplies per-palette
+  // opacity/length/blur onto the live iridescent dials — Light must be a
+  // visibly lower --iri-opacity than Bold for the same palette.
+  test("(z4) Glow strength Light sets a lower --iri-opacity than Bold on Mono", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+    await page.getByRole("switch", { name: "Iridescent shadow" }).click();
+    await page
+      .getByRole("combobox", { name: "Glow colour" })
+      .selectOption("Mono");
+
+    await page
+      .getByRole("combobox", { name: "Glow strength" })
+      .selectOption("Bold");
+    await page.waitForTimeout(50);
+    const boldOpacity = await page
+      .locator(".iri-shadow")
+      .evaluate((el) => getComputedStyle(el).getPropertyValue("--iri-opacity"));
+
+    await page
+      .getByRole("combobox", { name: "Glow strength" })
+      .selectOption("Light");
+    await page.waitForTimeout(50);
+    const lightOpacity = await page
+      .locator(".iri-shadow")
+      .evaluate((el) => getComputedStyle(el).getPropertyValue("--iri-opacity"));
+
+    expect(Number.parseFloat(lightOpacity)).toBeLessThan(
+      Number.parseFloat(boldOpacity),
+    );
+  });
+
+  // (z5): colour, strength and speed all live in localStorage (dialkit's
+  // persisted palette dial, and the demo's own settings blob for strength
+  // and speed) — a reload must not silently fall back to defaults.
+  test("(z5) reload preserves glow colour, strength and speed", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+    await page.getByRole("switch", { name: "Iridescent shadow" }).click();
+    await page
+      .getByRole("combobox", { name: "Glow colour" })
+      .selectOption("Neon Gold");
+    await page
+      .getByRole("combobox", { name: "Glow strength" })
+      .selectOption("Light");
+    await page
+      .getByRole("combobox", { name: "Shadow speed" })
+      .selectOption("Variable");
+    await page.waitForTimeout(50);
+
+    await page.reload();
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+
+    await expect(
+      page.getByRole("combobox", { name: "Glow colour" }),
+    ).toHaveValue("Neon Gold");
+    await expect(
+      page.getByRole("combobox", { name: "Glow strength" }),
+    ).toHaveValue("Light");
+    await expect(
+      page.getByRole("combobox", { name: "Shadow speed" }),
+    ).toHaveValue("Variable");
   });
 });
 
