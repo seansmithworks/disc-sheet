@@ -407,3 +407,123 @@ describe("sheetPlacement without aspectRatio — pinned placement (P4 regression
     }
   });
 });
+
+/**
+ * P3 task 1 — failing tests for nearestAnchor's non-square-trigger-extent
+ * model (src/anchors.ts), which a later P3 task implements: nearestAnchor
+ * gains two more parameters (triggerWidth, triggerHeight) and derives its
+ * regions from the trigger's own drag range instead of flat viewport thirds.
+ * Every call below passes both new arguments; today's 4-arg implementation
+ * silently ignores extra arguments (plain JS call semantics), so a case
+ * whose expected anchor happens to match the OLD viewport-thirds behavior
+ * passes today (a regression test) and every other case is red until the
+ * new model lands.
+ */
+describe("nearestAnchor - trigger extent (P3)", () => {
+  it("(u1) zero extent reproduces the viewport-thirds pins", () => {
+    expect(nearestAnchor(1440 / 3 - 1, 50, 1440, 900, 0, 0)).toBe("top-left");
+    expect(nearestAnchor(1440 / 3, 50, 1440, 900, 0, 0)).toBe("top-center");
+    expect(nearestAnchor((1440 * 2) / 3, 50, 1440, 900, 0, 0)).toBe(
+      "top-right",
+    );
+    expect(nearestAnchor(720, 450, 1440, 900, 0, 0)).toBe("center");
+    expect(nearestAnchor(720, 299, 1440, 900, 0, 0)).toBe("top-center");
+    expect(nearestAnchor(720, 300, 1440, 900, 0, 0)).toBe("center");
+    expect(nearestAnchor(720, 600, 1440, 900, 0, 0)).toBe("bottom-center");
+    expect(nearestAnchor(50, 450, 1440, 900, 0, 0)).toBe("bottom-left");
+  });
+
+  it("(u2) a 240x44 trigger centred at (136, 806) on 390x844 snaps to bottom-left", () => {
+    expect(nearestAnchor(136, 806, 390, 844, 240, 44)).toBe("bottom-left");
+  });
+
+  it("(u3) a 240x44 trigger centred at (254, 806) on 390x844 snaps to bottom-right", () => {
+    expect(nearestAnchor(254, 806, 390, 844, 240, 44)).toBe("bottom-right");
+  });
+
+  it("(u4) a 240x44 trigger centred at (195, 806) on 390x844 snaps to bottom-center", () => {
+    expect(nearestAnchor(195, 806, 390, 844, 240, 44)).toBe("bottom-center");
+  });
+
+  it("(u5) horizontal regions are thirds of the drag range", () => {
+    const cy = 806;
+    const w = 240;
+    const h = 44;
+    const vpW = 390;
+    const vpH = 844;
+    expect(nearestAnchor(169, cy, vpW, vpH, w, h)).toBe("bottom-left");
+    expect(nearestAnchor(170, cy, vpW, vpH, w, h)).toBe("bottom-center");
+    expect(nearestAnchor(219, cy, vpW, vpH, w, h)).toBe("bottom-center");
+    expect(nearestAnchor(220, cy, vpW, vpH, w, h)).toBe("bottom-right");
+  });
+
+  it("(u6) centre-column rows are thirds of vpH minus height", () => {
+    const cx = 195;
+    const w = 240;
+    const h = 44;
+    const vpW = 390;
+    const vpH = 844;
+    expect(nearestAnchor(cx, 288, vpW, vpH, w, h)).toBe("top-center");
+    expect(nearestAnchor(cx, 289, vpW, vpH, w, h)).toBe("center");
+    expect(nearestAnchor(cx, 555, vpW, vpH, w, h)).toBe("center");
+    expect(nearestAnchor(cx, 556, vpW, vpH, w, h)).toBe("bottom-center");
+  });
+
+  it("(u7) side columns split at half", () => {
+    const cx = 136;
+    const w = 240;
+    const h = 44;
+    const vpW = 390;
+    const vpH = 844;
+    expect(nearestAnchor(cx, 421, vpW, vpH, w, h)).toBe("top-left");
+    expect(nearestAnchor(cx, 422, vpW, vpH, w, h)).toBe("bottom-left");
+  });
+
+  it("(u8) no room to travel sits in the centre column", () => {
+    expect(nearestAnchor(195, 806, 390, 844, 390, 44)).toBe("bottom-center");
+    expect(nearestAnchor(195, 806, 390, 844, 420, 44)).toBe("bottom-center");
+  });
+
+  describe("(u9) round-trip through anchorCenter for non-square boxes", () => {
+    const BOXES = [
+      { vpW: 390, vpH: 844, w: 240, h: 44 },
+      { vpW: 1440, vpH: 900, w: 184, h: 52 },
+      { vpW: 1440, vpH: 900, w: 320, h: 36 },
+    ];
+    for (const { vpW, vpH, w, h } of BOXES) {
+      for (const anchor of ALL_ANCHORS) {
+        it(`${anchor} round-trips at ${vpW}x${vpH}, box ${w}x${h}`, () => {
+          const { x, y } = anchorCenter(anchor, vpW, vpH, w, h);
+          expect(nearestAnchor(x, y, vpW, vpH, w, h)).toBe(anchor);
+        });
+      }
+    }
+  });
+});
+
+describe("restingLeft / restingTop / anchorCenter - non-square trigger (P3)", () => {
+  it("(u10) restingLeft/restingTop take independent width/height", () => {
+    expect(restingLeft("bottom-right", 390, 240)).toBe(134);
+    expect(restingTop("bottom-right", 844, 44)).toBe(784);
+    expect(restingLeft("center", 1440, 320)).toBe(560);
+    expect(restingTop("center", 900, 36)).toBe(432);
+  });
+
+  it("(u11) anchorCenter takes independent width/height", () => {
+    expect(anchorCenter("bottom-left", 390, 844, 240, 44)).toEqual({
+      x: 136,
+      y: 806,
+    });
+    expect(anchorCenter("top-right", 1440, 900, 184, 52)).toEqual({
+      x: 1332,
+      y: 42,
+    });
+  });
+
+  it("(u12) sheetPlacement anchors off the trigger's own width", () => {
+    expect(sheetPlacement("bottom-left", 390, 844, 240, 480).anchorX).toBe(16);
+    expect(sheetPlacement("bottom-right", 1440, 900, 320, 360).anchorX).toBe(
+      1064,
+    );
+  });
+});

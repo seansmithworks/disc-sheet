@@ -5,10 +5,12 @@ import {
   DEFAULT_SHARED_CLOSE_SPRING,
   DEFAULT_SHARED_SPRING,
   SURFACE_CLOSE_LEAD_DELAY_MS,
+  TRIGGER_LABEL_REVEAL_START,
   isSharedByDirection,
   mergeTransition,
   presets,
   resolveMotion,
+  triggerLabelOpacity,
 } from "./motion";
 import type { SharedTransitionByDirection, StiffnessSpring } from "./types";
 
@@ -194,5 +196,27 @@ describe("mergeTransition — {visualDuration, bounce} shorthand", () => {
     expect(isSharedByDirection({ visualDuration: 0.4, bounce: 0.2 })).toBe(
       false,
     );
+  });
+});
+
+/**
+ * P3 task 1 — failing tests for the trigger label's close reveal (src/
+ * motion.ts), which a later P3 task implements: TRIGGER_LABEL_REVEAL_START
+ * and triggerLabelOpacity don't exist yet, so both are `undefined` at
+ * runtime and every assertion below is red until they land.
+ */
+describe("triggerLabelOpacity (P3)", () => {
+  it("(m1) TRIGGER_LABEL_REVEAL_START is 0.85", () => {
+    expect(TRIGGER_LABEL_REVEAL_START).toBe(0.85);
+  });
+
+  it("(m2) 0 at and below the reveal start, linear to 1 by p=1, clamped outside [0, 1]", () => {
+    expect(triggerLabelOpacity(0)).toBe(0);
+    expect(triggerLabelOpacity(0.5)).toBe(0);
+    expect(triggerLabelOpacity(0.85)).toBe(0);
+    expect(triggerLabelOpacity(0.925)).toBeCloseTo(0.5, 5);
+    expect(triggerLabelOpacity(1)).toBe(1);
+    expect(triggerLabelOpacity(1.02)).toBe(1);
+    expect(triggerLabelOpacity(-0.01)).toBe(0);
   });
 });

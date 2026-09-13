@@ -1,5 +1,5 @@
 // prettier-ignore
-import { TRIGGER_SHAPES, DEFAULT_TRIGGER_SHAPE, ROUNDED_SQUARE_RADIUS_FRACTION, SQUIRCLE_FALLBACK_RADIUS_FRACTION, supportsCornerShape, resolveTriggerCornerRadius, initialTriggerRestRadius, collapseRadiusAt } from "./shape";
+import { TRIGGER_SHAPES, DEFAULT_TRIGGER_SHAPE, ROUNDED_SQUARE_RADIUS_FRACTION, SQUIRCLE_FALLBACK_RADIUS_FRACTION, supportsCornerShape, resolveTriggerCornerRadius, initialTriggerRestRadius, collapseRadiusAt, resolveTriggerBox } from "./shape";
 import { describe, expect, it } from "vitest";
 import { RADIUS_HOLD_FRACTION } from "./motion";
 
@@ -161,5 +161,69 @@ describe("collapseRadiusAt", () => {
 
   it("clamps p below 0 to sheetRadius", () => {
     expect(collapseRadiusAt(-0.01, 32, 64)).toBe(32);
+  });
+});
+
+/**
+ * P3 task 1 — failing tests for the rectangle shape (src/shape.ts), which a
+ * later P3 task implements: TRIGGER_SHAPES grows a fifth entry, the pill
+ * corner rule, a 9999 rest-radius seed (matching circle/squircle, since a
+ * rectangle's radius is capped by the SHORTER side rather than seeded from
+ * `triggerSize * fraction`), and resolveTriggerBox — a new export this
+ * suite imports directly, so every test in this block is red until it
+ * exists (a missing export is `undefined` at runtime, which fails these
+ * assertions rather than throwing at import time).
+ */
+describe("rectangle (P3)", () => {
+  it("(s1) TRIGGER_SHAPES contains rectangle", () => {
+    expect(TRIGGER_SHAPES).toContain("rectangle");
+  });
+
+  it("(s2) resolveTriggerCornerRadius: pill = min(token, shorter-side / 2)", () => {
+    expect(
+      resolveTriggerCornerRadius({ shape: "rectangle", triggerSize: 44 }),
+    ).toBe(22);
+    expect(
+      resolveTriggerCornerRadius({
+        shape: "rectangle",
+        triggerSize: 36,
+        token: 12,
+      }),
+    ).toBe(12);
+    expect(
+      resolveTriggerCornerRadius({
+        shape: "rectangle",
+        triggerSize: 52,
+        cornerShapeSupported: true,
+      }),
+    ).toBe(26);
+  });
+
+  it("(s3) initialTriggerRestRadius seeds 9999 for rectangle", () => {
+    expect(initialTriggerRestRadius("rectangle", 44)).toBe(9999);
+  });
+
+  it("(s4) resolveTriggerBox: measured for rectangle, triggerSize-square otherwise", () => {
+    expect(
+      resolveTriggerBox({
+        shape: "circle",
+        triggerSize: 128,
+        measured: { width: 240, height: 44 },
+      }),
+    ).toEqual({ width: 128, height: 128 });
+    expect(
+      resolveTriggerBox({
+        shape: "rectangle",
+        triggerSize: 128,
+        measured: { width: 240, height: 44 },
+      }),
+    ).toEqual({ width: 240, height: 44 });
+    expect(
+      resolveTriggerBox({
+        shape: "rectangle",
+        triggerSize: 96,
+        measured: null,
+      }),
+    ).toEqual({ width: 96, height: 96 });
   });
 });
