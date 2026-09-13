@@ -175,6 +175,41 @@ async function sampleShadowSurfaceDelta(
   );
 }
 
+// Open thresholds: 8px. Close (Escape path): 6px. The open bound was
+// 30px, which only ever passed because it was set from a measured
+// spread (15.1-29.6px) that was itself the M2 defect — the shadow
+// clock and Motion's layout-projection clock starting from two
+// different timestamps. With those two clocks structurally coupled
+// (Root.tsx's startMorphClock, fired from Motion's own
+// onLayoutAnimationStart), a healthy open measures 0.1-0.4px worst
+// |Δtop| on both example pages at 390x844 and 1280x800. 8px is
+// therefore ~20x the observed spread, not a margin over it: it is
+// low enough that any reappearance of a start-time offset — even a
+// single frame of one — fails here rather than passing quietly.
+const OPEN_THRESHOLD_PX = 8;
+const CLOSE_THRESHOLD_PX = 6;
+// |Δbottom| bound: both boxes are bottom-pinned at rest, so a
+// healthy desync leaves the bottom edge algebraically invariant
+// (see the comment on sampleShadowSurfaceDelta). 2px is not "loose
+// margin over noise" — it is close to zero on purpose, because this
+// is the axis D3 (the stale first-open FLIP snapshot) breaks by
+// tens of px while Δtop/Δheight stay inside their own bounds.
+const BOTTOM_THRESHOLD_PX = 2;
+// (h)-only: 3 rapid open/close cycles compound spring settle noise
+// on the shared bottom-pinned edge in a way the single-transition
+// tests above don't. Sampled 37x locally (27 idle + 10 under
+// synthetic `yes`-process CPU load) at 1700x1000: worstBottom was
+// 0.0px every single time. But this bound has independently been
+// measured at 2.09px and 2.20px on other runs/machines — evidence
+// this is real cross-machine spring-timing spread under load this
+// machine didn't reproduce, not noise to explain away. 4px sits
+// ~1.8px above the highest documented outlier (headroom for
+// machines slower than any sampled so far) while staying an order
+// of magnitude under the tens-of-px D3 defect this axis exists to
+// catch. Scoped to (h) only — the shared BOTTOM_THRESHOLD_PX above
+// stays tight for (e)/(f)/(g)/(j), which don't compound cycles.
+const RAPID_TOGGLE_BOTTOM_THRESHOLD_PX = 4;
+
 for (const viewport of VIEWPORTS) {
   for (const mode of MOTION_MODES) {
     const reduced = mode === "reduced-motion";
@@ -470,41 +505,6 @@ for (const viewport of VIEWPORTS) {
       // and reduced-motion's own correctness is covered by a11y.spec.ts and
       // test (b) above. This gate is about the normal-motion morph only.
       if (!reduced) {
-        // Open thresholds: 8px. Close (Escape path): 6px. The open bound was
-        // 30px, which only ever passed because it was set from a measured
-        // spread (15.1-29.6px) that was itself the M2 defect — the shadow
-        // clock and Motion's layout-projection clock starting from two
-        // different timestamps. With those two clocks structurally coupled
-        // (Root.tsx's startMorphClock, fired from Motion's own
-        // onLayoutAnimationStart), a healthy open measures 0.1-0.4px worst
-        // |Δtop| on both example pages at 390x844 and 1280x800. 8px is
-        // therefore ~20x the observed spread, not a margin over it: it is
-        // low enough that any reappearance of a start-time offset — even a
-        // single frame of one — fails here rather than passing quietly.
-        const OPEN_THRESHOLD_PX = 8;
-        const CLOSE_THRESHOLD_PX = 6;
-        // |Δbottom| bound: both boxes are bottom-pinned at rest, so a
-        // healthy desync leaves the bottom edge algebraically invariant
-        // (see the comment on sampleShadowSurfaceDelta). 2px is not "loose
-        // margin over noise" — it is close to zero on purpose, because this
-        // is the axis D3 (the stale first-open FLIP snapshot) breaks by
-        // tens of px while Δtop/Δheight stay inside their own bounds.
-        const BOTTOM_THRESHOLD_PX = 2;
-        // (h)-only: 3 rapid open/close cycles compound spring settle noise
-        // on the shared bottom-pinned edge in a way the single-transition
-        // tests above don't. Sampled 37x locally (27 idle + 10 under
-        // synthetic `yes`-process CPU load) at 1700x1000: worstBottom was
-        // 0.0px every single time. But this bound has independently been
-        // measured at 2.09px and 2.20px on other runs/machines — evidence
-        // this is real cross-machine spring-timing spread under load this
-        // machine didn't reproduce, not noise to explain away. 4px sits
-        // ~1.8px above the highest documented outlier (headroom for
-        // machines slower than any sampled so far) while staying an order
-        // of magnitude under the tens-of-px D3 defect this axis exists to
-        // catch. Scoped to (h) only — the shared BOTTOM_THRESHOLD_PX above
-        // stays tight for (e)/(f)/(g)/(j), which don't compound cycles.
-        const RAPID_TOGGLE_BOTTOM_THRESHOLD_PX = 4;
-
         test("(e) shadow tracks the surface box through open AND close", async ({
           page,
         }) => {
@@ -979,6 +979,579 @@ for (const viewport of VIEWPORTS) {
 }
 
 /**
+ * P2 shape repeats (task 1 — failing until P2 lands the `shape` prop, its
+ * geometry and the shadow/Shared/focus-ring shape follow-through). Reuses
+ * the (e)(g)(h)(n)(o) bodies above verbatim, plus (p2), on each non-default
+ * shape, then adds shape-specific radius-tracking gates ((rt), (sh)) across
+ * every shape including the default. `?shape=` is example/main.tsx's P2
+ * task-1 fixture; expectShapeApplied fails first for every shape today,
+ * since no part carries `data-vista-sheet-shape` yet.
+ */
+const NON_DEFAULT_SHAPES = ["squircle", "rounded-square", "square"] as const;
+const ALL_SHAPES = ["circle", ...NON_DEFAULT_SHAPES] as const;
+type ShapeName = (typeof ALL_SHAPES)[number];
+
+const ROUNDED_SQUARE_FRACTION = 0.25;
+const SQUIRCLE_FALLBACK_FRACTION = 0.2716; // must equal src/shape.ts (DESIGN.md §3)
+
+const RADIUS_TRACK_THRESHOLD_PX = 4;
+
+async function expectShapeApplied(page: Page, shape: ShapeName) {
+  const actual = await page
+    .locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]')
+    .getAttribute("data-vista-sheet-shape");
+  expect(actual, "?shape= did not reach <VistaSheet.Root shape>").toBe(shape);
+}
+
+function radiusToPx(value: string, box: number): number {
+  const token = (value || "").trim().split(/\s+/)[0] || "0";
+  return token.endsWith("%")
+    ? (parseFloat(token) / 100) * box
+    : parseFloat(token);
+}
+
+function expectedTriggerRadiusPx(
+  shape: ShapeName,
+  box: number,
+  supported: boolean,
+): number {
+  switch (shape) {
+    case "circle":
+      return box / 2;
+    case "squircle":
+      return supported ? box / 2 : box * SQUIRCLE_FALLBACK_FRACTION;
+    case "rounded-square":
+      return box * ROUNDED_SQUARE_FRACTION;
+    case "square":
+      return 0;
+  }
+}
+
+function radiusMatches(
+  shape: ShapeName,
+  px: number,
+  box: number,
+  supported: boolean,
+): boolean {
+  const expected = expectedTriggerRadiusPx(shape, box, supported);
+  if (expected === box / 2) return px >= box / 2 - 0.5;
+  return Math.abs(px - expected) <= 0.5;
+}
+
+/** Same shape as sampleShadowSurfaceDelta, but samples the surface's and
+ * the shadow's CORNER RADIUS instead of their box geometry — the (rt) gate
+ * this feeds needs to know the shadow's radius tracks the surface's radius
+ * through the morph, not just its box. */
+async function sampleShadowSurfaceRadiusDelta(page: Page, durationMs: number) {
+  return page.evaluate((duration) => {
+    return new Promise<{ worst: number }>((resolve) => {
+      let worst = 0;
+      const start = performance.now();
+      function tick() {
+        const surface = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"], [data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
+        ) as HTMLElement | null;
+        const shadow = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
+        ) as HTMLElement | null;
+        if (surface && shadow) {
+          const surfaceRect = surface.getBoundingClientRect();
+          const shadowRect = shadow.getBoundingClientRect();
+          const token =
+            (getComputedStyle(surface).borderTopLeftRadius || "")
+              .trim()
+              .split(/\s+/)[0] || "0";
+          const surfaceRadius = token.endsWith("%")
+            ? (parseFloat(token) / 100) * surfaceRect.width
+            : parseFloat(token) *
+              (surfaceRect.width /
+                (surface.offsetWidth || surfaceRect.width || 1));
+          const shadowRadius = parseFloat(
+            getComputedStyle(shadow).getPropertyValue(
+              "--vista-sheet-shadow-radius",
+            ),
+          );
+          const a = Math.min(
+            surfaceRadius,
+            Math.min(surfaceRect.width, surfaceRect.height) / 2,
+          );
+          const b = Math.min(
+            shadowRadius,
+            Math.min(shadowRect.width, shadowRect.height) / 2,
+          );
+          if (!Number.isNaN(a) && !Number.isNaN(b)) {
+            worst = Math.max(worst, Math.abs(a - b));
+          }
+        }
+        if (performance.now() - start < duration) {
+          requestAnimationFrame(tick);
+        } else {
+          resolve({ worst });
+        }
+      }
+      requestAnimationFrame(tick);
+    });
+  }, durationMs);
+}
+
+for (const shape of NON_DEFAULT_SHAPES) {
+  test.describe(`shape=${shape} — 1280x800 — normal`, () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test(`(e-shape) shape=${shape}: shadow tracks the surface box through open AND close`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      await trigger.click();
+
+      const openResult = await sampleShadowSurfaceDelta(page, 1200);
+      expect(openResult.worstTop).toBeLessThan(OPEN_THRESHOLD_PX);
+      expect(openResult.worstHeight).toBeLessThan(OPEN_THRESHOLD_PX);
+      expect(openResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+
+      await page.keyboard.press("Escape");
+      const closeResult = await sampleShadowSurfaceDelta(page, 1200);
+      expect(closeResult.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX);
+      expect(closeResult.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX);
+      expect(closeResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+    });
+
+    test(`(g-shape) shape=${shape}: shadow tracks a reversed morph — Escape fired mid-open`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      await trigger.click();
+      await page.waitForTimeout(160);
+      await page.keyboard.press("Escape");
+
+      const result = await sampleShadowSurfaceDelta(page, 1200);
+      expect(result.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+      expect(result.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+      expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+    });
+
+    test(`(n-shape) shape=${shape}: shadow does not snap when the trigger reopens a still-closing sheet`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      await trigger.click();
+      const sheet = page.locator(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      );
+      await sheet.waitFor();
+      await waitForStableWidth(page, sheet);
+
+      await page.keyboard.press("Escape");
+      await page.waitForTimeout(150);
+      await trigger.click();
+
+      const result = await sampleShadowSurfaceDelta(page, 1200);
+      expect(result.worstTop).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+      expect(result.worstHeight).toBeLessThan(CLOSE_THRESHOLD_PX * 3);
+      expect(result.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
+    });
+
+    test(`(h-shape) shape=${shape}: shadow tracks a rapid open/close toggle (3 cycles)`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      let worstTop = 0;
+      let worstHeight = 0;
+      let worstBottom = 0;
+      for (let i = 0; i < 3; i++) {
+        await trigger.click();
+        await page.waitForTimeout(220);
+        const openSample = await sampleShadowSurfaceDelta(page, 220);
+        worstTop = Math.max(worstTop, openSample.worstTop);
+        worstHeight = Math.max(worstHeight, openSample.worstHeight);
+        worstBottom = Math.max(worstBottom, openSample.worstBottom);
+
+        await page.keyboard.press("Escape");
+        await page.waitForTimeout(220);
+        const closeSample = await sampleShadowSurfaceDelta(page, 220);
+        worstTop = Math.max(worstTop, closeSample.worstTop);
+        worstHeight = Math.max(worstHeight, closeSample.worstHeight);
+        worstBottom = Math.max(worstBottom, closeSample.worstBottom);
+      }
+
+      expect(worstTop).toBeLessThan(OPEN_THRESHOLD_PX);
+      expect(worstHeight).toBeLessThan(OPEN_THRESHOLD_PX);
+      expect(worstBottom).toBeLessThan(RAPID_TOGGLE_BOTTOM_THRESHOLD_PX);
+    });
+
+    test(`(p2-shape) shape=${shape}: no element inside the trigger or sheet paints a box-shadow or filter, open through close`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      await trigger.click();
+
+      const openPaint = await sampleForStrayPainter(page, 1200);
+      expect(openPaint, "open->settle").toBeNull();
+
+      const sheet = page.locator(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      );
+      await waitForStableWidth(page, sheet);
+
+      const restPaint = await sampleForStrayPainter(page, 200);
+      expect(restPaint, "rest").toBeNull();
+
+      await page.keyboard.press("Escape");
+      const closePaint = await sampleForStrayPainter(page, 1200);
+      expect(closePaint, "close").toBeNull();
+    });
+  });
+}
+
+for (const shape of NON_DEFAULT_SHAPES) {
+  for (const viewport of VIEWPORTS) {
+    const isBaseViewport = viewport.width === 1280 && viewport.height === 800;
+    const modes = isBaseViewport
+      ? (["normal", "reduced-motion"] as const)
+      : (["normal"] as const);
+    for (const mode of modes) {
+      const reduced = mode === "reduced-motion";
+
+      test.describe(`shape=${shape} — ${viewport.width}x${viewport.height} — ${mode}`, () => {
+        test.use({ viewport });
+
+        test(`(o-shape) shape=${shape}: the trigger surface rests at its shape after every close path`, async ({
+          page,
+        }) => {
+          await gotoExample(page, reduced, { shape });
+          await expectShapeApplied(page, shape);
+          const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+
+          const expectRestingShape = async (variant: string) => {
+            await page.waitForTimeout(1600);
+            const r = await page.evaluate(() => {
+              const el = document.querySelector(
+                '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
+              ) as HTMLElement | null;
+              if (!el) return null;
+              const box = el.getBoundingClientRect();
+              return {
+                inline: (el.style.borderRadius || "").trim(),
+                computed: getComputedStyle(el).borderTopLeftRadius,
+                width: box.width,
+                cornerShape: getComputedStyle(el)
+                  .getPropertyValue("corner-top-left-shape")
+                  .trim(),
+                supported: CSS.supports("corner-shape", "squircle"),
+              };
+            });
+            expect(
+              r,
+              `${variant}: the trigger surface must be mounted and measurable at rest`,
+            ).not.toBeNull();
+            const computedPx = radiusToPx(r!.computed, r!.width);
+            expect(
+              radiusMatches(shape, computedPx, r!.width, r!.supported),
+              `${variant}: computed border-radius ${r!.computed} does not match shape=${shape} on a ${r!.width}px trigger`,
+            ).toBe(true);
+            expect(
+              r!.inline === "" ||
+                radiusMatches(
+                  shape,
+                  radiusToPx(r!.inline, r!.width),
+                  r!.width,
+                  r!.supported,
+                ),
+              `${variant}: a stale inline border-radius (${r!.inline}) survived the morph`,
+            ).toBe(true);
+            if (r!.supported) {
+              expect(r!.cornerShape).toBe(
+                shape === "squircle" ? "squircle" : "round",
+              );
+            }
+          };
+
+          await trigger.click();
+          await page.waitForTimeout(900);
+          await page.keyboard.press("Escape");
+          await expectRestingShape("simple close");
+
+          await trigger.click();
+          await page.waitForTimeout(900);
+          await page.keyboard.press("Escape");
+          await page.waitForTimeout(300);
+          await trigger.click();
+          await page.waitForTimeout(900);
+          await page.keyboard.press("Escape");
+          await expectRestingShape("close interrupted by a reopen");
+
+          for (let i = 0; i < 3; i++) {
+            await trigger.click();
+            await page.waitForTimeout(180);
+            await page.keyboard.press("Escape");
+            await page.waitForTimeout(180);
+          }
+          await expectRestingShape("rapid open/close toggle");
+
+          await trigger.click();
+          await page.waitForTimeout(900);
+          await page.keyboard.press("Escape");
+          await page.waitForTimeout(90);
+          await page.setViewportSize({
+            width: viewport.width,
+            height: Math.round(viewport.height * 0.63),
+          });
+          await expectRestingShape("resize mid-close");
+        });
+      });
+    }
+  }
+}
+
+for (const shape of ALL_SHAPES) {
+  test.describe(`shape=${shape} — 1280x800 — normal — follows shape`, () => {
+    test.use({ viewport: { width: 1280, height: 800 } });
+
+    test(`(rt) shape=${shape}: shadow corner radius tracks the surface corner radius through open AND close`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      await trigger.click();
+      const openResult = await sampleShadowSurfaceRadiusDelta(page, 1200);
+      expect(openResult.worst).toBeLessThan(RADIUS_TRACK_THRESHOLD_PX);
+
+      await page.keyboard.press("Escape");
+      const closeResult = await sampleShadowSurfaceRadiusDelta(page, 1200);
+      expect(closeResult.worst).toBeLessThan(RADIUS_TRACK_THRESHOLD_PX);
+    });
+
+    test(`(sh) shape=${shape}: shadow, Shared and focus ring follow the shape at rest`, async ({
+      page,
+    }) => {
+      await gotoExample(page, false, { shape });
+      await expectShapeApplied(page, shape);
+
+      const triggerSurface = page.locator(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
+      );
+      await waitForStableWidth(page, triggerSurface);
+      await page.waitForTimeout(300);
+
+      const closedRest = await page.evaluate(() => {
+        const surface = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
+        ) as HTMLElement | null;
+        const shadow = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
+        ) as HTMLElement | null;
+        const shared = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shared"][data-vista-sheet-slot="trigger"]',
+        ) as HTMLElement | null;
+        if (!surface || !shadow || !shared) return null;
+        const surfaceRect = surface.getBoundingClientRect();
+        const sharedRect = shared.getBoundingClientRect();
+        const sharedStyle = getComputedStyle(shared) as CSSStyleDeclaration & {
+          webkitMaskImage?: string;
+        };
+        return {
+          surfaceWidth: surfaceRect.width,
+          surfaceRadius: getComputedStyle(surface).borderTopLeftRadius,
+          shadowRadius: parseFloat(
+            getComputedStyle(shadow).getPropertyValue(
+              "--vista-sheet-shadow-radius",
+            ),
+          ),
+          shadowCornerShape: getComputedStyle(shadow)
+            .getPropertyValue("corner-top-left-shape")
+            .trim(),
+          shadowBeforeCornerShape: getComputedStyle(shadow, "::before")
+            .getPropertyValue("corner-top-left-shape")
+            .trim(),
+          shadowAfterCornerShape: getComputedStyle(shadow, "::after")
+            .getPropertyValue("corner-top-left-shape")
+            .trim(),
+          sharedWidth: sharedRect.width,
+          sharedRadius: sharedStyle.borderTopLeftRadius,
+          sharedMask:
+            sharedStyle.maskImage && sharedStyle.maskImage !== "none"
+              ? sharedStyle.maskImage
+              : (sharedStyle.webkitMaskImage ?? "none"),
+          supported: CSS.supports("corner-shape", "squircle"),
+        };
+      });
+      expect(
+        closedRest,
+        "trigger-surface/shadow/shared must be mounted at rest",
+      ).not.toBeNull();
+
+      const surfacePx = radiusToPx(
+        closedRest!.surfaceRadius,
+        closedRest!.surfaceWidth,
+      );
+      expect(
+        Math.abs(closedRest!.shadowRadius - surfacePx),
+      ).toBeLessThanOrEqual(0.5);
+      expect(
+        radiusMatches(
+          shape,
+          surfacePx,
+          closedRest!.surfaceWidth,
+          closedRest!.supported,
+        ),
+      ).toBe(true);
+      if (closedRest!.supported) {
+        const expectedCornerShape = shape === "squircle" ? "squircle" : "round";
+        expect(closedRest!.shadowCornerShape).toBe(expectedCornerShape);
+        expect(closedRest!.shadowBeforeCornerShape).toBe(expectedCornerShape);
+        expect(closedRest!.shadowAfterCornerShape).toBe(expectedCornerShape);
+      }
+
+      const sharedPx = radiusToPx(
+        closedRest!.sharedRadius,
+        closedRest!.sharedWidth,
+      );
+      if (shape === "circle") {
+        expect(sharedPx).toBeGreaterThanOrEqual(
+          closedRest!.sharedWidth / 2 - 0.5,
+        );
+        expect(closedRest!.sharedMask).toBe("none");
+      } else if (shape === "rounded-square") {
+        expect(
+          Math.abs(sharedPx - (closedRest!.surfaceWidth * 0.25 - 2)),
+        ).toBeLessThanOrEqual(0.5);
+        expect(closedRest!.sharedMask).toBe("none");
+      } else if (shape === "square") {
+        expect(sharedPx).toBeLessThanOrEqual(0.5);
+        expect(closedRest!.sharedMask).toBe("none");
+      } else {
+        expect(sharedPx).toBeLessThanOrEqual(0.5);
+        expect(closedRest!.sharedMask).toContain("data:image/svg+xml");
+      }
+
+      const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
+      await trigger.focus();
+      const focusState = await page.evaluate(() => {
+        const button = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+        ) as HTMLElement | null;
+        if (!button) return null;
+        const rect = button.getBoundingClientRect();
+        return {
+          focusVisible: button.matches(":focus-visible"),
+          radius: getComputedStyle(button).borderTopLeftRadius,
+          width: rect.width,
+          cornerShape: getComputedStyle(button)
+            .getPropertyValue("corner-top-left-shape")
+            .trim(),
+        };
+      });
+      expect(focusState, "trigger button must be mounted").not.toBeNull();
+      expect(focusState!.focusVisible).toBe(true);
+      expect(
+        radiusMatches(
+          shape,
+          radiusToPx(focusState!.radius, focusState!.width),
+          focusState!.width,
+          closedRest!.supported,
+        ),
+      ).toBe(true);
+      if (closedRest!.supported) {
+        expect(focusState!.cornerShape).toBe(
+          shape === "squircle" ? "squircle" : "round",
+        );
+      }
+
+      await openSheet(page);
+      const openRest = await page.evaluate(() => {
+        const sheet = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        ) as HTMLElement | null;
+        const shadow = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
+        ) as HTMLElement | null;
+        const shared = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shared"][data-vista-sheet-slot="sheet"]',
+        ) as HTMLElement | null;
+        if (!sheet || !shadow || !shared) return null;
+        const sheetRect = sheet.getBoundingClientRect();
+        const sharedRect = shared.getBoundingClientRect();
+        const sharedStyle = getComputedStyle(shared) as CSSStyleDeclaration & {
+          webkitMaskImage?: string;
+        };
+        return {
+          sheetCornerShape: getComputedStyle(sheet)
+            .getPropertyValue("corner-top-left-shape")
+            .trim(),
+          sheetRadius: getComputedStyle(sheet).borderTopLeftRadius,
+          sheetWidth: sheetRect.width,
+          shadowRadius: parseFloat(
+            getComputedStyle(shadow).getPropertyValue(
+              "--vista-sheet-shadow-radius",
+            ),
+          ),
+          sharedWidth: sharedRect.width,
+          sharedRadius: sharedStyle.borderTopLeftRadius,
+          sharedMask:
+            sharedStyle.maskImage && sharedStyle.maskImage !== "none"
+              ? sharedStyle.maskImage
+              : (sharedStyle.webkitMaskImage ?? "none"),
+          supported: CSS.supports("corner-shape", "squircle"),
+        };
+      });
+      expect(
+        openRest,
+        "sheet/shadow/shared must be mounted after open",
+      ).not.toBeNull();
+
+      if (openRest!.supported) {
+        expect(openRest!.sheetCornerShape).toBe(
+          shape === "squircle" ? "squircle" : "round",
+        );
+      }
+      const sheetPx = radiusToPx(openRest!.sheetRadius, openRest!.sheetWidth);
+      expect(Math.abs(sheetPx - openRest!.shadowRadius)).toBeLessThanOrEqual(
+        0.5,
+      );
+
+      const sheetSharedPx = radiusToPx(
+        openRest!.sharedRadius,
+        openRest!.sharedWidth,
+      );
+      if (shape === "circle") {
+        expect(sheetSharedPx).toBeGreaterThanOrEqual(
+          openRest!.sharedWidth / 2 - 0.5,
+        );
+        expect(openRest!.sharedMask).toBe("none");
+      } else if (shape === "rounded-square") {
+        expect(
+          Math.abs(sheetSharedPx - (openRest!.sheetWidth * 0.25 - 2)),
+        ).toBeLessThanOrEqual(0.5);
+        expect(openRest!.sharedMask).toBe("none");
+      } else if (shape === "square") {
+        expect(sheetSharedPx).toBeLessThanOrEqual(0.5);
+        expect(openRest!.sharedMask).toBe("none");
+      } else {
+        expect(sheetSharedPx).toBeLessThanOrEqual(0.5);
+        expect(openRest!.sharedMask).toContain("data:image/svg+xml");
+      }
+    });
+  });
+}
+
+/**
  * (k) — D4: a consumer's transition.open delay must reach BOTH clocks (the
  * layoutId FLIP on <Sheet> and the collapseProgress spring driving
  * <Shadow>), not just one. Root.tsx's drivenOpenTransition used to strip the
@@ -1035,27 +1608,35 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
 
 /**
  * Frame-samples every element inside the trigger root or the sheet (both
- * subtrees, every descendant) for a computed `box-shadow` other than
- * `none`, for `durationMs`, via an in-page rAF loop. `[data-vista-sheet-
- * part="shadow"]` and its descendants are excluded — that element (and only
- * that element, via its ::before/::after) is the one documented painter
- * (DESIGN.md §4.1) — but it is never a descendant of trigger-root or sheet
- * in this example (Shadow, Trigger, and Sheet are siblings under
- * VistaSheet.Root), so the exclusion here only matters if a future example
- * nests it. Returns the first offending element found (tag + its
- * data-vista-sheet-part, if any, + the box-shadow value) or null.
+ * subtrees, every descendant) — AND each element's ::before/::after — for a
+ * computed `box-shadow` or `filter` other than `none`, for `durationMs`, via
+ * an in-page rAF loop. `[data-vista-sheet-part="shadow"]` and its
+ * descendants are excluded — that element (and only that element, via its
+ * own ::before/::after) is the one documented painter (DESIGN.md §4.1) —
+ * but it is never a descendant of trigger-root or sheet in this example
+ * (Shadow, Trigger, and Sheet are siblings under VistaSheet.Root), so the
+ * exclusion here only matters if a future example nests it. `filter` is
+ * checked alongside `box-shadow` because `filter: drop-shadow(...)` is the
+ * same class of second painter — a shadow rendered outside Shadow.tsx's one
+ * silhouette — that a plain box-shadow guard would miss entirely. Returns
+ * the first offending element/pseudo found (tag + its data-vista-sheet-part,
+ * if any + which pseudo-element + which property + its value) or null.
  */
-async function sampleForStrayBoxShadow(page: Page, durationMs: number) {
+async function sampleForStrayPainter(page: Page, durationMs: number) {
   return page.evaluate((duration) => {
     return new Promise<{
       tag: string;
       part: string | null;
-      boxShadow: string;
+      pseudo: "" | "::before" | "::after";
+      property: "box-shadow" | "filter";
+      value: string;
     } | null>((resolve) => {
       let found: {
         tag: string;
         part: string | null;
-        boxShadow: string;
+        pseudo: "" | "::before" | "::after";
+        property: "box-shadow" | "filter";
+        value: string;
       } | null = null;
       const start = performance.now();
       function tick() {
@@ -1066,21 +1647,42 @@ async function sampleForStrayBoxShadow(page: Page, durationMs: number) {
               '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"], ' +
               '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"] *',
           );
-          for (const el of Array.from(nodes)) {
+          outer: for (const el of Array.from(nodes)) {
             if (
               el.closest(
                 '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
               )
             )
               continue;
-            const bs = getComputedStyle(el).boxShadow;
-            if (bs && bs !== "none") {
-              found = {
-                tag: el.tagName.toLowerCase(),
-                part: el.getAttribute("data-vista-sheet-part"),
-                boxShadow: bs,
-              };
-              break;
+            const pseudos: ("" | "::before" | "::after")[] = [
+              "",
+              "::before",
+              "::after",
+            ];
+            for (const pseudo of pseudos) {
+              const style = getComputedStyle(el, pseudo || undefined);
+              const bs = style.boxShadow;
+              if (bs && bs !== "none") {
+                found = {
+                  tag: el.tagName.toLowerCase(),
+                  part: el.getAttribute("data-vista-sheet-part"),
+                  pseudo,
+                  property: "box-shadow",
+                  value: bs,
+                };
+                break outer;
+              }
+              const filter = style.filter;
+              if (filter && filter !== "none") {
+                found = {
+                  tag: el.tagName.toLowerCase(),
+                  part: el.getAttribute("data-vista-sheet-part"),
+                  pseudo,
+                  property: "filter",
+                  value: filter,
+                };
+                break outer;
+              }
             }
           }
         }
@@ -1216,60 +1818,63 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
   /**
    * (p2) Hardens (p) against the MECHANISM, not just the one instance: (p)
    * only ever looked at the sheet element's own box-shadow. This checks
-   * every element inside the trigger root or the sheet, across open, settle,
-   * rest, AND close — a stray painter anywhere else in the component (e.g. a
-   * revived box-shadow on .triggerSurface, which (p) never touches at all)
-   * would pass (p) while still producing a shadow pop.
+   * every element inside the trigger root or the sheet — and each one's
+   * ::before/::after — for a box-shadow OR a filter, across open, settle,
+   * rest, AND close. A stray painter anywhere else in the component (e.g. a
+   * revived box-shadow on .triggerSurface, or a filter: drop-shadow(...) —
+   * the same class of second painter under a different CSS property, which
+   * (p) never touches at all) would pass (p) while still producing a shadow
+   * pop. Single-painter (DESIGN.md §4.1): only <VistaSheet.Shadow>'s own
+   * ::before/::after may ever paint one.
    *
-   * Deliberately broken to confirm this test can fail: added
-   * `box-shadow: 0 0 0 1px red;` to `.triggerSurface` in styles.module.css —
-   * turned red at the CLOSE-phase sample (line ~1187 below, the
-   * `expect(closeBoxShadow, ...)` assertion), reporting
-   * `{"tag":"div","part":"trigger-surface","boxShadow":"rgb(255, 0, 0) 0px 0px 0px 1px"}`
-   * — then reverted (git diff shows only this test file changed).
+   * Proven twice to fail (P2 task 1 report has the pasted red lines for
+   * both, then each reverted via `git checkout -- src/styles.module.css`):
+   * (i) `filter: drop-shadow(0 0 1px red);` added to `.triggerSurface`;
+   * (ii) `.triggerSurface::after { content: ""; box-shadow: 0 0 0 1px red; }`
+   * added. Both turned this test red.
    */
-  test("(p2) no element inside the trigger or sheet paints a box-shadow, open through close", async ({
+  test("(p2) no element inside the trigger or sheet paints a box-shadow or filter, open through close", async ({
     page,
   }) => {
     await gotoExample(page, false);
     const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
     await trigger.click();
 
-    const openBoxShadow = await sampleForStrayBoxShadow(page, 1200);
+    const openPaint = await sampleForStrayPainter(page, 1200);
     console.log(
-      `[geometry] (p2) open->settle stray box-shadow: ${
-        openBoxShadow
-          ? JSON.stringify(openBoxShadow)
+      `[geometry] (p2) open->settle stray painter: ${
+        openPaint
+          ? JSON.stringify(openPaint)
           : "none at any sampled element/frame"
       }`,
     );
-    expect(openBoxShadow, "open->settle").toBeNull();
+    expect(openPaint, "open->settle").toBeNull();
 
     const sheet = page.locator(
       '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
     );
     await waitForStableWidth(page, sheet);
 
-    const restBoxShadow = await sampleForStrayBoxShadow(page, 200);
+    const restPaint = await sampleForStrayPainter(page, 200);
     console.log(
-      `[geometry] (p2) rest stray box-shadow: ${
-        restBoxShadow
-          ? JSON.stringify(restBoxShadow)
+      `[geometry] (p2) rest stray painter: ${
+        restPaint
+          ? JSON.stringify(restPaint)
           : "none at any sampled element/frame"
       }`,
     );
-    expect(restBoxShadow, "rest").toBeNull();
+    expect(restPaint, "rest").toBeNull();
 
     await page.keyboard.press("Escape");
-    const closeBoxShadow = await sampleForStrayBoxShadow(page, 1200);
+    const closePaint = await sampleForStrayPainter(page, 1200);
     console.log(
-      `[geometry] (p2) close stray box-shadow: ${
-        closeBoxShadow
-          ? JSON.stringify(closeBoxShadow)
+      `[geometry] (p2) close stray painter: ${
+        closePaint
+          ? JSON.stringify(closePaint)
           : "none at any sampled element/frame"
       }`,
     );
-    expect(closeBoxShadow, "close").toBeNull();
+    expect(closePaint, "close").toBeNull();
   });
 
   /**

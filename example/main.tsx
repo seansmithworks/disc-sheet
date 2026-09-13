@@ -603,6 +603,19 @@ function App() {
     SHADOW_CROSSFADE_DIALS,
     { id: "morph-sheet-shadow-crossfade", persist: true },
   );
+  // Test-only: ?shape= for geometry.spec.ts shape repeats. P2 task 5 types
+  // this. Placed here (not beside the other testParams overrides above)
+  // so it doesn't shift naming.test.ts's line-number allowlist for the
+  // frozen dialkit ids above.
+  const SHAPE_PARAM_VALUES = [
+    "circle",
+    "squircle",
+    "rounded-square",
+    "square",
+  ] as const;
+  const shapeParam = testParams.get("shape");
+  const shapeOverride = SHAPE_PARAM_VALUES.find((s) => s === shapeParam);
+  const shapeProps = (shapeOverride ? { shape: shapeOverride } : {}) as object;
   const c = dials.colors;
   const iriStyle = {
     "--iri-opacity": dials.opacity,
@@ -644,6 +657,7 @@ function App() {
       </p>
 
       <VistaSheet.Root
+        {...shapeProps}
         id="main"
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}

@@ -35,6 +35,13 @@ export default defineConfig({
     {
       name: "chromium",
       use: { browserName: "chromium" },
+      testIgnore: /squircle-webkit\.spec\.ts$/,
+    },
+    // Strawman (v0.2): WebKit runs only the squircle fallback spec so suite runtime doesn't double.
+    {
+      name: "webkit-squircle",
+      use: { browserName: "webkit" },
+      testMatch: /squircle-webkit\.spec\.ts$/,
     },
   ],
 });
