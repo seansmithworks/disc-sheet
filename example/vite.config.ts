@@ -24,6 +24,7 @@ export default defineConfig({
         mediaCard: resolve(__dirname, "media-card.html"),
         list: resolve(__dirname, "list.html"),
         contact: resolve(__dirname, "contact.html"),
+        play: resolve(__dirname, "play.html"),
       },
     },
   },

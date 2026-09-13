@@ -1,0 +1,119 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  color: #1d1d1f;
+}
+
+[data-play-shell] {
+  display: block;
+}
+
+/* Strawman (v0.2): 360px panel, 900px breakpoint (see shell-entry.tsx). */
+.play-shell-desktop {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  height: 100vh;
+}
+
+[data-play-panel] {
+  height: 100vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-left: 1px solid #e5e5e5;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-play-panel] h1 {
+  font-size: 15px;
+  margin: 0 0 4px;
+}
+
+[data-play-panel] header p {
+  font-size: 12px;
+  color: #6e6e73;
+  margin: 4px 0 0;
+}
+
+[data-play-panel] h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #6e6e73;
+  letter-spacing: 0.04em;
+  margin: 20px 0 8px;
+}
+
+[data-play-row] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  font-size: 13px;
+}
+
+[data-play-swatch] {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid #e5e5e5;
+}
+
+[data-play-panel] select,
+[data-play-panel] input[type="text"] {
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+}
+
+[data-play-panel] fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+[data-play-panel] pre {
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: ui-monospace, monospace;
+  background: #f5f5f7;
+  border-radius: 8px;
+  padding: 12px;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre;
+}
+
+[data-play-panel] footer {
+  position: sticky;
+  bottom: 0;
+  background: #ffffff;
+  border-top: 1px solid #e5e5e5;
+  padding: 12px 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: auto;
+}
+
+[data-play-panel] footer button {
+  height: 32px;
+  border-radius: 9999px;
+  background: #1d1d1f;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  padding: 0 16px;
+}

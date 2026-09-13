@@ -1,0 +1,20 @@
+/*
+ * The stage frame supplies layout scaffolding only. It must never style any
+ * [data-vista-sheet-*] part or vs- class: everything the specimen looks like
+ * comes from the CSS the stage injects at render time (see stage-entry.tsx's
+ * <style data-play-css>). That's the WYSIWYG guarantee the copy tool relies
+ * on — if this file styled the specimen too, the pane could show CSS that
+ * doesn't reproduce what's on screen.
+ */
+html,
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+body {
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
