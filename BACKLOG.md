@@ -432,3 +432,4 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 ## Overnight v0.2 run ledger — 2026-09-13
 
 - [x] e59c7a2 WIP verified at dc3bd44 before launch: 95 vitest · tsc 6 (baseline) · audit:vars PASS · build:lib + banner PASS · geometry 117 passed.
+- P2 gate r1 @ 6aceac5: vitest 122/0 · tsc new 0 · audit PASS · build PASS · geometry 148/5 · red-proof NOT proven · dial ok · perf raster 56.6ms/1 dropped/16.7ms longest, all PASS vs baseline (load1 6.38 warning)
