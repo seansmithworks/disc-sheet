@@ -367,3 +367,30 @@
     cursor: pointer;
   }
 }
+
+/*
+ * .media / .mediaElement — VistaSheet.Media (P4). Media.tsx owns every
+ * geometry write (width/height/left/top/transform) imperatively; no such
+ * property may be declared here, and this rule declares no box-shadow or
+ * filter (Shadow.tsx is the single painter, DESIGN.md §4.1).
+ */
+.media {
+  position: absolute;
+  inset: 0;
+  /* Paints above the surface's own background/border and below any
+   * in-flow child (e.g. <VistaSheet.Close>), within the surface's own
+   * stacking context — matching .triggerSurface's negative-z-index
+   * reasoning above. The surface's own overflow:hidden plus its
+   * border-radius/corner-shape is the clip; .media declares neither. */
+  z-index: -1;
+  pointer-events: none;
+}
+
+.mediaElement {
+  position: absolute;
+  display: block;
+  max-width: none;
+  object-fit: cover;
+  transform-origin: 50% 50%;
+  pointer-events: none;
+}

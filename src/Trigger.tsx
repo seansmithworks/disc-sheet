@@ -4,7 +4,13 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
-import { SlotContext, useVistaSheetInternal } from "./context";
+import {
+  SlotContext,
+  TriggerSurfaceContext,
+  createTriggerSurfaceStore,
+  useVistaSheetInternal,
+} from "./context";
+import type { TriggerSurfaceStore } from "./context";
 import { readVarPx } from "./readVarPx";
 import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
 import {
@@ -54,6 +60,17 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const surfaceStoreRef = useRef<TriggerSurfaceStore | null>(null);
+  if (!surfaceStoreRef.current) {
+    surfaceStoreRef.current = createTriggerSurfaceStore();
+  }
+  // Stable identity across renders — an inline arrow ref would detach and
+  // reattach on every render, remounting the portal (and the video inside
+  // it) along with it.
+  const attachSurfaceRef = useCallback((el: HTMLDivElement | null) => {
+    surfaceRef.current = el;
+    surfaceStoreRef.current!.set(el);
+  }, []);
   const mountedRef = useRef(false);
   const lastRectRef = useRef<{ cx: number; cy: number; radius: number } | null>(
     null,
@@ -381,7 +398,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       >
         {!open && (
           <motion.div
-            ref={surfaceRef}
+            ref={attachSurfaceRef}
             layoutId={reduceMotion ? undefined : `${ctx.idBase}-surface`}
             className={styles.triggerSurface}
             // This trigger surface is the ENTERING element on close (it is
@@ -462,9 +479,11 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
           />
         )}
         {!open && (
-          <SlotContext.Provider value="trigger">
-            {children}
-          </SlotContext.Provider>
+          <TriggerSurfaceContext.Provider value={surfaceStoreRef.current}>
+            <SlotContext.Provider value="trigger">
+              {children}
+            </SlotContext.Provider>
+          </TriggerSurfaceContext.Provider>
         )}
       </button>
     </motion.div>

@@ -2,6 +2,7 @@ import { Root } from "./Root";
 import { Trigger } from "./Trigger";
 import { Sheet } from "./Sheet";
 import { Shared } from "./Shared";
+import { Media } from "./Media";
 import { Content } from "./Content";
 import { Item } from "./Item";
 import { Close } from "./Close";
@@ -18,6 +19,7 @@ import { Shadow } from "./Shadow";
  *   </VistaSheet.Trigger>
  *   <VistaSheet.Sheet aria-labelledby="sheet-title">
  *     <VistaSheet.Shared><Avatar /></VistaSheet.Shared>
+ *     <VistaSheet.Media poster="/poster.jpg" aspectRatio={9 / 16} />
  *     <VistaSheet.Content>
  *       <VistaSheet.Close aria-label="Close" />
  *       <VistaSheet.Item><h2 id="sheet-title">Title</h2></VistaSheet.Item>
@@ -31,6 +33,7 @@ export const VistaSheet = {
   Trigger,
   Sheet,
   Shared,
+  Media,
   Content,
   Item,
   Close,
@@ -48,6 +51,7 @@ export type {
   VistaSheetState,
   ItemProps,
   Labelled,
+  MediaProps,
   MorphTransition,
   MotionPreset,
   Rect,

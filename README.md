@@ -176,9 +176,9 @@ Pasted as-is, this renders a solid-colored trigger at the bottom-center
 viewport anchor: drag it to re-anchor at any of the seven anchors, tap it to
 morph it into the sheet shown above.
 
-Nine exports total: eight components (`Root`, `Trigger`, `Sheet`, `Shared`,
-`Content`, `Item`, `Close`, `Shadow`) plus the `useVistaSheet()` hook. That is
-the whole surface area.
+Ten exports total: nine components (`Root`, `Trigger`, `Sheet`, `Shared`,
+`Media`, `Content`, `Item`, `Close`, `Shadow`) plus the `useVistaSheet()`
+hook. That is the whole surface area.
 
 **In a Next.js App Router app, `"use client"` has to be the first line of
 the file where you mount `VistaSheet`**, as it is in the snippet above.
@@ -216,6 +216,52 @@ the slot clips them to the current shape.
 Browser support: `"squircle"` is a true superellipse where CSS `corner-shape`
 is supported (Chromium); Safari and Firefox get a close `border-radius`
 approximation.
+
+### Media and aspect-ratio sheets
+
+`<VistaSheet.Sheet aspectRatio>` (width / height, e.g. `9 / 16`) contain-fits
+the sheet to that ratio inside `sheetMaxWidth` and the current anchor's max
+height, instead of the default fit-content height. A value that isn't a
+finite positive number is ignored and the sheet behaves exactly as it does
+today.
+
+`<VistaSheet.Media src? poster aspectRatio alt? className?>` is the
+video/img fill for a trigger or sheet, rendered twice like
+`<VistaSheet.Shared>` — once as a direct child of `<VistaSheet.Trigger>`,
+once as a direct child of `<VistaSheet.Sheet>`:
+
+```tsx
+<VistaSheet.Trigger aria-label="Open portrait video">
+  <VistaSheet.Media
+    src="/clip.mp4"
+    poster="/poster.jpg"
+    aspectRatio={9 / 16}
+  />
+</VistaSheet.Trigger>
+
+<VistaSheet.Sheet aria-label="Portrait video" aspectRatio={9 / 16}>
+  <VistaSheet.Media
+    src="/clip.mp4"
+    poster="/poster.jpg"
+    aspectRatio={9 / 16}
+  />
+  <VistaSheet.Close aria-label="Close" />
+</VistaSheet.Sheet>
+```
+
+`aspectRatio` is required on `Media` itself (not inherited from `Sheet`):
+the trigger-side instance can't see `Sheet`'s props, and video metadata
+loads too late to size the very first morph frame. `poster` is the still,
+frame-0 image, and is also what reduced-motion users see, paused, with no
+autoplay attribute.
+
+The video always covers its box (like CSS `object-fit: cover`, centered, no
+focal-point control) and never squashes through the morph, even while the
+surface it fills scales non-uniformly — a `<VistaSheet.Media>` mounted with
+`src` autoplays muted, loops, and plays inline. There is no playback-time
+handoff between the trigger and sheet instances; both start at 0. `Media` is
+decorative (`aria-hidden`) unless you pass `alt`, and must be a direct child
+of `Trigger` or `Sheet` (not guarded, just how it's built).
 
 ### The escape hatch
 
@@ -303,6 +349,7 @@ to find the live element from outside the package via `useVistaSheet()` + a
 | `trigger` | The trigger `<button>` |
 | `trigger-surface` | The trigger's seed surface (the FLIP source) |
 | `shared` | `<VistaSheet.Shared>`, on both its trigger- and sheet-side instances |
+| `media` | `<VistaSheet.Media>`, on both its trigger- and sheet-side instances |
 | `sheet` | `<VistaSheet.Sheet>`'s panel |
 | `backdrop` | The invisible outside-click catcher (only when `dismissOnBackdrop`) |
 | `content` | `<VistaSheet.Content>`'s scroll region |

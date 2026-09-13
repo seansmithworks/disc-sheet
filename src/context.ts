@@ -84,6 +84,45 @@ export function useVistaSheetSlot(): VistaSheetSlot | undefined {
 }
 
 /**
+ * TriggerSurfaceStore — publishes the trigger surface's DOM node
+ * (`.triggerSurface`, `data-vista-sheet-part="trigger-surface"`) so
+ * <VistaSheet.Media> can portal its trigger-side instance INSIDE that
+ * element rather than in place. The trigger surface is the entering element
+ * on close (Trigger.tsx's `{!open && ...}` gating), so it FLIPs from the
+ * sheet's box and fades in above it; a Media instance living outside that
+ * surface would pop in at the trigger's resting spot from the first close
+ * frame instead of riding the FLIP. A small pub/sub rather than a plain ref
+ * so <Media> (a descendant of the surface's own children, mounted after it)
+ * can re-render/re-portal if the surface node is ever recreated.
+ */
+export interface TriggerSurfaceStore {
+  get(): HTMLDivElement | null;
+  set(el: HTMLDivElement | null): void;
+  subscribe(listener: () => void): () => void;
+}
+
+export function createTriggerSurfaceStore(): TriggerSurfaceStore {
+  let current: HTMLDivElement | null = null;
+  const listeners = new Set<() => void>();
+  return {
+    get: () => current,
+    set: (el) => {
+      if (el === current) return;
+      current = el;
+      listeners.forEach((listener) => listener());
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+export const TriggerSurfaceContext = createContext<TriggerSurfaceStore | null>(
+  null,
+);
+
+/**
  * useVistaSheet — the public escape hatch. Throws outside <VistaSheet.Root>.
  *
  * usePKG().collapseProgress is the raw MotionValue the package's own radius,

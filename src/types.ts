@@ -191,6 +191,23 @@ export interface CloseProps {
   "aria-label": string;
 }
 
+export interface MediaProps {
+  /** Video source. Omit to render just the poster as a static `<img>`. */
+  src?: string;
+  /** The still, frame-0 image. Also what reduced-motion users see, paused. */
+  poster: string;
+  /**
+   * Required: the media's intrinsic width / height. Sizes the media on the
+   * first frame, before the file itself has loaded any metadata, which is
+   * what keeps the morph from squashing it — not inherited from Sheet's own
+   * `aspectRatio`, since the trigger-side instance can't see Sheet's props.
+   */
+  aspectRatio: number;
+  /** Set to make the media meaningful content (not aria-hidden). */
+  alt?: string;
+  className?: string;
+}
+
 export interface ShadowProps {
   className?: string;
   /** Render a single child in place of the default shadow div, merging the
