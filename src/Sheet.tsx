@@ -31,6 +31,7 @@ export function Sheet({
   className,
   dismissOnSwipe = true,
   dismissOnBackdrop = true,
+  aspectRatio,
   ...labelled
 }: SheetProps) {
   const ctx = useVistaSheetInternal("Sheet");
@@ -231,21 +232,35 @@ export function Sheet({
           window.innerHeight,
           triggerSize,
           sheetMaxWidth,
+          aspectRatio,
         )
-      : sheetPlacement(anchor, 1440, 900, triggerSize, sheetMaxWidth);
+      : sheetPlacement(
+          anchor,
+          1440,
+          900,
+          triggerSize,
+          sheetMaxWidth,
+          aspectRatio,
+        );
 
-  // Always written (never conditionally), all three properties, as direct
+  // Always written (never conditionally), all five properties, as direct
   // inline properties rather than a var — that's what lets a top-pinned,
   // bottom-pinned, or both-pinned (center) anchor all resolve correctly
   // regardless of cascade order, with no per-anchor branch here. maxHeight
   // is derived per anchor by sheetPlacement (anchors.ts) — the CSS default
-  // in .sheet only covers the pre-hydration/SSR fallback.
+  // in .sheet only covers the pre-hydration/SSR fallback. width/height are
+  // written unconditionally too — framer-motion never clears an inline
+  // style when its key leaves the style prop, so an aspectRatio sheet that
+  // closes and reopens without one must see the SHEET_DEFAULT_* strings
+  // written back explicitly rather than relying on the value disappearing.
   const placementStyle: Record<string, string> = {
     ["--vista-sheet-sheet-left" as string]: `${placement.anchorX}px`,
     top: placement.topPx !== undefined ? `${placement.topPx}px` : "auto",
     bottom:
       placement.bottomPx !== undefined ? `${placement.bottomPx}px` : "auto",
     maxHeight: placement.maxHeight,
+    width: placement.width,
+    height: placement.height,
   };
 
   function handleDragEnd(

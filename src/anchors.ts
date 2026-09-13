@@ -204,6 +204,12 @@ export interface SheetPlacement {
   bottomPx: number | undefined;
   /** CSS max-height value for this anchor. See `sheetMaxHeight`. */
   maxHeight: string;
+  /** CSS width. A px value when a valid aspectRatio was passed to
+   * sheetPlacement; otherwise SHEET_DEFAULT_WIDTH (the .sheet CSS default). */
+  width: string;
+  /** CSS height. A px value when a valid aspectRatio was passed to
+   * sheetPlacement; otherwise SHEET_DEFAULT_HEIGHT (the .sheet CSS default). */
+  height: string;
 }
 
 /**
@@ -234,6 +240,34 @@ function sheetMaxHeight(anchor: AnchorId): string {
 }
 
 /**
+ * Numeric px twin of `sheetMaxHeight`, for the aspect-ratio contain-fit
+ * below, which needs an actual number to multiply by the ratio rather than a
+ * CSS string. Must mirror sheetMaxHeight's CSS strings exactly (dvh treated
+ * as vh, since this runs against a live vpH already read from the DOM): top
+ * -> vpH - EDGE_MARGIN*2; middle -> min(0.88*vpH, vpH - EDGE_MARGIN*2);
+ * bottom -> 0.88*vpH.
+ */
+function sheetMaxHeightPx(anchor: AnchorId, vpH: number): number {
+  const vertical = ANCHOR_AXES[anchor].vertical;
+  if (vertical === "top") {
+    return vpH - EDGE_MARGIN * 2;
+  }
+  if (vertical === "middle") {
+    return Math.min(0.88 * vpH, vpH - EDGE_MARGIN * 2);
+  }
+  return 0.88 * vpH;
+}
+
+/** Default CSS width for .sheet — must equal the .sheet rule in
+ * styles.module.css (enforced by the parity test in anchors.test.ts). */
+export const SHEET_DEFAULT_WIDTH =
+  "min(var(--vista-sheet-sheet-max-width, 480px), calc(100vw - 32px))";
+
+/** Default CSS height for .sheet — must equal the .sheet rule in
+ * styles.module.css (enforced by the parity test in anchors.test.ts). */
+export const SHEET_DEFAULT_HEIGHT = "fit-content";
+
+/**
  * sheetPlacement — derive the sheet's pinned edge(s) + horizontal position
  * from an AnchorId, clamped so the full sheet stays on-screen.
  *
@@ -252,10 +286,34 @@ export function sheetPlacement(
   vpH: number,
   triggerSize: number,
   sheetMaxWidth: number,
+  aspectRatio?: number,
 ): SheetPlacement {
   const SHEET_MARGIN = 16;
   const center = anchorCenter(anchor, vpW, vpH, triggerSize);
-  const sheetHalfWidth = Math.min(sheetMaxWidth, vpW - 32) / 2;
+
+  const hasValidRatio =
+    typeof aspectRatio === "number" &&
+    Number.isFinite(aspectRatio) &&
+    aspectRatio > 0;
+
+  let sheetHalfWidth: number;
+  let width: string;
+  let height: string;
+  if (hasValidRatio) {
+    const resolvedWidth = Math.min(
+      Math.min(sheetMaxWidth, vpW - 32),
+      sheetMaxHeightPx(anchor, vpH) * aspectRatio,
+    );
+    const resolvedHeight = resolvedWidth / aspectRatio;
+    sheetHalfWidth = resolvedWidth / 2;
+    // Strawman (v0.2): no px rounding.
+    width = `${resolvedWidth}px`;
+    height = `${resolvedHeight}px`;
+  } else {
+    sheetHalfWidth = Math.min(sheetMaxWidth, vpW - 32) / 2;
+    width = SHEET_DEFAULT_WIDTH;
+    height = SHEET_DEFAULT_HEIGHT;
+  }
 
   const clampedSheetCenterX = Math.min(
     Math.max(center.x, sheetHalfWidth + SHEET_MARGIN),
@@ -276,5 +334,7 @@ export function sheetPlacement(
     topPx,
     bottomPx,
     maxHeight: sheetMaxHeight(anchor),
+    width,
+    height,
   };
 }

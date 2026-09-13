@@ -164,6 +164,10 @@ export type SheetProps = Labelled & {
   dismissOnSwipe?: boolean;
   /** Click outside the sheet to close. Default true. */
   dismissOnBackdrop?: boolean;
+  /** Width / height, e.g. 9 / 16. The sheet contain-fits this ratio inside
+   * sheetMaxWidth and the anchor's max height. A value that is not a finite
+   * positive number is ignored. */
+  aspectRatio?: number;
 };
 
 export interface SharedProps {
