@@ -44,16 +44,80 @@ const openDelayOverride = testParams.has("openDelay")
   ? Number(testParams.get("openDelay"))
   : undefined;
 
-// Demo-only: swaps the plain shadow for an iridescent glow while open, so the
-// open/close reads clearly in short screen-recording clips. Persisted so a
-// reload keeps the setting.
-const IRI_KEY = "vista-sheet-example:iridescent";
-function readIri() {
+// Demo-only: a single persisted settings object driving every toggle/select
+// in the "Design" VistaSheet below (iridescent glow, dark ground, surface
+// palette, main trigger size, dial visibility). One key, one try/catch, so a
+// reload keeps every setting together rather than scattering localStorage
+// keys per control.
+interface DemoSettings {
+  iridescent: boolean;
+  darkGround: boolean;
+  surface: "neutral" | "warm";
+  triggerSize: "small" | "default" | "large";
+  showDials: boolean;
+}
+const DEFAULT_SETTINGS: DemoSettings = {
+  iridescent: false,
+  darkGround: false,
+  surface: "neutral",
+  triggerSize: "default",
+  showDials: false,
+};
+const SETTINGS_KEY = "vista-sheet-example:settings";
+function readSettings(): DemoSettings {
   try {
-    return localStorage.getItem(IRI_KEY) === "1";
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
   } catch {
-    return false;
+    return DEFAULT_SETTINGS;
   }
+}
+
+// Main trigger's triggerSize ramp per "Trigger size" select. "Default" passes
+// undefined so Root falls back to its own default ramp rather than us
+// duplicating it here.
+const TRIGGER_SIZE_RAMPS: Record<
+  DemoSettings["triggerSize"],
+  { base: number; md: number; xl: number } | undefined
+> = {
+  small: { base: 72, md: 96, xl: 112 },
+  default: undefined,
+  large: { base: 112, md: 144, xl: 168 },
+};
+
+// Package default palette (DESIGN.md "Package defaults" column) — applied as
+// an inline override when "Surface" is set to Warm, since example.css's
+// :root block hard-codes the neutral example palette.
+const SURFACE_WARM_STYLE = {
+  "--vista-sheet-surface": "#faf7f2",
+  "--vista-sheet-surface-elevated": "#f4f0e8",
+  "--vista-sheet-surface-border": "#e6dfd2",
+  "--vista-sheet-text": "#1a1610",
+  "--vista-sheet-accent": "#b4512e",
+} as CSSProperties;
+
+function SlidersIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+      <circle cx="11" cy="18" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
 }
 
 // Live dials for the glow, shown only while the toggle is on. Persisted under
@@ -186,7 +250,25 @@ const SHADOW_CROSSFADE_DIALS = {
 };
 
 function App() {
-  const [iri, setIri] = useState(readIri);
+  const [settings, setSettings] = useState(readSettings);
+  const iri = settings.iridescent;
+  const updateSettings = (next: Partial<DemoSettings>) => {
+    setSettings((prev) => {
+      const merged = { ...prev, ...next };
+      try {
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+      } catch {
+        // storage blocked — the settings still work for this page view
+      }
+      return merged;
+    });
+  };
+  // Dark ground toggles body-level background/text, not just `.page` (the
+  // page div has no explicit height, so a short page would leave the
+  // original light body visible below the fold).
+  useEffect(() => {
+    document.body.dataset.darkGround = settings.darkGround ? "true" : "false";
+  }, [settings.darkGround]);
   const iriController = useDialKitController("Iridescent shadow", IRI_DIALS, {
     id: "morph-sheet-iridescent",
     persist: true,
@@ -240,35 +322,20 @@ function App() {
     "--vista-sheet-sheet-shadow-fade-start": shadowCrossfade.fadeStart,
     "--vista-sheet-sheet-shadow-fade-end": shadowCrossfade.fadeEnd,
   } as CSSProperties;
-  const toggleIri = () => {
-    const next = !iri;
-    setIri(next);
-    try {
-      localStorage.setItem(IRI_KEY, next ? "1" : "0");
-    } catch {
-      // storage blocked — the toggle still works for this page view
-    }
-  };
+  const pageStyle = {
+    ...shadowCrossfadeStyle,
+    ...(settings.surface === "warm" ? SURFACE_WARM_STYLE : {}),
+  } as CSSProperties;
 
   return (
-    <div className="page" style={shadowCrossfadeStyle}>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={iri}
-        className="demo-toggle"
-        onClick={toggleIri}
-      >
-        <span className="demo-toggle-track" aria-hidden="true" />
-        Iridescent shadow
-      </button>
+    <div className="page" style={pageStyle}>
       {/* Gated on the same toggle as the glow dials (not rendered
           unconditionally): DialRoot's own "Versions" trigger button overlays
           the morph trigger at narrow viewports and intercepts its clicks,
           which broke 20 geometry.spec.ts tests when this was unconditional.
           The Sheet shadow crossfade panel registered below still shows up
-          here once the iri toggle is on. */}
-      {iri && <DialRoot position="bottom-right" />}
+          here once "Show dials" is on. */}
+      {settings.showDials && <DialRoot position="bottom-right" />}
       <h1>vista-sheet</h1>
       <p className="sub">
         A bare trigger, morphing into a sheet. Tap the trigger (bottom-center by
@@ -276,8 +343,10 @@ function App() {
       </p>
 
       <VistaSheet.Root
+        id="main"
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}
+        triggerSize={TRIGGER_SIZE_RAMPS[settings.triggerSize]}
         transition={
           openDelayOverride !== undefined
             ? {
@@ -342,6 +411,166 @@ function App() {
             attribute and writes a mask-image directly onto it. See
             CloseMask.tsx. */}
         <CloseMask />
+      </VistaSheet.Root>
+
+      {/* A second, independent VistaSheet.Root: a small "Design" settings
+          panel that restyles the demo above. Own id ("settings", vs the main
+          sheet's "main") and own persistKey so its anchor never shares
+          localStorage with the main sheet's. Rendered after (and painted
+          above, via a higher zIndex) the main Root so the two triggers never
+          fight over stacking order if they ever visually overlap. Not
+          draggable — it is a fixed utility control, not the demo subject. */}
+      <VistaSheet.Root
+        id="settings"
+        defaultAnchor="top-right"
+        persistKey="vista-sheet-settings-anchor"
+        draggable={false}
+        triggerSize={40}
+        zIndex={300}
+      >
+        <VistaSheet.Trigger aria-label="Design settings">
+          <SlidersIcon />
+        </VistaSheet.Trigger>
+
+        <VistaSheet.Sheet aria-labelledby="settings-sheet-title">
+          <VistaSheet.Close aria-label="Close settings" />
+
+          <VistaSheet.Content>
+            <VistaSheet.Item>
+              <h2 id="settings-sheet-title">Design</h2>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <span className="settings-label" id="setting-iridescent-label">
+                  Iridescent shadow
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.iridescent}
+                  aria-labelledby="setting-iridescent-label"
+                  className="demo-toggle-switch"
+                  onClick={() =>
+                    updateSettings({ iridescent: !settings.iridescent })
+                  }
+                >
+                  <span className="demo-toggle-track" aria-hidden="true" />
+                </button>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <label className="settings-label" htmlFor="setting-palette">
+                  Glow palette
+                </label>
+                <select
+                  id="setting-palette"
+                  className="settings-select"
+                  value={dials.palette}
+                  disabled={!settings.iridescent}
+                  onChange={(e) =>
+                    iriController.setValue("palette", e.target.value)
+                  }
+                >
+                  {IRI_DIALS.palette.options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <span className="settings-label" id="setting-dark-ground-label">
+                  Dark ground
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.darkGround}
+                  aria-labelledby="setting-dark-ground-label"
+                  className="demo-toggle-switch"
+                  onClick={() =>
+                    updateSettings({ darkGround: !settings.darkGround })
+                  }
+                >
+                  <span className="demo-toggle-track" aria-hidden="true" />
+                </button>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <label className="settings-label" htmlFor="setting-surface">
+                  Surface
+                </label>
+                <select
+                  id="setting-surface"
+                  className="settings-select"
+                  value={settings.surface}
+                  onChange={(e) =>
+                    updateSettings({
+                      surface: e.target.value as DemoSettings["surface"],
+                    })
+                  }
+                >
+                  <option value="neutral">Neutral</option>
+                  <option value="warm">Warm</option>
+                </select>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <label
+                  className="settings-label"
+                  htmlFor="setting-trigger-size"
+                >
+                  Trigger size
+                </label>
+                <select
+                  id="setting-trigger-size"
+                  className="settings-select"
+                  value={settings.triggerSize}
+                  onChange={(e) =>
+                    updateSettings({
+                      triggerSize: e.target
+                        .value as DemoSettings["triggerSize"],
+                    })
+                  }
+                >
+                  <option value="small">Small</option>
+                  <option value="default">Default</option>
+                  <option value="large">Large</option>
+                </select>
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div className="settings-row">
+                <span className="settings-label" id="setting-show-dials-label">
+                  Show dials
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={settings.showDials}
+                  aria-labelledby="setting-show-dials-label"
+                  className="demo-toggle-switch"
+                  onClick={() =>
+                    updateSettings({ showDials: !settings.showDials })
+                  }
+                >
+                  <span className="demo-toggle-track" aria-hidden="true" />
+                </button>
+              </div>
+            </VistaSheet.Item>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
       </VistaSheet.Root>
     </div>
   );

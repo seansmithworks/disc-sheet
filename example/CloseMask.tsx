@@ -42,8 +42,13 @@ export function CloseMask() {
 
   useEffect(() => {
     const apply = () => {
+      // Scoped to the main Root's wrapper (`data-vista-sheet-root="main"`,
+      // set in main.tsx): a second, unrelated VistaSheet.Root (the "Design"
+      // settings sheet) also renders `[data-vista-sheet-part="sheet"]` when
+      // open, and an unscoped query would grab whichever one is open at the
+      // time — usually not this one.
       const sheetEl = document.querySelector<HTMLElement>(
-        '[data-vista-sheet-part="sheet"]',
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
       );
       if (!sheetEl) return;
 

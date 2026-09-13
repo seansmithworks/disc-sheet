@@ -72,7 +72,9 @@ async function gotoExample(
   }
   const qs = query ? `?${new URLSearchParams(query).toString()}` : "";
   await page.goto(`/${qs}`);
-  await page.waitForSelector('[data-vista-sheet-part="trigger"]');
+  await page.waitForSelector(
+    '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+  );
 }
 
 /** Poll a locator's boundingBox().width until it stops changing between two
@@ -94,7 +96,9 @@ async function waitForStableWidth(
 
 async function openSheet(page: Page) {
   await page.getByRole("button", { name: TRIGGER_LABEL }).click();
-  const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+  const sheet = page.locator(
+    '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+  );
   await sheet.waitFor();
   // Let the FLIP/cross-fade fully settle so offsetWidth/Height reflect the
   // resting geometry, not a mid-spring frame.
@@ -102,7 +106,7 @@ async function openSheet(page: Page) {
 }
 
 /**
- * Frame-samples `[data-vista-sheet-part="shadow"]` against whichever surface
+ * Frame-samples `[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]` against whichever surface
  * node currently shares its layoutId (`sheet` while opening, `trigger-surface`
  * while closing — both project to the same box during the FLIP, so either
  * selector matching is sufficient) for `durationMs`, via an in-page rAF loop
@@ -123,40 +127,52 @@ async function openSheet(page: Page) {
  * transitions and the premature sheetRect clear): before that fix, worstTop/
  * worstHeight were 315px (open) and 487px (close).
  */
-async function sampleShadowSurfaceDelta(page: Page, durationMs: number) {
-  return page.evaluate((duration) => {
-    return new Promise<{
-      worstTop: number;
-      worstHeight: number;
-      worstBottom: number;
-    }>((resolve) => {
-      let worstTop = 0;
-      let worstHeight = 0;
-      let worstBottom = 0;
-      const start = performance.now();
-      function tick() {
-        const surface = document.querySelector(
-          '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
-        );
-        const shadow = document.querySelector(
-          '[data-vista-sheet-part="shadow"]',
-        );
-        if (surface && shadow) {
-          const s = surface.getBoundingClientRect();
-          const sh = shadow.getBoundingClientRect();
-          worstTop = Math.max(worstTop, Math.abs(sh.top - s.top));
-          worstHeight = Math.max(worstHeight, Math.abs(sh.height - s.height));
-          worstBottom = Math.max(worstBottom, Math.abs(sh.bottom - s.bottom));
+// `rootSelector` scopes to the demo's primary sheet on pages that render a
+// second, unrelated VistaSheet.Root (index's "Design" settings sheet —
+// `[data-vista-sheet-root="main"]`, the id set in main.tsx). flagship.html
+// (off-limits, unmodified) has exactly one Root and no such id, so its own
+// caller (test (m)) passes "" for an unscoped, unambiguous selector there.
+async function sampleShadowSurfaceDelta(
+  page: Page,
+  durationMs: number,
+  rootSelector = '[data-vista-sheet-root="main"] ',
+) {
+  return page.evaluate(
+    ({ duration, root }) => {
+      return new Promise<{
+        worstTop: number;
+        worstHeight: number;
+        worstBottom: number;
+      }>((resolve) => {
+        let worstTop = 0;
+        let worstHeight = 0;
+        let worstBottom = 0;
+        const start = performance.now();
+        function tick() {
+          const surface = document.querySelector(
+            `${root}[data-vista-sheet-part="sheet"], ${root}[data-vista-sheet-part="trigger-surface"]`,
+          );
+          const shadow = document.querySelector(
+            `${root}[data-vista-sheet-part="shadow"]`,
+          );
+          if (surface && shadow) {
+            const s = surface.getBoundingClientRect();
+            const sh = shadow.getBoundingClientRect();
+            worstTop = Math.max(worstTop, Math.abs(sh.top - s.top));
+            worstHeight = Math.max(worstHeight, Math.abs(sh.height - s.height));
+            worstBottom = Math.max(worstBottom, Math.abs(sh.bottom - s.bottom));
+          }
+          if (performance.now() - start < duration) {
+            requestAnimationFrame(tick);
+          } else {
+            resolve({ worstTop, worstHeight, worstBottom });
+          }
         }
-        if (performance.now() - start < duration) {
-          requestAnimationFrame(tick);
-        } else {
-          resolve({ worstTop, worstHeight, worstBottom });
-        }
-      }
-      requestAnimationFrame(tick);
-    });
-  }, durationMs);
+        requestAnimationFrame(tick);
+      });
+    },
+    { duration: durationMs, root: rootSelector },
+  );
 }
 
 for (const viewport of VIEWPORTS) {
@@ -172,7 +188,7 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
 
         const triggerShared = page.locator(
-          '[data-vista-sheet-part="shared"][data-vista-sheet-slot="trigger"]',
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shared"][data-vista-sheet-slot="trigger"]',
         );
         // useTriggerSize's SSR-safe initializer (M6) always resolves at the
         // ramp's base size first, then promotes to the real size in a
@@ -188,7 +204,7 @@ for (const viewport of VIEWPORTS) {
         await openSheet(page);
 
         const sheetShared = page.locator(
-          '[data-vista-sheet-part="shared"][data-vista-sheet-slot="sheet"]',
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shared"][data-vista-sheet-slot="sheet"]',
         );
         const sheetBox = await sheetShared.boundingBox();
         expect(
@@ -210,7 +226,9 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
         await openSheet(page);
 
-        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+        const sheet = page.locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        );
         const radius = await sheet.evaluate((el) => {
           const cs = getComputedStyle(el);
           // borderRadius is the shorthand; read one corner explicitly.
@@ -229,8 +247,12 @@ for (const viewport of VIEWPORTS) {
         await gotoExample(page, reduced);
         await openSheet(page);
 
-        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
-        const content = page.locator('[data-vista-sheet-part="content"]');
+        const sheet = page.locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        );
+        const content = page.locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="content"]',
+        );
 
         const sheetBox = (await sheet.boundingBox())!;
         const contentBox = (await content.boundingBox())!;
@@ -264,7 +286,7 @@ for (const viewport of VIEWPORTS) {
           sheetMaxWidth: "600",
         });
 
-        const rootEl = page.locator("[data-vista-sheet-root]");
+        const rootEl = page.locator('[data-vista-sheet-root="main"]');
         const z = await rootEl.evaluate((el) =>
           getComputedStyle(el).getPropertyValue("--vista-sheet-z").trim(),
         );
@@ -278,7 +300,7 @@ for (const viewport of VIEWPORTS) {
 
         // And it must actually reach the rendered layers, not just the var.
         const triggerRoot = page.locator(
-          '[data-vista-sheet-part="trigger-root"]',
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-root"]',
         );
         const triggerZ = await triggerRoot.evaluate(
           (el) => getComputedStyle(el).zIndex,
@@ -286,7 +308,9 @@ for (const viewport of VIEWPORTS) {
         expect(triggerZ).toBe("500");
 
         await openSheet(page);
-        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+        const sheet = page.locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        );
         const sheetWidth = (await sheet.boundingBox())!.width;
         // .sheet's CSS width is min(--vista-sheet-sheet-max-width, 100vw -
         // 32px) — at our narrowest viewport (375) the viewport clamp wins,
@@ -314,7 +338,9 @@ for (const viewport of VIEWPORTS) {
         const cy = triggerBox.y + triggerBox.height / 2;
 
         await trigger.click();
-        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+        const sheet = page.locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        );
         await sheet.waitFor();
         await waitForStableWidth(page, sheet);
 
@@ -366,7 +392,7 @@ for (const viewport of VIEWPORTS) {
           await page.waitForTimeout(1600);
           const r = await page.evaluate(() => {
             const el = document.querySelector(
-              '[data-vista-sheet-part="trigger-surface"]',
+              '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
             ) as HTMLElement | null;
             if (!el) return null;
             const box = el.getBoundingClientRect();
@@ -525,6 +551,9 @@ for (const viewport of VIEWPORTS) {
         test("(m) shadow tracks the flagship example's surface through open AND close", async ({
           page,
         }) => {
+          // flagship.html is off-limits/unmodified — it has exactly one
+          // Root and no `data-vista-sheet-root="main"` id, so its own
+          // locators here stay unscoped (unambiguous on that page).
           await page.goto("/flagship.html");
           await page.waitForSelector('[data-vista-sheet-part="trigger"]');
           // The flagship's text faces are used ONLY inside its sheet, so they
@@ -544,7 +573,7 @@ for (const viewport of VIEWPORTS) {
           );
 
           await page.locator('[data-vista-sheet-part="trigger"]').click();
-          const openResult = await sampleShadowSurfaceDelta(page, 1200);
+          const openResult = await sampleShadowSurfaceDelta(page, 1200, "");
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} flagship open: ` +
               `worst |Δtop|=${openResult.worstTop.toFixed(1)}px, ` +
@@ -556,7 +585,7 @@ for (const viewport of VIEWPORTS) {
           expect(openResult.worstBottom).toBeLessThan(BOTTOM_THRESHOLD_PX);
 
           await page.keyboard.press("Escape");
-          const closeResult = await sampleShadowSurfaceDelta(page, 1200);
+          const closeResult = await sampleShadowSurfaceDelta(page, 1200, "");
           console.log(
             `[geometry] ${viewport.width}x${viewport.height} flagship close: ` +
               `worst |Δtop|=${closeResult.worstTop.toFixed(1)}px, ` +
@@ -574,7 +603,9 @@ for (const viewport of VIEWPORTS) {
           await gotoExample(page, reduced);
           await openSheet(page);
 
-          const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+          const sheet = page.locator(
+            '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+          );
           const box = (await sheet.boundingBox())!;
           // Top strip of the sheet, above <VistaSheet.Shared>'s 24px margin
           // and the Close button inside Content — a safe drag-handle point
@@ -597,10 +628,10 @@ for (const viewport of VIEWPORTS) {
 
           const held = await page.evaluate(() => {
             const surface = document.querySelector(
-              '[data-vista-sheet-part="sheet"]',
+              '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
             )!;
             const shadow = document.querySelector(
-              '[data-vista-sheet-part="shadow"]',
+              '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
             )!;
             const s = surface.getBoundingClientRect();
             const sh = shadow.getBoundingClientRect();
@@ -706,7 +737,9 @@ for (const viewport of VIEWPORTS) {
           await gotoExample(page, reduced);
           const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
           await trigger.click();
-          const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+          const sheet = page.locator(
+            '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+          );
           await sheet.waitFor();
           await waitForStableWidth(page, sheet);
 
@@ -905,7 +938,7 @@ for (const viewport of VIEWPORTS) {
                 const start = performance.now();
                 function tick() {
                   const el = document.querySelector(
-                    '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
+                    '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"], [data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
                   );
                   if (el) {
                     const rect = el.getBoundingClientRect();
@@ -971,8 +1004,12 @@ test.describe("1280x800 — normal — D4 consumer delay", () => {
 
     await page.waitForTimeout(120);
     const midDelay = await page.evaluate(() => {
-      const surface = document.querySelector('[data-vista-sheet-part="sheet"]');
-      const shadow = document.querySelector('[data-vista-sheet-part="shadow"]');
+      const surface = document.querySelector(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      );
+      const shadow = document.querySelector(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
+      );
       if (!surface || !shadow) return null;
       const s = surface.getBoundingClientRect();
       const sh = shadow.getBoundingClientRect();
@@ -1024,13 +1061,18 @@ async function sampleForStrayBoxShadow(page: Page, durationMs: number) {
       function tick() {
         if (!found) {
           const nodes = document.querySelectorAll(
-            '[data-vista-sheet-part="trigger-root"], ' +
-              '[data-vista-sheet-part="trigger-root"] *, ' +
-              '[data-vista-sheet-part="sheet"], ' +
-              '[data-vista-sheet-part="sheet"] *',
+            '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-root"], ' +
+              '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-root"] *, ' +
+              '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"], ' +
+              '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"] *',
           );
           for (const el of Array.from(nodes)) {
-            if (el.closest('[data-vista-sheet-part="shadow"]')) continue;
+            if (
+              el.closest(
+                '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
+              )
+            )
+              continue;
             const bs = getComputedStyle(el).boxShadow;
             if (bs && bs !== "none") {
               found = {
@@ -1066,7 +1108,9 @@ async function sampleForStrayMask(page: Page, durationMs: number) {
       let firstNonNone = "";
       const start = performance.now();
       function tick() {
-        const sheet = document.querySelector('[data-vista-sheet-part="sheet"]');
+        const sheet = document.querySelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        );
         if (sheet) {
           const mi = getComputedStyle(sheet).maskImage;
           if (mi && mi !== "none" && !firstNonNone) firstNonNone = mi;
@@ -1114,7 +1158,7 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
         const start = performance.now();
         function tick() {
           const sheet = document.querySelector(
-            '[data-vista-sheet-part="sheet"]',
+            '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
           );
           if (sheet) {
             const bs = getComputedStyle(sheet).boxShadow;
@@ -1137,13 +1181,17 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     );
     expect(seenBoxShadow).toBe("");
 
-    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await waitForStableWidth(page, sheet);
 
     const restState = await page.evaluate(() => {
-      const sheetEl = document.querySelector('[data-vista-sheet-part="sheet"]');
+      const sheetEl = document.querySelector(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      );
       const shadowEl = document.querySelector(
-        '[data-vista-sheet-part="shadow"]',
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
       );
       return {
         sheetBoxShadow: sheetEl ? getComputedStyle(sheetEl).boxShadow : null,
@@ -1197,7 +1245,9 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     );
     expect(openBoxShadow, "open->settle").toBeNull();
 
-    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await waitForStableWidth(page, sheet);
 
     const restBoxShadow = await sampleForStrayBoxShadow(page, 200);
@@ -1243,7 +1293,9 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
     await gotoExample(page, false);
     const trigger = page.getByRole("button", { name: TRIGGER_LABEL });
     await trigger.click();
-    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await sheet.waitFor();
     await waitForStableWidth(page, sheet);
 
@@ -1263,7 +1315,9 @@ test.describe("1280x800 — normal — shadow crossfade (single painter)", () =>
 
     await waitForStableWidth(page, sheet);
     const maskAtRest = await page.evaluate(() => {
-      const sheetEl = document.querySelector('[data-vista-sheet-part="sheet"]');
+      const sheetEl = document.querySelector(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+      );
       return sheetEl ? getComputedStyle(sheetEl).maskImage : null;
     });
     console.log(`[geometry] (p3) mask-image at rest: ${maskAtRest}`);
@@ -1293,7 +1347,11 @@ async function gotoWithAnchor(page: Page, anchor: string, path = "/") {
     [ANCHOR_STORAGE_KEY, anchor] as [string, string],
   );
   await page.goto(path);
-  await page.waitForSelector('[data-vista-sheet-part="trigger"]');
+  // Index ("/") renders a second Root (the settings sheet), scoped by
+  // `data-vista-sheet-root="main"`; flagship.html has exactly one Root and
+  // no such id, so it stays unscoped there.
+  const scope = path === "/" ? '[data-vista-sheet-root="main"] ' : "";
+  await page.waitForSelector(`${scope}[data-vista-sheet-part="trigger"]`);
 }
 
 /** Same rAF sampling loop as sampleShadowSurfaceDelta, plus the two
@@ -1314,10 +1372,10 @@ async function sampleCenterAnchorDelta(page: Page, durationMs: number) {
       const start = performance.now();
       function tick() {
         const surface = document.querySelector(
-          '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"], [data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
         );
         const shadow = document.querySelector(
-          '[data-vista-sheet-part="shadow"]',
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="shadow"]',
         );
         if (surface && shadow) {
           const s = surface.getBoundingClientRect();
@@ -1373,7 +1431,9 @@ test.describe("center anchor", () => {
       await page.setViewportSize(viewport);
       await gotoWithAnchor(page, "center");
 
-      const trigger = page.locator('[data-vista-sheet-part="trigger"]');
+      const trigger = page.locator(
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+      );
       await waitForStableWidth(page, trigger);
       const box = (await trigger.boundingBox())!;
       const cx = box.x + box.width / 2;
@@ -1395,6 +1455,8 @@ test.describe("center anchor", () => {
     // flagship.html — a photo, a five-row nav, a real type ramp — so the
     // sheet's content genuinely overflows the height-capped box and
     // scrolls, rather than fitting and making the height cap moot.
+    // flagship.html is off-limits/unmodified — one Root, no
+    // `data-vista-sheet-root="main"` id, so it stays unscoped here.
     await gotoWithAnchor(page, "center", "/flagship.html");
 
     const trigger = page.locator('[data-vista-sheet-part="trigger"]');
@@ -1447,7 +1509,9 @@ test.describe("center anchor", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoWithAnchor(page, "center");
-    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
+    const trigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
 
     // Open.
     await trigger.click();
@@ -1483,7 +1547,9 @@ test.describe("center anchor", () => {
 
     // Swipe close.
     await trigger.click();
-    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
     await sheet.waitFor();
     await waitForStableWidth(page, sheet);
     const box = (await sheet.boundingBox())!;
@@ -1511,7 +1577,9 @@ test.describe("center anchor", () => {
   }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoWithAnchor(page, "center");
-    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
+    const trigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
     await trigger.click();
     await page.waitForTimeout(900);
     await page.keyboard.press("Escape");
@@ -1519,7 +1587,7 @@ test.describe("center anchor", () => {
 
     const r = await page.evaluate(() => {
       const el = document.querySelector(
-        '[data-vista-sheet-part="trigger-surface"]',
+        '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger-surface"]',
       ) as HTMLElement | null;
       if (!el) return null;
       const box = el.getBoundingClientRect();
@@ -1572,8 +1640,12 @@ test.describe("center anchor", () => {
     expect(persisted).toBe("center");
 
     await page.reload();
-    await page.waitForSelector('[data-vista-sheet-part="trigger"]');
-    const restoredTrigger = page.locator('[data-vista-sheet-part="trigger"]');
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
+    const restoredTrigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
     await waitForStableWidth(page, restoredTrigger);
     const restoredBox = (await restoredTrigger.boundingBox())!;
     expect(
@@ -1585,7 +1657,9 @@ test.describe("center anchor", () => {
 
     // A legitimate persisted non-center anchor still restores correctly.
     await gotoWithAnchor(page, "top-right");
-    const topRightTrigger = page.locator('[data-vista-sheet-part="trigger"]');
+    const topRightTrigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
     await waitForStableWidth(page, topRightTrigger);
     const topRightBox = (await topRightTrigger.boundingBox())!;
     expect(topRightBox.x + topRightBox.width).toBeGreaterThan(1280 - 32 - 16);
@@ -1596,7 +1670,9 @@ test.describe("center anchor", () => {
     // rejected by usePersistedAnchor's isAnchorId guard and falls back to
     // DEFAULT_ANCHOR ("bottom-center"), never to the invalid value itself.
     await gotoWithAnchor(page, "middle-center");
-    const fallbackTrigger = page.locator('[data-vista-sheet-part="trigger"]');
+    const fallbackTrigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
     await waitForStableWidth(page, fallbackTrigger);
     const fallbackBox = (await fallbackTrigger.boundingBox())!;
     // bottom-center IS horizontally centered too (same as the real center
@@ -1659,17 +1735,21 @@ for (const viewport of [
           anchor,
         );
         await page.goto("/");
-        await page.waitForSelector('[data-vista-sheet-part="trigger"]');
+        await page.waitForSelector(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+        );
         await page.getByRole("button", { name: TRIGGER_LABEL }).click();
 
-        const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+        const sheet = page.locator(
+          '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+        );
         await sheet.waitFor();
         await waitForStableWidth(page, sheet);
 
         // Force real overflow so the cap is load-bearing, not just declared.
         await page.evaluate(() => {
           const content = document.querySelector(
-            '[data-vista-sheet-part="content"]',
+            '[data-vista-sheet-root="main"] [data-vista-sheet-part="content"]',
           );
           const filler = document.createElement("div");
           filler.style.height = "3000px";
@@ -1700,3 +1780,108 @@ for (const viewport of [
     }
   });
 }
+
+/**
+ * Design settings sheet (a second, independent VistaSheet.Root, `id="settings"`)
+ * replacing the old fixed "Iridescent shadow" pill. Scoped to
+ * `[data-vista-sheet-root="settings"]` the same way every other test above is
+ * scoped to `"main"` — both roots render `[data-vista-sheet-part="trigger"]`
+ * etc, so an unscoped locator here would be ambiguous too.
+ */
+test.describe("Design settings sheet", () => {
+  const SETTINGS_LABEL = "Design settings";
+
+  test("(v) settings trigger renders at top-right by default", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    const trigger = page.locator(
+      '[data-vista-sheet-root="settings"] [data-vista-sheet-part="trigger"]',
+    );
+    await waitForStableWidth(page, trigger);
+    const box = (await trigger.boundingBox())!;
+    const viewport = page.viewportSize()!;
+    expect(box.x + box.width).toBeGreaterThan(viewport.width - 32 - 16);
+    expect(box.y).toBeLessThan(32);
+  });
+
+  test("(w) opening it shows the 6 controls", async ({ page }) => {
+    await gotoExample(page, false);
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+
+    await expect(
+      page.getByRole("switch", { name: "Iridescent shadow" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Glow palette" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("switch", { name: "Dark ground" }),
+    ).toBeVisible();
+    await expect(page.getByRole("combobox", { name: "Surface" })).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Trigger size" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("switch", { name: "Show dials" }),
+    ).toBeVisible();
+  });
+
+  test("(x) toggling Dark ground changes the page background", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    const before = await page.evaluate(
+      () => getComputedStyle(document.body).backgroundColor,
+    );
+
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+    await page.getByRole("switch", { name: "Dark ground" }).click();
+    await page.waitForTimeout(50);
+
+    const after = await page.evaluate(
+      () => getComputedStyle(document.body).backgroundColor,
+    );
+    expect(after).not.toBe(before);
+  });
+
+  test("(y) Dark ground persists across reload", async ({ page }) => {
+    await gotoExample(page, false);
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+    await page.getByRole("switch", { name: "Dark ground" }).click();
+    await page.waitForTimeout(50);
+
+    await page.reload();
+    await page.waitForSelector(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
+    const isDark = await page.evaluate(() => document.body.dataset.darkGround);
+    expect(isDark).toBe("true");
+  });
+
+  test("(z) the main sheet still opens with settings present", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    await openSheet(page);
+    const sheet = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="sheet"]',
+    );
+    await expect(sheet).toBeVisible();
+  });
+});

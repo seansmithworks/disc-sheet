@@ -532,7 +532,13 @@ async function measureLaunch(cycles) {
     // drops a trace marker that places the scored windows.
     await page.addInitScript(
       ({ inject, mark }) => {
-        localStorage.setItem("vista-sheet-example:iridescent", inject ? "1" : "0");
+        // vista-sheet-example:settings is the demo's single persisted
+        // settings object (main.tsx readSettings/updateSettings) — the old
+        // per-toggle localStorage key (iridescent-only) was folded into it.
+        localStorage.setItem(
+          "vista-sheet-example:settings",
+          JSON.stringify({ iridescent: inject }),
+        );
         // Page-clock record of each cycle, read back by verifyInjections.
         window.__perfMorph = { clicks: [], jank: [], block: [] };
         addEventListener(
@@ -570,7 +576,11 @@ async function measureLaunch(cycles) {
     if (INJECT_GPU) await injectGpuLoad(page);
     if (INJECT_ANIMATION) await injectUnrelatedAnimation(page);
 
-    const trigger = page.locator('[data-vista-sheet-part="trigger"]');
+    // Scoped to the main Root (id="main" in main.tsx): a second, unrelated
+    // VistaSheet.Root (the "Design" settings sheet) also renders a trigger.
+    const trigger = page.locator(
+      '[data-vista-sheet-root="main"] [data-vista-sheet-part="trigger"]',
+    );
     const triggerBox = await trigger.boundingBox();
     const cx = triggerBox.x + triggerBox.width / 2;
     const cy = triggerBox.y + triggerBox.height / 2;
@@ -594,7 +604,9 @@ async function measureLaunch(cycles) {
       }
       await page.mouse.click(cx, cy);
       await page.waitForTimeout(WINDOW_MS + 800); // open window + hold
-      const closeBox = await page.locator('[data-vista-sheet-part="close"]').boundingBox();
+      const closeBox = await page
+        .locator('[data-vista-sheet-root="main"] [data-vista-sheet-part="close"]')
+        .boundingBox();
       await page.mouse.click(closeBox.x + closeBox.width / 2, closeBox.y + closeBox.height / 2);
       await page.waitForTimeout(WINDOW_MS + 700); // close window + hold
     };
