@@ -89,6 +89,17 @@
   overflow: hidden;
 }
 
+/* Plain children of Trigger (its label), faded by triggerLabelOpacity. No
+ * pointer-events rule — hit-testing must still reach an icon inside
+ * (geometry test z2). */
+.triggerLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  min-width: 0;
+}
+
 /*
  * .shared — the shared-element slot, base rule. Sized to
  * --vista-sheet-shared-size, which defaults to the live --vista-sheet-trigger-size

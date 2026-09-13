@@ -187,6 +187,20 @@ export const CONTENT_FADE_OUT_DELAY_MS = 0;
  * block, so an absolutely-positioned X jumps when that transform clears. */
 export const CLOSE_REVEAL_PROGRESS = 0.01;
 
+/** Strawman (v0.2): the collapseProgress at which a closing trigger's plain
+ * children (everything except Shared/Media) start fading in, fully in at 1.
+ * Derived from progress, never from spring velocity. */
+export const TRIGGER_LABEL_REVEAL_START = 0.85;
+
+/** Opacity of a closing trigger's plain-child label at collapse progress p. */
+export function triggerLabelOpacity(p: number): number {
+  if (!(p > TRIGGER_LABEL_REVEAL_START)) return 0;
+  return Math.min(
+    1,
+    (p - TRIGGER_LABEL_REVEAL_START) / (1 - TRIGGER_LABEL_REVEAL_START),
+  );
+}
+
 /** <VistaSheet.Close> fade-in duration (s), once the open has finished. Shorter
  * than the spring below so the X is solid before its turn has landed. */
 export const CLOSE_FADE_IN_SEC = 0.15;

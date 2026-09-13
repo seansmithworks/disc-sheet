@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  Children,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
+import type { ReactNode } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
@@ -12,12 +20,14 @@ import {
 } from "./context";
 import type { TriggerSurfaceStore } from "./context";
 import { readVarPx } from "./readVarPx";
-import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
+import { DRAG_THRESHOLD_PX, SNAP_SPRING, triggerLabelOpacity } from "./motion";
 import {
   initialTriggerRestRadius,
   resolveTriggerCornerRadius,
   supportsCornerShape,
 } from "./shape";
+import { Shared } from "./Shared";
+import { Media } from "./Media";
 import type { TriggerProps } from "./types";
 import styles from "./styles.module.css";
 
@@ -52,6 +62,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     sheetRect,
     collapseRadius,
     startMorphClock,
+    collapseProgress,
   } = ctx;
 
   const x = useMotionValue(0);
@@ -106,10 +117,10 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
 
   // Resize: re-seat the trigger at its anchor's new resting position. While
   // <Sheet> is mounted (sheetRect !== null), defer instead of jumping now —
-  // see pendingResizeRef above. The trigger isn't visible in that window
-  // anyway (its content is gated behind `{!open && ...}` below), so nothing
-  // is lost by waiting; the flush effect re-seats at the CURRENT viewport
-  // size once the morph settles.
+  // see pendingResizeRef above. The trigger's Shared/Media riders are gated
+  // behind `{!open && ...}` below, and the label is held at opacity 0 by
+  // triggerLabelOpacity, so nothing is visibly lost by waiting; the flush
+  // effect re-seats at the CURRENT viewport size once the morph settles.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onResize = () => {
@@ -317,6 +328,44 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     setOpen(true);
   }, [setOpen]);
 
+  const labelUnsubRef = useRef<(() => void) | null>(null);
+  const attachLabelRef = useCallback(
+    (el: HTMLSpanElement | null) => {
+      labelUnsubRef.current?.();
+      labelUnsubRef.current = null;
+      if (!el) return;
+      const apply = (p: number) => {
+        el.style.opacity = String(triggerLabelOpacity(p));
+      };
+      apply(collapseProgress.get());
+      labelUnsubRef.current = collapseProgress.on("change", apply);
+    },
+    [collapseProgress],
+  );
+
+  // Strawman (v0.2): Shared and Media ride the morph and are never faded;
+  // every other direct child is the label and fades in with
+  // triggerLabelOpacity as a close lands. Only direct children are
+  // classified - a Shared inside a fragment or component counts as label.
+  // The label stays mounted while open (opacity 0) so a label-sized trigger
+  // keeps its width.
+  //
+  // Strawman (v0.2): under reduced motion collapseProgress jumps to 1 on
+  // close, so the label shows from the first close frame while the sheet
+  // crossfades out.
+  const riders: ReactNode[] = [];
+  const label: ReactNode[] = [];
+  Children.toArray(children).forEach((child) => {
+    if (
+      isValidElement(child) &&
+      (child.type === Shared || child.type === Media)
+    ) {
+      riders.push(child);
+    } else {
+      label.push(child);
+    }
+  });
+
   return (
     <motion.div
       ref={(el) => {
@@ -364,9 +413,10 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       // before trigger-surface has any opacity at all (0 until 121ms).
       //
       // Gated to the close, NOT to `sheetRect !== null`: while the sheet is
-      // OPEN this button still renders (only its children are behind
-      // `{!open && ...}`), so lifting it then would float an invisible
-      // trigger-size hit target over the open sheet and swallow its clicks.
+      // OPEN this button still renders (only its Shared/Media riders are
+      // behind `{!open && ...}`; the label stays mounted at opacity 0), so
+      // lifting it then would float an invisible trigger-size hit target
+      // over the open sheet and swallow its clicks.
       data-vista-sheet-closing={sheetRect !== null && !open ? "" : undefined}
       drag={draggable && !open ? true : false}
       dragMomentum={false}
@@ -480,13 +530,20 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
             }}
           />
         )}
-        {!open && (
-          <TriggerSurfaceContext.Provider value={surfaceStoreRef.current}>
-            <SlotContext.Provider value="trigger">
-              {children}
-            </SlotContext.Provider>
-          </TriggerSurfaceContext.Provider>
-        )}
+        <TriggerSurfaceContext.Provider value={surfaceStoreRef.current}>
+          <SlotContext.Provider value="trigger">
+            {!open && riders}
+            {label.length > 0 && (
+              <span
+                ref={attachLabelRef}
+                className={styles.triggerLabel}
+                data-vista-sheet-part="trigger-label"
+              >
+                {label}
+              </span>
+            )}
+          </SlotContext.Provider>
+        </TriggerSurfaceContext.Provider>
       </button>
     </motion.div>
   );
