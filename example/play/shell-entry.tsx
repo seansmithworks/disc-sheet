@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { VistaSheet, type AnchorId } from "../../src/index";
 import { Controls } from "./Controls";
 import { isPlayMessage } from "./messages";
 import { buildCss, printJsxFile } from "./codegen";
@@ -10,6 +11,52 @@ import "./shell.css";
 // playground drops the 360px aside for a VistaSheet sheet (task 4).
 const DESKTOP_QUERY = "(min-width: 900px)";
 
+// Copied from example/main.tsx's SlidersIcon (read-only reference file;
+// this playground page owns its own copy of the markup).
+function SlidersIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <circle cx="9" cy="6" r="2" fill="currentColor" stroke="none" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none" />
+      <line x1="4" y1="18" x2="20" y2="18" />
+      <circle cx="11" cy="18" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+interface CopyBarProps {
+  copyStatus: string | null;
+  onCopy: (kind: "jsx" | "css") => void;
+}
+
+function CopyBar({ copyStatus, onCopy }: CopyBarProps) {
+  return (
+    <div className="play-copy-bar">
+      <button type="button" onClick={() => onCopy("jsx")}>
+        Copy JSX
+      </button>
+      <button type="button" onClick={() => onCopy("css")}>
+        Copy CSS
+      </button>
+      <span role="status" data-play-copy-status>
+        {copyStatus}
+      </span>
+    </div>
+  );
+}
+
 function Shell() {
   const [state, setState] = useState<PlayState>(DEFAULT_STATE);
   const [isDesktop, setIsDesktop] = useState(
@@ -18,6 +65,24 @@ function Shell() {
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const stageReadyRef = useRef(false);
+
+  // Strawman (v0.2): the phone controls trigger never covers the specimen's
+  // corner — ported from example/main.tsx's settings-sheet derived-anchor
+  // pattern. It takes top-right unless the specimen already occupies it, in
+  // which case it takes top-left, and only re-applies the derived anchor
+  // while the controls sheet is fully closed (a `key` change mid-animation
+  // would skip the exit animation and focus restore).
+  const desiredControlsAnchor: AnchorId =
+    state.anchor === "top-right" ? "top-left" : "top-right";
+  const [appliedControlsAnchor, setAppliedControlsAnchor] = useState<AnchorId>(
+    desiredControlsAnchor,
+  );
+  const controlsOpenRef = useRef(false);
+  useEffect(() => {
+    if (!controlsOpenRef.current) {
+      setAppliedControlsAnchor(desiredControlsAnchor);
+    }
+  }, [desiredControlsAnchor]);
 
   useEffect(() => {
     const mql = window.matchMedia(DESKTOP_QUERY);
@@ -71,18 +136,26 @@ function Shell() {
       data-play-stage
       title="Specimen"
       src="./play.html?stage=1"
-      style={{
-        display: "block",
-        width: "100%",
-        height: "100vh",
-        border: "none",
-      }}
+      style={
+        isDesktop
+          ? { display: "block", width: "100%", height: "100vh", border: "none" }
+          : {
+              position: "fixed",
+              inset: 0,
+              width: "100vw",
+              height: "100dvh",
+              border: 0,
+            }
+      }
     />
   );
 
   if (!isDesktop) {
     return (
-      <main data-play-shell>
+      <main
+        data-play-shell
+        style={{ position: "relative", width: "100vw", height: "100dvh" }}
+      >
         <h1
           style={{
             position: "absolute",
@@ -95,7 +168,45 @@ function Shell() {
           Playground
         </h1>
         {iframe}
-        {/* task 4: controls sheet */}
+        <VistaSheet.Root
+          key={appliedControlsAnchor}
+          id="play-controls"
+          defaultAnchor={appliedControlsAnchor}
+          onOpenChange={(next) => {
+            controlsOpenRef.current = next;
+            if (!next) setAppliedControlsAnchor(desiredControlsAnchor);
+          }}
+          persistKey={false}
+          draggable={false}
+          triggerSize={40}
+          zIndex={300}
+          className="play-controls-theme"
+        >
+          <VistaSheet.Trigger aria-label="Playground controls">
+            <SlidersIcon />
+          </VistaSheet.Trigger>
+
+          <VistaSheet.Sheet aria-labelledby="play-controls-title">
+            <VistaSheet.Close aria-label="Close controls" />
+
+            <VistaSheet.Content>
+              <div className="play-controls-body">
+                <VistaSheet.Item>
+                  <h2 id="play-controls-title">Controls</h2>
+                  <a href="./tune.html">Motion tuner</a>
+                </VistaSheet.Item>
+
+                <VistaSheet.Item>
+                  <Controls state={state} setState={setState} />
+                </VistaSheet.Item>
+
+                <VistaSheet.Item>
+                  <CopyBar copyStatus={copyStatus} onCopy={copy} />
+                </VistaSheet.Item>
+              </div>
+            </VistaSheet.Content>
+          </VistaSheet.Sheet>
+        </VistaSheet.Root>
       </main>
     );
   }
@@ -110,17 +221,7 @@ function Shell() {
           <p>Motion uses the package's dialled defaults.</p>
         </header>
         <Controls state={state} setState={setState} />
-        <footer>
-          <button type="button" onClick={() => copy("jsx")}>
-            Copy JSX
-          </button>
-          <button type="button" onClick={() => copy("css")}>
-            Copy CSS
-          </button>
-          <span role="status" data-play-copy-status>
-            {copyStatus}
-          </span>
-        </footer>
+        <CopyBar copyStatus={copyStatus} onCopy={copy} />
       </aside>
     </main>
   );
