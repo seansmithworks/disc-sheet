@@ -309,6 +309,19 @@ Sean's ask: a tiny comic-book mark firing at the tail of the open spring, in the
 - **Corner is a lookup, not a constant** — six trigger anchors. Both centre anchors have no true opposite and need an arbitrary pick (defaulted right; taste, not derivation).
 - [ ] **Four open decisions, all Sean's:** which mark · every open vs first-open-per-session · reduced-motion (drop or show static) · opt-in prop vs on by default. Recommendation on the last: **opt-in** — comic emanata are a strong personality choice for a generic primitive.
 
+## Sean's expansion asks — 2026-09-12 (playground, shapes, buttons, media)
+
+Voice note after testing the design-settings sheet on his phone. Planning in flight (planner draft → plan Artifact). Several asks reopen the SCOPE LOCK above — Sean's call.
+
+- [ ] The design-settings panel becomes the WYSIWYG "copy tool" — a playground page reached from npm to play with the component and copy what you build. (extends: line 181 "Visual configurator on the site")
+- [ ] Trigger shape presets: circle, squircle, square, star with outer points (configurable point count, e.g. 8, with a corner radius on the points). (extends: line 41 "Shape presets") — reopens SCOPE LOCK
+- [ ] Custom shapes definable by any developer or agent, beyond the presets. (new) — reopens SCOPE LOCK
+- [ ] Button-style triggers: rectangle/pill at small/medium/large with icon, icon+text, or text; by extension a search box or chat input as the trigger. (new)
+- [ ] Sheet content presets: list, grid, navigation, media. (extends: line 203 "Content layouts as package exports") — reopens SCOPE LOCK
+- [ ] Video sheet: a circle with Sean's picture expands to full video content. (extends: line 42 "icon to advertisement")
+- [ ] Media aspect ratios — the sheet sizes to the media, whether tall/phone portrait, wide, or narrow. (extends: line 148 "Shape + size variations")
+- [ ] The intent is prepackaged presets that show how flexible the tool is. (extends: line 182 "Showcase examples with media")
+
 ## Carried at wrap-continue — 2026-09-02
 
 - [ ] **Variant A vs B for the list/contact icon ground.** A (14% accent wash) is applied and committed at `f4a4a72`; B (solid accent, white glyph) was shown and not chosen. A stands as the default — this is not blocking. B is two lines: icon `background: var(--morph-sheet-accent)` and glyph `stroke: #ffffff` in both example CSS files.
