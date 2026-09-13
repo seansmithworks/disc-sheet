@@ -7,6 +7,11 @@ import { nearestAnchor, restingLeft, restingTop } from "./anchors";
 import { SlotContext, useVistaSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
 import { DRAG_THRESHOLD_PX, SNAP_SPRING } from "./motion";
+import {
+  initialTriggerRestRadius,
+  resolveTriggerCornerRadius,
+  supportsCornerShape,
+} from "./shape";
 import type { TriggerProps } from "./types";
 import styles from "./styles.module.css";
 
@@ -138,13 +143,25 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
   // exactly the value useCollapseRadius's curve now ends a close on, so the
   // handoff between the two bound values is continuous — no frame where
   // they disagree.
-  const triggerRestRadius = useMotionValue(9999);
+  // Shape-aware: every shape resolves through resolveTriggerCornerRadius
+  // (src/shape.ts), the circle branch of which reproduces the min(token,
+  // triggerSize/2) math above exactly.
+  const triggerRestRadius = useMotionValue(
+    initialTriggerRestRadius(shape, triggerSize),
+  );
   useEffect(() => {
     const el = surfaceRef.current;
     if (!el) return;
     const token = readVarPx(el, "--vista-sheet-trigger-radius", 9999);
-    triggerRestRadius.set(Math.min(token, triggerSize / 2));
-  }, [triggerSize, triggerRestRadius, sheetRect, open]);
+    triggerRestRadius.set(
+      resolveTriggerCornerRadius({
+        shape,
+        triggerSize,
+        token,
+        cornerShapeSupported: supportsCornerShape(),
+      }),
+    );
+  }, [triggerSize, triggerRestRadius, sheetRect, open, shape]);
 
   // Report the trigger's live rect for the escape hatch (usePKG().triggerRect)
   // and for Sheet's shadow-mask morph. Also writes --vista-sheet-trigger-x/-y

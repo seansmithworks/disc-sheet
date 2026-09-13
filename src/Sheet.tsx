@@ -213,6 +213,7 @@ export function Sheet({
   const sheetBorderRadius = useCollapseRadius({
     collapseProgress,
     open,
+    shape,
     triggerSize,
     varsElRef: sheetRef,
   });

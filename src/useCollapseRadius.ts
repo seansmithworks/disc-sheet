@@ -4,8 +4,13 @@ import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import { useTransform } from "motion/react";
 import type { MotionValue } from "motion/react";
-import { RADIUS_HOLD_FRACTION } from "./motion";
 import { readVarPx } from "./readVarPx";
+import {
+  collapseRadiusAt,
+  resolveTriggerCornerRadius,
+  supportsCornerShape,
+} from "./shape";
+import type { TriggerShape } from "./shape";
 
 /**
  * useCollapseRadius — the hold-then-round border-radius curve (docs/
@@ -27,11 +32,13 @@ import { readVarPx } from "./readVarPx";
 export function useCollapseRadius({
   collapseProgress,
   open,
+  shape,
   triggerSize,
   varsElRef,
 }: {
   collapseProgress: MotionValue<number>;
   open: boolean;
+  shape: TriggerShape;
   triggerSize: number;
   varsElRef: MutableRefObject<HTMLElement | null>;
 }): MotionValue<number> {
@@ -76,27 +83,28 @@ export function useCollapseRadius({
   //     sheetRadius at the instant Motion's layout animation finished and
   //     wrote its final keyframe — an inline `border-radius: 32px` (36px on
   //     the flagship) on a 128px box, i.e. a squircle, which then outlived
-  //     the morph (see Trigger.tsx) and was still there at rest.
+  //     the morph (see Trigger.tsx) and was still there at rest. The
+  //     progress hold is the mechanism doing the real work — it's tied to
+  //     how far the BOX has contracted, not how long a close spring runs.
   //
-  // The progress hold is the mechanism that was always doing the real work:
-  // it is tied to how far the BOX has actually contracted, so it cannot round
-  // early regardless of how long a consumer's close spring runs.
+  // The curve itself (collapseRadiusAt, src/shape.ts) is shared verbatim with
+  // Shadow.tsx (task 3, DESIGN.md §4.1 "one surface, one clock") — the two
+  // used to disagree (Shadow ran its own linear interpolation), which
+  // (rt) now catches. `shape` is read live from the closure: Motion's
+  // useCombineMotionValues re-runs this transformer's latest closure on every
+  // render (verified in framer-motion's use-combine-values.mjs), the same way
+  // `triggerSize` already was before this change.
   return useTransform(collapseProgress, (p: number) => {
     const { sheetRadius, triggerRadius } = radiusVarsRef.current;
-    if (p <= RADIUS_HOLD_FRACTION) return sheetRadius;
-    // --vista-sheet-trigger-radius is a "fully round" sentinel by default
-    // (9999px). Interpolating toward the raw token would clear min(w,h)/2
-    // within one frame of leaving the hold and paint the M1 ellipse on a
-    // still-sheet-sized box (a 212x178 box at p=0.76 would take a ~800px
-    // radius). Half the trigger's own box is the largest radius that means
-    // anything on the shape this morph ends at, and for the default token it
-    // lands on a perfect circle exactly at p=1 — so the curve is continuous
-    // into the resting shape instead of popping at exit-complete.
-    const triggerTarget = Math.min(triggerRadius, triggerSize / 2);
-    const t = Math.min(
-      1,
-      (p - RADIUS_HOLD_FRACTION) / (1 - RADIUS_HOLD_FRACTION),
+    return collapseRadiusAt(
+      p,
+      sheetRadius,
+      resolveTriggerCornerRadius({
+        shape,
+        triggerSize,
+        token: triggerRadius,
+        cornerShapeSupported: supportsCornerShape(),
+      }),
     );
-    return sheetRadius + (triggerTarget - sheetRadius) * t;
   });
 }

@@ -4,6 +4,11 @@ import { cloneElement, isValidElement, useEffect, useRef } from "react";
 import type { CSSProperties, ReactElement, Ref } from "react";
 import { useVistaSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
+import {
+  collapseRadiusAt,
+  resolveTriggerCornerRadius,
+  supportsCornerShape,
+} from "./shape";
 import type { ShadowProps } from "./types";
 import styles from "./styles.module.css";
 
@@ -45,6 +50,27 @@ import styles from "./styles.module.css";
  * Shadow's own internal ref callback so an asChild clone forwards the DOM
  * node to both instead of only the last one assigned.
  */
+/**
+ * Reads an element's ACTUALLY-RENDERED top-left corner radius in px,
+ * correcting for any transform-scale Motion's shared-layout projection has
+ * applied — the same technique example/geometry.spec.ts's (rt) gate uses to
+ * measure it, so Shadow's radius matches what that gate checks BY
+ * CONSTRUCTION. `borderTopLeftRadius` can report an elliptical value
+ * ("Xpx Ypx" or "X% Y%") when Motion corrects a non-uniform scale — the
+ * horizontal component is enough for a corner-radius comparison, matching
+ * the gate's own choice.
+ */
+function readRenderedCornerRadius(el: HTMLElement): number {
+  const rect = el.getBoundingClientRect();
+  const token =
+    (getComputedStyle(el).borderTopLeftRadius || "").trim().split(/\s+/)[0] ||
+    "0";
+  if (token.endsWith("%")) {
+    return (parseFloat(token) / 100) * rect.width;
+  }
+  return parseFloat(token) * (rect.width / (el.offsetWidth || rect.width || 1));
+}
+
 export function mergeShadowRef<T>(
   childRef: Ref<T> | null | undefined,
   internalRef: (node: T | null) => void,
@@ -103,11 +129,68 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const cy = sheet.cy + (trigger.cy - sheet.cy) * p;
       const halfW = sheet.halfWidth + (trigger.radius - sheet.halfWidth) * p;
       const halfH = sheet.halfHeight + (trigger.radius - sheet.halfHeight) * p;
-      // The silhouette's corner radius interpolates between the SHEET's own
-      // corner radius (not its half-width, which produced a stadium instead
-      // of the sheet's actual rounded-rect silhouette) and the trigger's radius.
+      // The silhouette's corner radius is meant to share the surface's own
+      // hold-then-round curve (collapseRadiusAt, src/shape.ts) — DESIGN.md
+      // §4.1, "one surface, one clock". Measured directly (see Strawman
+      // below), an ANALYTIC re-computation of that curve here does not equal
+      // what Motion actually PAINTS on the shared-layoutId surface: for a
+      // shared-layoutId crossfade, Motion's own border-radius mix
+      // (motion-dom's mixValues, projection/animation/mix-values.mjs) blends
+      // the ENTERING element's radius from the EXITING element's SNAPSHOT
+      // value using Motion's OWN internal layout progress, not
+      // collapseProgress — regardless of what curve we feed the bound
+      // MotionValue. That snapshot happens to equal the target's hold value
+      // on CLOSE (the sheet's own resting radius is already `sheetRadius`),
+      // so collapseRadiusAt recomputed here tracked the rendered CLOSE
+      // within measured worst 3.4px — but on OPEN the snapshot is the
+      // trigger's own resting (shape) radius, which differs from
+      // `sheetRadius` from the first frame, so Motion's mix produces a
+      // smooth blend across the WHOLE open that no analytic p-based formula
+      // (this hold curve, or the previous linear one) reproduces — measured
+      // worst 24.4px, matching the "pre-fix defect" this gate guards
+      // against. Strawman (v0.2): rather than re-deriving Motion's internal
+      // mix, read the surface's ACTUALLY-RENDERED corner radius directly off
+      // the DOM (same technique geometry.spec.ts's own (rt) gate uses) —
+      // this is "one clock" by construction: whatever the surface paints,
+      // the shadow paints, with no independent formula to drift out of sync
+      // with Motion's own crossfade math. Falls back to the analytic
+      // collapseRadiusAt/resolveTriggerCornerRadius pair (still shared with
+      // Trigger.tsx's rest radius and useCollapseRadius.ts's morph curve)
+      // only when no surface element is mounted to measure, or while
+      // collapseProgress itself is meaningfully in flight: at the moment a
+      // layout animation finishes, Motion briefly writes a literal "0px"
+      // inline (measured: ~85ms, a multi-frame window, not a single-frame
+      // measurement race) before the next commit re-applies the bound
+      // MotionValue — reading through that window would paint a 0-radius
+      // shadow on a still-resting sheet. `collapseProgress.isAnimating()`
+      // alone doesn't exclude it: the spring's own rest-detection threshold
+      // can keep reporting `true` for a few extra ms after p is visually 0
+      // or 1 (measured p as low as -0.0004 while still "animating"), which
+      // is exactly the window the glitch falls in — so gate on p itself
+      // being away from either rest endpoint. Near either endpoint the
+      // analytic curve already IS the resting value, so there's nothing to
+      // gain from the DOM read there anyway.
+      const NEAR_REST_EPS = 0.02;
+      const inFlight = p > NEAR_REST_EPS && p < 1 - NEAR_REST_EPS;
       const sheetRadius = readVarPx(el, "--vista-sheet-sheet-radius", 32);
-      const radius = sheetRadius + (trigger.radius - sheetRadius) * p;
+      const surfaceEl = el
+        .closest("[data-vista-sheet-root]")
+        ?.querySelector<HTMLElement>(
+          '[data-vista-sheet-part="sheet"], [data-vista-sheet-part="trigger-surface"]',
+        );
+      let radius: number;
+      if (surfaceEl && inFlight) {
+        radius = readRenderedCornerRadius(surfaceEl);
+      } else {
+        const token = readVarPx(el, "--vista-sheet-trigger-radius", 9999);
+        const triggerCorner = resolveTriggerCornerRadius({
+          shape,
+          triggerSize: trigger.radius * 2,
+          token,
+          cornerShapeSupported: supportsCornerShape(),
+        });
+        radius = collapseRadiusAt(p, sheetRadius, triggerCorner);
+      }
 
       // Crossfade window: the heavy sheet shadow is fully in at p=0 (open,
       // at rest) and fades out to the thin disc shadow by p=fadeEnd — a
@@ -170,7 +253,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       unsubscribeProgress();
       unsubscribeDrag();
     };
-  }, [collapseProgress, triggerRect, sheetRect, sheetDragY]);
+  }, [collapseProgress, triggerRect, sheetRect, sheetDragY, shape]);
 
   const dataState = isDragging ? "dragging" : ctx.open ? "open" : "closed";
 
