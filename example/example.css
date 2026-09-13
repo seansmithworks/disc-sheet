@@ -79,6 +79,14 @@ body[data-dark-mode="true"] {
   --demo-text-muted: #a1a1a6;
 }
 
+/* Settings trigger: <button> elements don't inherit `color` from the page
+ * (UA stylesheets set it directly on form controls), so body's dark-mode
+ * override of --vista-sheet-text never reached the SlidersIcon's
+ * currentColor — the icon stayed black on the now-dark trigger surface. */
+[data-vista-sheet-root="settings"] [data-vista-sheet-part="trigger"] {
+  color: var(--vista-sheet-text);
+}
+
 /* Design settings sheet: one label + one control per row. */
 .settings-row {
   display: flex;
