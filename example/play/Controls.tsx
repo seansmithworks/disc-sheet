@@ -26,6 +26,7 @@ const RECIPE_OPTIONS: Array<{ id: RecipeId; label: string }> = [
   { id: "grid", label: "Grid" },
   { id: "nav", label: "Nav" },
   { id: "media", label: "Media" },
+  { id: "video", label: "Video" },
 ];
 
 const TRIGGER_SIZES: TriggerSize[] = ["responsive", 56, 72, 96, 128, 160];

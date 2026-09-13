@@ -6,9 +6,15 @@ export type PlayNode =
       children: PlayNode[];
     };
 
-export type RecipeId = "basic" | "list" | "grid" | "nav" | "media";
+export type RecipeId = "basic" | "list" | "grid" | "nav" | "media" | "video";
 
-export interface Recipe {
+export interface RecipeMedia {
+  src: string;
+  poster: string;
+  aspectRatio: number;
+}
+
+interface RecipeBase {
   id: RecipeId;
   label: string;
   triggerLabel: string;
@@ -17,12 +23,17 @@ export interface Recipe {
     sheetPadding: number;
     sheetRadius: number;
   };
-  /** Placed in BOTH Shared slots (trigger- and sheet-side). */
-  shared: PlayNode;
+  sheetLabel?: string;
   /** One array of children per VistaSheet.Item. */
   items: PlayNode[][];
   css: string;
 }
+
+export type Recipe = RecipeBase &
+  (
+    | { shared: PlayNode; media?: undefined }
+    | { media: RecipeMedia; shared?: undefined }
+  );
 
 const BASIC_RECIPE: Recipe = {
   id: "basic",
@@ -645,12 +656,35 @@ const MEDIA_RECIPE: Recipe = {
 }`,
 };
 
+// Strawman (v0.2): a full video sheet has no Content — the sheet is labelled
+// via aria-label rather than aria-labelledby (there is no h2 to point at),
+// and the close glyph goes white on a translucent dark disc for contrast
+// over footage.
+const VIDEO_RECIPE: Recipe = {
+  id: "video",
+  label: "Video",
+  triggerLabel: "Open portrait video",
+  sheetLabel: "Portrait video",
+  layout: { sheetMaxWidth: 420, sheetPadding: 24, sheetRadius: 32 },
+  media: {
+    src: "/media/vista-sheet-portrait.mp4",
+    poster: "/media/vista-sheet-portrait.jpg",
+    aspectRatio: 9 / 16,
+  },
+  items: [],
+  css: `.vs-theme [data-vista-sheet-part="sheet"]:has([data-vista-sheet-part="media"]) [data-vista-sheet-part="close"] {
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.32);
+}`,
+};
+
 export const RECIPES: Record<RecipeId, Recipe> = {
   basic: BASIC_RECIPE,
   list: LIST_RECIPE,
   grid: GRID_RECIPE,
   nav: NAV_RECIPE,
   media: MEDIA_RECIPE,
+  video: VIDEO_RECIPE,
 };
 
 export function getRecipe(id: RecipeId): Recipe {

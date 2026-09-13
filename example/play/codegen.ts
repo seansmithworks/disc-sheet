@@ -31,11 +31,25 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
   }
   if (state.draggable === false) rootProps.push(["draggable", false]);
 
-  const sharedNode = (): PlayNode => ({
-    type: "VistaSheet.Shared",
-    props: [],
-    children: [recipe.shared],
-  });
+  const slotNode = (): PlayNode => {
+    if (recipe.media) {
+      const m = recipe.media;
+      return {
+        type: "VistaSheet.Media",
+        props: [
+          ["src", m.src],
+          ["poster", m.poster],
+          ["aspectRatio", m.aspectRatio],
+        ],
+        children: [],
+      };
+    }
+    return {
+      type: "VistaSheet.Shared",
+      props: [],
+      children: [recipe.shared],
+    };
+  };
 
   const children: PlayNode[] = [];
   if (state.shadow) {
@@ -45,12 +59,13 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
   children.push({
     type: "VistaSheet.Trigger",
     props: [["aria-label", recipe.triggerLabel]],
-    children: [sharedNode()],
+    children: [slotNode()],
   });
 
-  const sheetProps: Array<[string, PropValue]> = [
-    ["aria-labelledby", "vs-sheet-title"],
-  ];
+  const sheetProps: Array<[string, PropValue]> = recipe.sheetLabel
+    ? [["aria-label", recipe.sheetLabel]]
+    : [["aria-labelledby", "vs-sheet-title"]];
+  if (recipe.media) sheetProps.push(["aspectRatio", recipe.media.aspectRatio]);
   if (!state.dismissOnSwipe) sheetProps.push(["dismissOnSwipe", false]);
   if (!state.dismissOnBackdrop) sheetProps.push(["dismissOnBackdrop", false]);
 
@@ -64,13 +79,21 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
     type: "VistaSheet.Sheet",
     props: sheetProps,
     children: [
-      sharedNode(),
+      slotNode(),
       {
         type: "VistaSheet.Close",
         props: [["aria-label", "Close"]],
         children: [],
       },
-      { type: "VistaSheet.Content", props: [], children: itemNodes },
+      ...(recipe.items.length > 0
+        ? [
+            {
+              type: "VistaSheet.Content",
+              props: [],
+              children: itemNodes,
+            } as PlayNode,
+          ]
+        : []),
     ],
   });
 
