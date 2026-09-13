@@ -502,6 +502,11 @@ npm run test:geometry  # Playwright, the geometry/motion gate
 npm run audit:vars     # cross-check CSS vars against writers and docs
 ```
 
+`npm run dev` also serves `/play.html`, a playground: pick a shape, recipe
+(list, grid, nav, media), props and colour tokens, then copy the JSX and CSS
+that reproduce the specimen. Motion stays on the dialled defaults; tune it on
+`/tune.html`.
+
 The geometry gate is `npm run test:geometry`, which points Playwright at
 `example/playwright.config.ts`. A bare `npx playwright test` loads the
 default config instead, silently runs zero tests, and still exits 0. Always
