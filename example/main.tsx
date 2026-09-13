@@ -288,12 +288,16 @@ const IRI_PALETTE_LIST: Array<{ name: string; preset: IriPreset }> = [
     },
   },
   // Luminous, not metallic: amber/yellow/orange with a pale butter highlight,
-  // higher saturation. Glow, not chrome.
+  // higher saturation. Glow, not chrome. Bold is Sean's dialled "Version 1"
+  // (2026-09-13): opacity 0.22, length 161, blur 69, spinSeconds 16 — Light
+  // and Medium are scaled proportionally around it, preserving this
+  // palette's old Light/Bold and Medium/Bold ratios (was Light 0.3/42/32,
+  // Medium 0.45/52/40, Bold 0.6/60/46).
   {
     name: "Neon Gold",
     preset: {
       saturation: 1.4,
-      spinSeconds: 10,
+      spinSeconds: 16,
       colors: {
         one: "#ffb833",
         two: "#fff066",
@@ -303,9 +307,9 @@ const IRI_PALETTE_LIST: Array<{ name: string; preset: IriPreset }> = [
         six: "#ff6a00",
       },
       strengths: {
-        Light: { opacity: 0.3, length: 42, blur: 32 },
-        Medium: { opacity: 0.45, length: 52, blur: 40 },
-        Bold: { opacity: 0.6, length: 60, blur: 46 },
+        Light: { opacity: 0.11, length: 113, blur: 48 },
+        Medium: { opacity: 0.17, length: 140, blur: 60 },
+        Bold: { opacity: 0.22, length: 161, blur: 69 },
       },
     },
   },
