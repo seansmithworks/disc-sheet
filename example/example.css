@@ -40,7 +40,15 @@
 [data-vista-sheet-part="content"] h2 {
   font-size: 20px;
   line-height: 1.3;
-  margin: 0 0 8px;
+  margin: 0;
+}
+
+/* Heading and body now live in separate Items (2026-09-13, so the stagger
+ * gives them separate beats) but must keep the same 8px gap they had as
+ * margin when they shared one Item — the default 16px item gap would widen
+ * it. */
+[data-vista-sheet-part="item"]:has(h2) + [data-vista-sheet-part="item"] {
+  padding-top: 8px;
 }
 
 [data-vista-sheet-part="content"] p {

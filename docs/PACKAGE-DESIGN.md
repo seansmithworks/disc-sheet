@@ -411,7 +411,7 @@ Not props, not variables, not documented as tunable:
 | `radiusHoldFraction` | 0.74 | The trigger shape appearing before the box has contracted (an over-rounded rectangle). Progress-based, so it holds correctly however long a close runs. A second, wall-clock hold (`radiusCloseDelaySec: 1.5`) used to sit on top of it and was removed: 1.5s is longer than a close takes, so it suppressed this hold entirely on the close direction and left the trigger resting on the SHEET's radius — a squircle — after every close. |
 | `openContentRevealDelaySec` | 0.2 | Text visibly stretching during the bloom |
 | `contentFadeOutMs` / `DelayMs` | 80 / 0 | Content still painted while the box collapses under it |
-| stagger interval | 0.04 | |
+| stagger interval | 0.09 | |
 | Snap spring | 700 / 52 / 1 | Overshoot past a viewport edge |
 | Swipe thresholds | 96px, 400px/s | |
 | Tab threshold | 5px | Tap misread as drag |

@@ -215,8 +215,10 @@ export const CLOSE_REVEAL_ROTATE_SPRING = {
   bounce: 0.5,
 };
 
-/** Stagger interval (s) between <VistaSheet.Item> children. */
-export const ITEM_STAGGER_INTERVAL_SEC = 0.04;
+/** Stagger interval (s) between <VistaSheet.Item> children. Widened from
+ * 0.04 to 0.09 (2026-09-13, Sean's request) — a strawman so title, body and
+ * actions read as separate beats instead of one, pending his feel pass. */
+export const ITEM_STAGGER_INTERVAL_SEC = 0.09;
 
 /** Drag-vs-tap threshold, px. */
 export const DRAG_THRESHOLD_PX = 5;

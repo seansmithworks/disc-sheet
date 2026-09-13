@@ -109,6 +109,9 @@ function App() {
               <h2 id="flagship-sheet-title" className="flagship-title">
                 Let&rsquo;s make something together!
               </h2>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
               <p className="flagship-tagline">
                 Looking for full-time design leadership, and open to advisory.
                 Email is fastest.

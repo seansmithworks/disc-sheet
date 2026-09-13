@@ -45,6 +45,9 @@ export function Content({ children, className }: ContentProps) {
             // last Item 712-795ms. With delayChildren the stagger runs under
             // the container's fade: first Item ~227ms, last 492-530ms.
             //
+            // (Measured at the old 40ms ITEM_STAGGER_INTERVAL_SEC; numbers
+            // above are not re-measured for the current 90ms interval.)
+            //
             // Deliberate tradeoff, not a free win: the first Item now paints
             // at ~227ms with the box at ~92% of final width and ~94% of
             // final height, still moving. This does NOT preserve "no text

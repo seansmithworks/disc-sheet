@@ -437,6 +437,8 @@ function App() {
           <VistaSheet.Content>
             <VistaSheet.Item>
               <h2 id="example-sheet-title">Placeholder heading</h2>
+            </VistaSheet.Item>
+            <VistaSheet.Item>
               <p>
                 Everything inside &lt;VistaSheet.Content&gt; is supplied by the
                 consumer. This example ships a colored circle, this heading, and
