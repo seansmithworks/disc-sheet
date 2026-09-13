@@ -10,6 +10,7 @@ import {
 import { DEFAULT_ANCHOR, type AnchorId } from "./anchors";
 import { VistaSheetContext, type VistaSheetContextValue } from "./context";
 import { resolveMotion, SURFACE_CLOSE_LEAD_DELAY_MS } from "./motion";
+import { DEFAULT_TRIGGER_SHAPE } from "./shape";
 import type { Transition } from "motion/react";
 import type { Rect, RootProps, SheetRect } from "./types";
 import {
@@ -39,6 +40,9 @@ export function Root({
   persistKey,
   triggerSize: triggerSizeProp,
   sheetMaxWidth = 480,
+  // Strawman (v0.2): shape lives on Root because Trigger, Sheet, Shared and
+  // Shadow all need it through context, like triggerSize.
+  shape = DEFAULT_TRIGGER_SHAPE,
   preset,
   transition,
   surfaceCloseLeadDelayMs: surfaceCloseLeadDelayMsProp,
@@ -380,6 +384,7 @@ export function Root({
     draggable,
     triggerSize,
     sheetMaxWidth,
+    shape,
     reduceMotion,
     zIndex,
     idBase,

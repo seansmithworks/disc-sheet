@@ -33,6 +33,7 @@ export function Shared({ children, className }: SharedProps) {
       transition={ctx.transition.shared}
       data-vista-sheet-part="shared"
       data-vista-sheet-slot={slot}
+      data-vista-sheet-shape={ctx.shape}
     >
       {children}
     </motion.div>

@@ -31,6 +31,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     setIsDragging,
     draggable,
     triggerSize,
+    shape,
     reduceMotion,
     triggerId,
     sheetId,
@@ -342,6 +343,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         aria-controls={open ? sheetId : undefined}
         id={triggerId}
         onClick={handleClick}
+        data-vista-sheet-shape={shape}
         {...aria}
       >
         {!open && (
@@ -364,6 +366,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
             // has a morph armed. See Root.tsx's clock-coupling note.
             onLayoutAnimationStart={() => startMorphClock("trigger")}
             data-vista-sheet-part="trigger-surface"
+            data-vista-sheet-shape={shape}
             // Framer Motion's shared-layout border-radius correction only
             // tracks a border-radius it manages as an inline style value —
             // it can't see the CSS module's border-radius rule. Without this,

@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
+import type { TriggerShape } from "./shape";
 
 export type { AnchorId };
+export type { TriggerShape };
 
 export interface StiffnessSpring {
   stiffness: number;
@@ -101,6 +103,14 @@ export interface RootProps {
   triggerSize?: number | { base: number; md?: number; xl?: number };
   /** Sheet max width in px. Default 480. */
   sheetMaxWidth?: number;
+  /**
+   * Trigger shape. Default "circle". The surface, Shadow, both
+   * <VistaSheet.Shared> slots and the focus ring follow it;
+   * --vista-sheet-trigger-radius caps the corner radius for every shape.
+   * "squircle" is a true superellipse where CSS corner-shape is supported
+   * and a close border-radius approximation elsewhere.
+   */
+  shape?: TriggerShape;
 
   // Motion
   /**

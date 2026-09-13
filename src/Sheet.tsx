@@ -40,6 +40,7 @@ export function Sheet({
     anchor,
     triggerSize,
     sheetMaxWidth,
+    shape,
     reduceMotion,
     zIndex,
     idBase,
@@ -309,6 +310,7 @@ export function Sheet({
             id={sheetId}
             className={`${styles.sheet} ${className ?? ""}`}
             data-vista-sheet-part="sheet"
+            data-vista-sheet-shape={shape}
             role="dialog"
             aria-modal="true"
             tabIndex={-1}

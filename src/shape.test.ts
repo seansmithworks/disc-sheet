@@ -1,5 +1,4 @@
 // prettier-ignore
-// @ts-expect-error -- src/shape.ts lands in P2 task 2; delete this directive then
 import { TRIGGER_SHAPES, DEFAULT_TRIGGER_SHAPE, ROUNDED_SQUARE_RADIUS_FRACTION, SQUIRCLE_FALLBACK_RADIUS_FRACTION, supportsCornerShape, resolveTriggerCornerRadius, initialTriggerRestRadius, collapseRadiusAt } from "./shape";
 import { describe, expect, it } from "vitest";
 import { RADIUS_HOLD_FRACTION } from "./motion";

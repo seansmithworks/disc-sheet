@@ -67,6 +67,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
     sheetDragY,
     zIndex,
     isDragging,
+    shape,
   } = ctx;
   const elRef = useRef<HTMLElement | null>(null);
 
@@ -177,6 +178,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
     "aria-hidden": true as const,
     "data-vista-sheet-part": "shadow",
     "data-state": dataState,
+    "data-vista-sheet-shape": shape,
   };
 
   if (asChild && isValidElement(children)) {

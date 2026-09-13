@@ -1,5 +1,4 @@
 // prettier-ignore
-// @ts-expect-error -- src/shape.ts lands in P2 task 2; delete this directive then
 import { ROUNDED_SQUARE_RADIUS_FRACTION, SQUIRCLE_FALLBACK_RADIUS_FRACTION } from "./shape";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";

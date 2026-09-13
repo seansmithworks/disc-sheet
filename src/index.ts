@@ -60,6 +60,7 @@ export type {
   Spring,
   StiffnessSpring,
   DurationSpring,
+  TriggerShape,
 } from "./types";
 
 export {

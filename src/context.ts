@@ -2,7 +2,7 @@ import { createContext, useContext } from "react";
 import type { MutableRefObject } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
-import type { VistaSheetState, Rect, SheetRect } from "./types";
+import type { VistaSheetState, Rect, SheetRect, TriggerShape } from "./types";
 
 /**
  * Internal context value — everything Trigger, Sheet, Shared, Content, Close
@@ -16,6 +16,8 @@ export interface VistaSheetContextValue extends VistaSheetState {
   setIsDragging: (dragging: boolean) => void;
   draggable: boolean;
   sheetMaxWidth: number;
+  /** Internal only — not part of the public VistaSheetState/useVistaSheet. */
+  shape: TriggerShape;
   reduceMotion: boolean;
   zIndex: number;
   idBase: string;
