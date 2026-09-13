@@ -87,6 +87,20 @@ body {
   border: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+/* Each radio + its label is one unbreakable unit, so a wrap never splits an
+   input from its own text onto separate lines (every radio group in
+   Controls uses this same [data-play-radio] wrapper). */
+[data-play-panel] [data-play-radio],
+.play-controls-body [data-play-radio] {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 [data-play-panel] pre,
