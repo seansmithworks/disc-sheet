@@ -15,6 +15,15 @@ const MEDIA_RATIO = 9 / 16;
 const RATIO_TOLERANCE = 0.01;
 const MIN_SKEW = 0.15;
 const MIN_MORPH_SAMPLES = 8;
+// Extra time sampled once `until` is satisfied, so the count keeps including
+// a few post-settle steady-state frames (`samples >= 20` was never only a
+// mid-morph count) even when the host is slow to schedule paints.
+const SETTLE_BUFFER_MS = 500;
+// Hang-prevention ceiling for settle-based sampling (see sampleMediaRatio's
+// `until` mode) — generous relative to DESIGN.md's ~640ms spring so a busy
+// machine still gets to settle instead of having its window clipped early;
+// a real stall past this is a genuine failure, not a load artifact.
+const MORPH_SAFETY_MS = 20000;
 
 // mirrors example/geometry.spec.ts; never loosen
 const OPEN_THRESHOLD_PX = 8;
@@ -66,11 +75,26 @@ async function gotoVideo(
 /**
  * In-page rAF sampler (pattern: example/geometry.spec.ts's
  * sampleShadowSurfaceDelta). Samples every media element's rendered box
- * against its enclosing surface (sheet or trigger-surface) for `durationMs`.
+ * against its enclosing surface (sheet or trigger-surface).
+ *
+ * `durationMs` is a hang-prevention ceiling, not the real terminator: under
+ * CPU contention a fixed wall-clock window can close before the spring (which
+ * runs on real elapsed time, not frame count) has produced its peak-skew
+ * frame, so a busy machine reads as "never morphed" rather than "morphed
+ * slowly". When `until` is given, the sampler instead keeps sampling every
+ * rAF tick until the surface reaches the same state Sheet.tsx itself uses to
+ * mark the morph finished (`data-vista-sheet-settled` for open; the sheet's
+ * removal from the DOM for close), so coverage of the actual morph window is
+ * load-independent. `durationMs` still bounds the wait so a genuine stall
+ * fails the test instead of hanging it.
  */
-async function sampleMediaRatio(page: Page, durationMs: number) {
+async function sampleMediaRatio(
+  page: Page,
+  durationMs: number,
+  until?: "settled" | "removed",
+) {
   return page.evaluate(
-    ({ duration, ratio }) => {
+    ({ duration, ratio, until, settleBuffer }) => {
       return new Promise<{
         samples: number;
         morphSamples: number;
@@ -85,7 +109,22 @@ async function sampleMediaRatio(page: Page, durationMs: number) {
         let worstErr = 0;
         let coverFailures = 0;
         let worstCenter = 0;
+        let doneAt: number | null = null;
         const start = performance.now();
+
+        function morphDone() {
+          if (!until) return false;
+          if (until === "removed") {
+            return !document.querySelector(
+              '[data-vista-sheet-root="video"] [data-vista-sheet-part="sheet"]',
+            );
+          }
+          const surface = document.querySelector(
+            '[data-vista-sheet-root="video"] [data-vista-sheet-part="sheet"], ' +
+              '[data-vista-sheet-root="video"] [data-vista-sheet-part="trigger-surface"]',
+          );
+          return !!surface?.hasAttribute("data-vista-sheet-settled");
+        }
 
         function tick() {
           const els = document.querySelectorAll(
@@ -131,7 +170,13 @@ async function sampleMediaRatio(page: Page, durationMs: number) {
             worstCenter = Math.max(worstCenter, dCenterX, dCenterY);
           }
 
-          if (performance.now() - start < duration) {
+          if (doneAt === null && morphDone()) {
+            doneAt = performance.now();
+          }
+          const withinCap = performance.now() - start < duration;
+          const stillSettling =
+            doneAt === null || performance.now() - doneAt < settleBuffer;
+          if (withinCap && stillSettling) {
             requestAnimationFrame(tick);
           } else {
             resolve({
@@ -147,7 +192,12 @@ async function sampleMediaRatio(page: Page, durationMs: number) {
         requestAnimationFrame(tick);
       });
     },
-    { duration: durationMs, ratio: MEDIA_RATIO },
+    {
+      duration: durationMs,
+      ratio: MEDIA_RATIO,
+      until: until ?? null,
+      settleBuffer: SETTLE_BUFFER_MS,
+    },
   );
 }
 
@@ -238,7 +288,10 @@ test.describe("media: intrinsic ratio through the morph", () => {
     for (const ratio of ["tall", "wide"] as const) {
       test(`media: video box keeps its intrinsic ratio through open and Escape close (${viewport.width}x${viewport.height}, ${ratio})`, async ({
         page,
-      }) => {
+      }, testInfo) => {
+        // Two settle-gated sampling windows (open + close) can each run up to
+        // MORPH_SAFETY_MS under real contention; give the test room for both.
+        testInfo.setTimeout(2 * MORPH_SAFETY_MS + 10_000);
         await page.setViewportSize(viewport);
         await gotoVideo(page, { ratio });
 
@@ -249,7 +302,16 @@ test.describe("media: intrinsic ratio through the morph", () => {
 
         await page.getByRole("button", { name: "Open portrait video" }).click();
 
-        const openResult = await sampleMediaRatio(page, 1400);
+        // `until: "settled"` keeps sampling every rAF tick from click through
+        // the moment Sheet.tsx itself marks the open finished (plus a short
+        // steady-state buffer), so a busy machine just takes longer wall time
+        // instead of its fixed window missing the morph's peak-skew frame.
+        // MORPH_SAFETY_MS only guards against a genuine hang.
+        const openResult = await sampleMediaRatio(
+          page,
+          MORPH_SAFETY_MS,
+          "settled",
+        );
         expectUniform(openResult);
 
         const sheet = page.locator(
@@ -258,7 +320,11 @@ test.describe("media: intrinsic ratio through the morph", () => {
         await waitForStableWidth(page, sheet);
 
         await page.keyboard.press("Escape");
-        const closeResult = await sampleMediaRatio(page, 1600);
+        const closeResult = await sampleMediaRatio(
+          page,
+          MORPH_SAFETY_MS,
+          "removed",
+        );
         expectUniform(closeResult);
 
         await expect(sheet).toHaveCount(0);
