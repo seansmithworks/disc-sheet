@@ -107,12 +107,14 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const el = elRef.current;
       if (!el) return;
       const p = collapseProgress.get();
+      const m = sheetRect
+        ? Math.min(sheetRect.halfWidth, sheetRect.halfHeight)
+        : 0;
       const trigger = triggerRect ?? {
         cx: sheetRect?.cx ?? 0,
         cy: sheetRect?.cy ?? 0,
-        radius: sheetRect
-          ? Math.min(sheetRect.halfWidth, sheetRect.halfHeight)
-          : 0,
+        halfWidth: m,
+        halfHeight: m,
       };
       // sheetRect is measured from offsetLeft/Top (Sheet.tsx), which by
       // definition excludes transforms — so a live drag on the sheet never
@@ -126,14 +128,15 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
         : {
             cx: trigger.cx,
             cy: trigger.cy,
-            halfWidth: trigger.radius,
-            halfHeight: trigger.radius,
+            halfWidth: trigger.halfWidth,
+            halfHeight: trigger.halfHeight,
           };
 
       const cx = sheet.cx + (trigger.cx - sheet.cx) * p;
       const cy = sheet.cy + (trigger.cy - sheet.cy) * p;
-      const halfW = sheet.halfWidth + (trigger.radius - sheet.halfWidth) * p;
-      const halfH = sheet.halfHeight + (trigger.radius - sheet.halfHeight) * p;
+      const halfW = sheet.halfWidth + (trigger.halfWidth - sheet.halfWidth) * p;
+      const halfH =
+        sheet.halfHeight + (trigger.halfHeight - sheet.halfHeight) * p;
       // The silhouette's corner radius is meant to share the surface's own
       // hold-then-round curve (collapseRadiusAt, src/shape.ts) — DESIGN.md
       // §4.1, "one surface, one clock". Measured directly (see Strawman
@@ -201,7 +204,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
         const token = readVarPx(el, "--vista-sheet-trigger-radius", 9999);
         const triggerCorner = resolveTriggerCornerRadius({
           shape,
-          triggerSize: trigger.radius * 2,
+          triggerSize: 2 * Math.min(trigger.halfWidth, trigger.halfHeight),
           token,
           cornerShapeSupported: supportsCornerShape(),
         });

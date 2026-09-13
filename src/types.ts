@@ -229,10 +229,15 @@ export interface ShadowProps {
   children?: ReactNode;
 }
 
+/** The trigger button's live viewport box.
+ * Strawman (v0.2): half extents replace radius so a non-square trigger has
+ * a true silhouette; breaking for useVistaSheet().triggerRect readers, free
+ * pre-publish. */
 export interface Rect {
   cx: number;
   cy: number;
-  radius: number;
+  halfWidth: number;
+  halfHeight: number;
 }
 
 export interface SheetRect {

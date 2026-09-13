@@ -86,9 +86,12 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     surfaceStoreRef.current!.set(el);
   }, []);
   const mountedRef = useRef(false);
-  const lastRectRef = useRef<{ cx: number; cy: number; radius: number } | null>(
-    null,
-  );
+  const lastRectRef = useRef<{
+    cx: number;
+    cy: number;
+    halfWidth: number;
+    halfHeight: number;
+  } | null>(null);
   const rafRef = useRef<number | null>(null);
   // Set while <Sheet> is mounted (open, or closing but not yet exit-complete
   // — Sheet.tsx nulls this at onExitComplete). While it's non-null, trigger-
@@ -251,14 +254,16 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       const next = {
         cx: rect.left + rect.width / 2,
         cy: rect.top + rect.height / 2,
-        radius: rect.width / 2,
+        halfWidth: rect.width / 2,
+        halfHeight: rect.height / 2,
       };
       const last = lastRectRef.current;
       if (
         last &&
         Math.abs(last.cx - next.cx) < 0.5 &&
         Math.abs(last.cy - next.cy) < 0.5 &&
-        Math.abs(last.radius - next.radius) < 0.5
+        Math.abs(last.halfWidth - next.halfWidth) < 0.5 &&
+        Math.abs(last.halfHeight - next.halfHeight) < 0.5
       ) {
         return;
       }
