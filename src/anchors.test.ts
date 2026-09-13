@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   ALL_ANCHORS,
@@ -245,4 +246,164 @@ describe("sheetPlacement — maxHeight (regression: top-pinned lost its 100dvh-3
       expect(placement.maxHeight).toBe(expected);
     });
   }
+});
+
+const DEFAULT_SHEET_WIDTH_CSS =
+  "min(var(--vista-sheet-sheet-max-width, 480px), calc(100vw - 32px))";
+const DEFAULT_SHEET_HEIGHT_CSS = "fit-content";
+
+describe("sheetPlacement — aspectRatio (P4)", () => {
+  it("(a) bottom-center, 1280x800, trigger 128, sheetMaxWidth 480, ratio 9:16", () => {
+    const placement = sheetPlacement(
+      "bottom-center",
+      1280,
+      800,
+      128,
+      480,
+      9 / 16,
+    );
+    expect(placement.width.endsWith("px")).toBe(true);
+    expect(placement.height.endsWith("px")).toBe(true);
+    expect(parseFloat(placement.width)).toBeCloseTo(396, 2);
+    expect(parseFloat(placement.height)).toBeCloseTo(704, 2);
+    expect(placement.anchorX).toBeCloseTo(442, 2);
+    expect(placement.bottomPx).toBe(16);
+    expect(placement.topPx).toBeUndefined();
+    expect(placement.maxHeight).toBe("88dvh");
+  });
+
+  it("(b) top-left, 1280x800, trigger 128, sheetMaxWidth 480, ratio 9:16", () => {
+    const placement = sheetPlacement("top-left", 1280, 800, 128, 480, 9 / 16);
+    expect(placement.width.endsWith("px")).toBe(true);
+    expect(placement.height.endsWith("px")).toBe(true);
+    expect(parseFloat(placement.width)).toBeCloseTo(432, 2);
+    expect(parseFloat(placement.height)).toBeCloseTo(768, 2);
+    expect(placement.anchorX).toBeCloseTo(16, 2);
+    expect(placement.topPx).toBe(16);
+  });
+
+  it("(c) center, 1280x800, trigger 128, sheetMaxWidth 480, ratio 16:9", () => {
+    const placement = sheetPlacement("center", 1280, 800, 128, 480, 16 / 9);
+    expect(placement.width.endsWith("px")).toBe(true);
+    expect(placement.height.endsWith("px")).toBe(true);
+    expect(parseFloat(placement.width)).toBeCloseTo(480, 2);
+    expect(parseFloat(placement.height)).toBeCloseTo(270, 2);
+    expect(placement.anchorX).toBeCloseTo(400, 2);
+    expect(placement.topPx).toBe(16);
+    expect(placement.bottomPx).toBe(16);
+  });
+
+  it("(d) bottom-center, 375x812, trigger 96, sheetMaxWidth 480, ratio 9:16", () => {
+    const placement = sheetPlacement(
+      "bottom-center",
+      375,
+      812,
+      96,
+      480,
+      9 / 16,
+    );
+    expect(placement.width.endsWith("px")).toBe(true);
+    expect(placement.height.endsWith("px")).toBe(true);
+    expect(parseFloat(placement.width)).toBeCloseTo(343, 2);
+    expect(parseFloat(placement.height)).toBeCloseTo(609.78, 2);
+    expect(placement.anchorX).toBeCloseTo(16, 2);
+  });
+
+  it("(e) top-right, 1280x800, trigger 128, sheetMaxWidth 480, ratio 1:2", () => {
+    const placement = sheetPlacement("top-right", 1280, 800, 128, 480, 1 / 2);
+    expect(placement.width.endsWith("px")).toBe(true);
+    expect(placement.height.endsWith("px")).toBe(true);
+    expect(parseFloat(placement.width)).toBeCloseTo(384, 2);
+    expect(parseFloat(placement.height)).toBeCloseTo(768, 2);
+    expect(placement.anchorX).toBeCloseTo(880, 2);
+  });
+
+  it("(f) no aspectRatio, or an invalid one, falls back to the default CSS width/height strings", () => {
+    const noRatio = sheetPlacement("bottom-center", 1440, 900, 96, 480);
+    expect(noRatio.width).toBe(DEFAULT_SHEET_WIDTH_CSS);
+    expect(noRatio.height).toBe(DEFAULT_SHEET_HEIGHT_CSS);
+
+    for (const bad of [0, -1, NaN]) {
+      const placement = sheetPlacement(
+        "bottom-center",
+        1440,
+        900,
+        96,
+        480,
+        bad,
+      );
+      expect(placement.width).toBe(DEFAULT_SHEET_WIDTH_CSS);
+      expect(placement.height).toBe(DEFAULT_SHEET_HEIGHT_CSS);
+    }
+  });
+
+  it("(g) matches the CSS default width/height in .sheet exactly, whitespace-normalized", () => {
+    const css = readFileSync(
+      new URL("./styles.module.css", import.meta.url),
+      "utf8",
+    );
+    const block = css.match(/\n\.sheet \{([\s\S]*?)\n\}/);
+    expect(
+      block,
+      "expected a .sheet { ... } block in styles.module.css",
+    ).not.toBeNull();
+    const body = (block?.[1] ?? "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+    const widthMatch = body.match(/(?:^|[;\s])width:\s*([^;]+);/);
+    const heightMatch = body.match(/(?:^|[;\s])height:\s*([^;]+);/);
+    expect(widthMatch, "expected a width: rule in .sheet").not.toBeNull();
+    expect(heightMatch, "expected a height: rule in .sheet").not.toBeNull();
+
+    const normalize = (s: string) => s.replace(/\s+/g, " ").trim();
+    const placement = sheetPlacement("bottom-center", 1440, 900, 96, 480);
+    expect(normalize(widthMatch![1])).toBe(normalize(placement.width));
+    expect(normalize(heightMatch![1])).toBe(normalize(placement.height));
+  });
+});
+
+describe("sheetPlacement without aspectRatio — pinned placement (P4 regression)", () => {
+  it("anchorX at 1440x900, trigger 96, sheetMaxWidth 480", () => {
+    const at = (anchor: AnchorId) =>
+      sheetPlacement(anchor, 1440, 900, 96, 480).anchorX;
+    expect(at("top-left")).toBe(16);
+    expect(at("top-center")).toBe(480);
+    expect(at("top-right")).toBe(944);
+    expect(at("bottom-left")).toBe(16);
+    expect(at("bottom-center")).toBe(480);
+    expect(at("bottom-right")).toBe(944);
+    expect(at("center")).toBe(480);
+  });
+
+  it("topPx / bottomPx / maxHeight at 1440x900, trigger 96, sheetMaxWidth 480", () => {
+    for (const anchor of [
+      "top-left",
+      "top-center",
+      "top-right",
+    ] as AnchorId[]) {
+      const placement = sheetPlacement(anchor, 1440, 900, 96, 480);
+      expect(placement.topPx).toBe(16);
+      expect(placement.bottomPx).toBeUndefined();
+      expect(placement.maxHeight).toBe("calc(100dvh - 32px)");
+    }
+    for (const anchor of [
+      "bottom-left",
+      "bottom-center",
+      "bottom-right",
+    ] as AnchorId[]) {
+      const placement = sheetPlacement(anchor, 1440, 900, 96, 480);
+      expect(placement.topPx).toBeUndefined();
+      expect(placement.bottomPx).toBe(16);
+      expect(placement.maxHeight).toBe("88dvh");
+    }
+    const center = sheetPlacement("center", 1440, 900, 96, 480);
+    expect(center.topPx).toBe(16);
+    expect(center.bottomPx).toBe(16);
+    expect(center.maxHeight).toBe("min(88dvh, calc(100dvh - 32px))");
+  });
+
+  it("anchorX is 16 for all 7 anchors on a narrow viewport (375x812)", () => {
+    for (const anchor of ALL_ANCHORS) {
+      expect(sheetPlacement(anchor, 375, 812, 96, 480).anchorX).toBe(16);
+    }
+  });
 });

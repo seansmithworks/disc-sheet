@@ -312,6 +312,60 @@ test.describe("1440x900", () => {
     const link = page.getByRole("link", { name: "Motion tuner", exact: true });
     await expect(link).toHaveAttribute("href", /tune\.html$/);
   });
+
+  test("play-ui: desktop video recipe shows media in the disc and opens an aspect-ratio sheet", async ({
+    page,
+  }) => {
+    const frame = await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("video");
+
+    const triggerButton = frame.getByRole("button", {
+      name: "Open portrait video",
+      exact: true,
+    });
+    await expect(triggerButton).toBeVisible();
+
+    const triggerVideo = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger-surface"] [data-vista-sheet-part="media"] video',
+    );
+    await expect(triggerVideo).toBeAttached();
+
+    await triggerButton.click();
+
+    const sheet = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="sheet"]',
+    );
+    await expect(sheet).toBeVisible();
+
+    await expect(async () => {
+      const a = await sheet.boundingBox();
+      await page.waitForTimeout(120);
+      const b = await sheet.boundingBox();
+      expect(a).not.toBeNull();
+      expect(b).not.toBeNull();
+      expect(Math.abs((a?.width ?? 0) - (b?.width ?? 0))).toBeLessThan(0.2);
+    }).toPass({ timeout: 5000 });
+
+    const box = await sheet.boundingBox();
+    expect(box).not.toBeNull();
+    if (box) {
+      expect(Math.abs(box.width / box.height / 0.5625 - 1)).toBeLessThan(0.01);
+    }
+
+    await expect(
+      sheet.locator('[data-vista-sheet-part="media"] video'),
+    ).toBeAttached();
+
+    await expect(
+      frame.locator(
+        '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="shared"]',
+      ),
+    ).toHaveCount(0);
+
+    await frame.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+  });
 });
 
 test.describe("390x844", () => {

@@ -1,0 +1,13 @@
+.video-theme [data-vista-sheet-part="close"] {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.32);
+}
+
+.video-fixture-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--vista-sheet-accent);
+}

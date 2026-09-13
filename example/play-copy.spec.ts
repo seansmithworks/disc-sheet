@@ -416,4 +416,33 @@ test.describe("play-copy", () => {
     expect(jsx).toContain('aria-label="Open Wavelength preview"');
     expect(jsx).toContain('defaultAnchor="top-left"');
   });
+
+  test("play-copy: video recipe typecheck", async ({ page }) => {
+    test.setTimeout(120_000);
+    await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("video");
+
+    const { jsx, css } = await readOutputs(page);
+    const readmeVars = getReadmeVars();
+
+    expect(jsx).toContain(
+      'import { VistaSheet } from "@seansmithworks/vista-sheet";',
+    );
+    assertNoMotionLeak(jsx);
+    const diags = typecheck({ case: jsx }).get("case") ?? [];
+    expect(diags, diags.join("\n")).toEqual([]);
+    assertCssOnlyReadmeVars(css, readmeVars);
+    assertNoShadowOrFilter(css);
+
+    expect(jsx.split("<VistaSheet.Media").length - 1).toBe(2);
+    expect(jsx).toContain("aspectRatio={0.5625}");
+    expect(jsx).toContain('src="/media/vista-sheet-portrait.mp4"');
+    expect(jsx).toContain('poster="/media/vista-sheet-portrait.jpg"');
+    expect(jsx).toContain('aria-label="Portrait video"');
+
+    expect(jsx).not.toContain("VistaSheet.Shared");
+    expect(jsx).not.toContain("VistaSheet.Content");
+    expect(jsx).not.toContain("aria-labelledby");
+  });
 });
