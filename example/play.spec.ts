@@ -410,6 +410,81 @@ test.describe("1440x900", () => {
     }
   });
 
+  test("play-ui: desktop recipe switch while the sheet is open swaps the specimen without errors", async ({
+    page,
+  }) => {
+    const errors: string[] = [];
+    page.on("console", (msg) => {
+      if (msg.type() === "error") errors.push(msg.text());
+    });
+    page.on("pageerror", (err) => errors.push(String(err)));
+
+    const frame = await gotoPlay(page);
+    const stageFrame = page.frame({ url: /stage=1/ });
+    expect(stageFrame).not.toBeNull();
+    if (!stageFrame) return;
+
+    await tagStageIdentity(stageFrame);
+
+    await frame
+      .getByRole("button", { name: "Open sheet", exact: true })
+      .click();
+
+    const sheet = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="sheet"]',
+    );
+    await expect(sheet).toBeVisible();
+    await expect(frame.locator("#vs-sheet-title")).toHaveText("Sheet title");
+
+    // Basic (a circle disc with a shared child) -> Search (a rectangle
+    // button trigger with its own icon/text) while the sheet is open —
+    // structurally different enough to catch anything the in-place patch
+    // (58b0097) missed for the open case specifically.
+    await page.getByLabel("Recipe", { exact: true }).selectOption("search");
+
+    await expect(frame.locator("#vs-sheet-title")).toHaveText("Search");
+    await expect(
+      frame.getByPlaceholder("Search notes, people and files"),
+    ).toBeVisible();
+
+    // Root identity only: a rectangle/button trigger has no
+    // trigger-surface part while its sheet is open (no Shared support, so
+    // no shared-layout element to tag — confirmed, not a bug), so
+    // stageIdentitySurvives' surface check doesn't apply here.
+    const rootIdentitySurvives = await stageFrame.evaluate(() => {
+      const w = window as unknown as { __vsIdentityTag?: boolean };
+      const root = document.querySelector('[data-vista-sheet-root="specimen"]');
+      return !!(
+        w.__vsIdentityTag &&
+        root &&
+        (root as unknown as { __vsIdentityTag?: boolean }).__vsIdentityTag
+      );
+    });
+    expect(rootIdentitySurvives).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0, { timeout: 5000 });
+
+    const trigger = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+    await expect(trigger).toHaveAttribute(
+      "data-vista-sheet-shape",
+      "rectangle",
+    );
+    const reopenTrigger = frame.getByRole("button", {
+      name: "Open search",
+      exact: true,
+    });
+    await expect(reopenTrigger).toBeVisible();
+
+    await reopenTrigger.click();
+    await expect(sheet).toBeVisible();
+    await expect(frame.locator("#vs-sheet-title")).toHaveText("Search");
+
+    expect(errors).toEqual([]);
+  });
+
   test("play-ui: desktop dragging the specimen updates the anchor control and copy output", async ({
     page,
   }) => {
