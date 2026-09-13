@@ -7,13 +7,16 @@ import {
   matchPalette,
   PALETTES,
   SHAPES,
+  type ButtonContent,
+  type ButtonWidthOption,
   type PaletteId,
   type PlayState,
   type SheetMaxWidth,
   type TriggerSize,
 } from "./state";
 import { buildCss, printJsxFile } from "./codegen";
-import type { RecipeId } from "./recipes";
+import { getRecipe, type RecipeId } from "./recipes";
+import type { ButtonSize } from "../../src/index";
 
 interface ControlsProps {
   state: PlayState;
@@ -27,6 +30,28 @@ const RECIPE_OPTIONS: Array<{ id: RecipeId; label: string }> = [
   { id: "nav", label: "Nav" },
   { id: "media", label: "Media" },
   { id: "video", label: "Video" },
+  { id: "search", label: "Search" },
+  { id: "chat", label: "Chat" },
+];
+
+const BUTTON_SIZES: Array<{ id: ButtonSize; label: string }> = [
+  { id: "s", label: "S" },
+  { id: "m", label: "M" },
+  { id: "l", label: "L" },
+];
+
+const BUTTON_CONTENTS: Array<{ id: ButtonContent; label: string }> = [
+  { id: "icon", label: "Icon" },
+  { id: "icon-text", label: "Icon and text" },
+  { id: "text", label: "Text" },
+];
+
+const BUTTON_WIDTHS: Array<{ id: ButtonWidthOption; label: string }> = [
+  { id: "label", label: "Label" },
+  { id: 200, label: "200px" },
+  { id: 240, label: "240px" },
+  { id: 280, label: "280px" },
+  { id: 320, label: "320px" },
 ];
 
 const TRIGGER_SIZES: TriggerSize[] = ["responsive", 56, 72, 96, 128, 160];
@@ -97,6 +122,7 @@ function ColorRow({ id, label, value, onCommit }: ColorRowProps) {
  */
 export function Controls({ state, setState }: ControlsProps) {
   const palette = matchPalette(state);
+  const isButtonRecipe = getRecipe(state.recipe).button !== undefined;
 
   return (
     <>
@@ -131,6 +157,7 @@ export function Controls({ state, setState }: ControlsProps) {
                 name="play-shape"
                 value={shape.id}
                 checked={state.shape === shape.id}
+                disabled={shape.id === "rectangle" && !isButtonRecipe}
                 onChange={() => setState((s) => ({ ...s, shape: shape.id }))}
               />
               {shape.label}
@@ -138,6 +165,71 @@ export function Controls({ state, setState }: ControlsProps) {
           ))}
         </fieldset>
       </section>
+
+      {state.shape === "rectangle" && (
+        <section>
+          <h3>Button</h3>
+          <div data-play-row>
+            <label htmlFor="play-button-size">Button size</label>
+            <select
+              id="play-button-size"
+              value={state.buttonSize}
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  buttonSize: e.target.value as ButtonSize,
+                }))
+              }
+            >
+              {BUTTON_SIZES.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div data-play-row>
+            <label htmlFor="play-button-content">Button content</label>
+            <select
+              id="play-button-content"
+              value={state.buttonContent}
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  buttonContent: e.target.value as ButtonContent,
+                }))
+              }
+            >
+              {BUTTON_CONTENTS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div data-play-row>
+            <label htmlFor="play-button-width">Button width</label>
+            <select
+              id="play-button-width"
+              value={String(state.buttonWidth)}
+              onChange={(e) =>
+                setState((s) => ({
+                  ...s,
+                  buttonWidth: (e.target.value === "label"
+                    ? "label"
+                    : Number(e.target.value)) as ButtonWidthOption,
+                }))
+              }
+            >
+              {BUTTON_WIDTHS.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+      )}
 
       <section>
         <h3>Trigger</h3>

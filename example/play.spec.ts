@@ -366,6 +366,117 @@ test.describe("1440x900", () => {
     await frame.getByRole("button", { name: "Close", exact: true }).click();
     await expect(sheet).toHaveCount(0);
   });
+
+  test("play-ui: desktop search recipe renders a rectangle button trigger", async ({
+    page,
+  }) => {
+    const frame = await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("search");
+
+    const trigger = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+    await expect(trigger).toHaveAttribute(
+      "data-vista-sheet-shape",
+      "rectangle",
+    );
+
+    const triggerButton = frame.getByRole("button", {
+      name: "Open search",
+      exact: true,
+    });
+    await expect(triggerButton).toBeVisible();
+
+    const triggerBox = await trigger.boundingBox();
+    expect(triggerBox).not.toBeNull();
+    if (triggerBox) {
+      expect(Math.abs(triggerBox.height - 44)).toBeLessThanOrEqual(0.5);
+    }
+
+    const jsxPane = page.locator('pre[data-play-output="jsx"]');
+    await expect(jsxPane).toContainText('shape="rectangle"');
+    await expect(jsxPane).toContainText("Search");
+  });
+
+  test("play-ui: desktop chat recipe opens a sheet with a message composer", async ({
+    page,
+  }) => {
+    const frame = await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("chat");
+    await frame.getByRole("button", { name: "Open chat", exact: true }).click();
+
+    const sheet = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="sheet"]',
+    );
+    await expect(sheet).toBeVisible();
+
+    await expect(
+      frame.getByRole("textbox", { name: "Message", exact: true }),
+    ).toBeVisible();
+
+    await frame.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+  });
+
+  test("play-ui: desktop rectangle controls change size, content and width", async ({
+    page,
+  }) => {
+    const frame = await gotoPlay(page);
+    const jsxPane = page.locator('pre[data-play-output="jsx"]');
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("search");
+
+    const trigger = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+
+    await page.getByLabel("Button size", { exact: true }).selectOption("l");
+    await expect
+      .poll(async () => {
+        const box = await trigger.boundingBox();
+        return box ? Math.abs(box.height - 52) : Infinity;
+      })
+      .toBeLessThanOrEqual(0.5);
+    await expect(jsxPane).toContainText('buttonSize="l"');
+
+    await page.getByLabel("Button width", { exact: true }).selectOption("240");
+    await expect
+      .poll(async () => {
+        const box = await trigger.boundingBox();
+        return box ? Math.abs(box.width - 240) : Infinity;
+      })
+      .toBeLessThanOrEqual(0.5);
+    await expect(jsxPane).toContainText("buttonWidth={240}");
+
+    await page
+      .getByLabel("Button content", { exact: true })
+      .selectOption("text");
+    await expect(trigger.locator("svg")).toHaveCount(0);
+    await expect(jsxPane).not.toContainText("vs-button-icon");
+  });
+
+  test("play-ui: desktop Rectangle shape is only offered for button recipes", async ({
+    page,
+  }) => {
+    await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("basic");
+    await expect(
+      page.getByRole("radio", { name: "Rectangle", exact: true }),
+    ).toBeDisabled();
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("search");
+    await expect(
+      page.getByRole("radio", { name: "Rectangle", exact: true }),
+    ).toBeChecked();
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("basic");
+    await expect(
+      page.getByRole("radio", { name: "Circle", exact: true }),
+    ).toBeChecked();
+  });
 });
 
 test.describe("390x844", () => {

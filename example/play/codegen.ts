@@ -30,6 +30,13 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
     rootProps.push(["sheetMaxWidth", state.sheetMaxWidth]);
   }
   if (state.draggable === false) rootProps.push(["draggable", false]);
+  if (state.shape === "rectangle") {
+    if (state.buttonSize !== "m")
+      rootProps.push(["buttonSize", state.buttonSize]);
+    if (state.buttonWidth !== "label") {
+      rootProps.push(["buttonWidth", state.buttonWidth]);
+    }
+  }
 
   const slotNode = (): PlayNode => {
     if (recipe.media) {
@@ -44,11 +51,30 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
         children: [],
       };
     }
+    // Only called for shared/media recipes (see triggerChildren and the
+    // sheet-children spread below), so recipe.shared is always defined here.
     return {
       type: "VistaSheet.Shared",
       props: [],
-      children: [recipe.shared],
+      children: [recipe.shared as PlayNode],
     };
+  };
+
+  const buttonTextNode = (text: string): PlayNode => ({
+    type: "span",
+    props: [["className", "vs-button-text"]],
+    children: [{ text }],
+  });
+
+  const triggerChildren = (): PlayNode[] => {
+    if (recipe.button) {
+      const { icon, text } = recipe.button;
+      if (state.shape !== "rectangle") return [icon];
+      if (state.buttonContent === "icon") return [icon];
+      if (state.buttonContent === "text") return [buttonTextNode(text)];
+      return [icon, buttonTextNode(text)];
+    }
+    return [slotNode()];
   };
 
   const children: PlayNode[] = [];
@@ -59,7 +85,7 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
   children.push({
     type: "VistaSheet.Trigger",
     props: [["aria-label", recipe.triggerLabel]],
-    children: [slotNode()],
+    children: triggerChildren(),
   });
 
   const sheetProps: Array<[string, PropValue]> = recipe.sheetLabel
@@ -79,7 +105,7 @@ export function buildSpecimenTree(state: PlayState): PlayNode {
     type: "VistaSheet.Sheet",
     props: sheetProps,
     children: [
-      slotNode(),
+      ...(recipe.button ? [] : [slotNode()]),
       {
         type: "VistaSheet.Close",
         props: [["aria-label", "Close"]],

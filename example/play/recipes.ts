@@ -6,12 +6,18 @@ export type PlayNode =
       children: PlayNode[];
     };
 
-export type RecipeId = "basic" | "list" | "grid" | "nav" | "media" | "video";
+export type RecipeId =
+  "basic" | "list" | "grid" | "nav" | "media" | "video" | "search" | "chat";
 
 export interface RecipeMedia {
   src: string;
   poster: string;
   aspectRatio: number;
+}
+
+export interface RecipeButton {
+  icon: PlayNode;
+  text: string;
 }
 
 interface RecipeBase {
@@ -31,8 +37,9 @@ interface RecipeBase {
 
 export type Recipe = RecipeBase &
   (
-    | { shared: PlayNode; media?: undefined }
-    | { media: RecipeMedia; shared?: undefined }
+    | { shared: PlayNode; media?: undefined; button?: undefined }
+    | { media: RecipeMedia; shared?: undefined; button?: undefined }
+    | { button: RecipeButton; shared?: undefined; media?: undefined }
   );
 
 const BASIC_RECIPE: Recipe = {
@@ -678,6 +685,298 @@ const VIDEO_RECIPE: Recipe = {
 }`,
 };
 
+// Strawman (v0.2): placeholder copy — search rows, bubble text and glyphs
+// below are invented for this playground, not sourced from any real product.
+
+const SEARCH_RECIPE: Recipe = {
+  id: "search",
+  label: "Search",
+  triggerLabel: "Open search",
+  layout: { sheetMaxWidth: 480, sheetPadding: 16, sheetRadius: 28 },
+  button: {
+    icon: {
+      type: "svg",
+      props: [
+        ["className", "vs-button-icon"],
+        ["viewBox", "0 0 24 24"],
+        ["aria-hidden", "true"],
+      ],
+      children: [
+        {
+          type: "circle",
+          props: [
+            ["cx", 11],
+            ["cy", 11],
+            ["r", 7],
+          ],
+          children: [],
+        },
+        { type: "path", props: [["d", "M20 20l-4-4"]], children: [] },
+      ],
+    },
+    text: "Search",
+  },
+  items: [
+    [
+      {
+        type: "h2",
+        props: [["id", "vs-sheet-title"]],
+        children: [{ text: "Search" }],
+      },
+    ],
+    [
+      {
+        type: "input",
+        props: [
+          ["type", "search"],
+          ["className", "vs-search-field"],
+          ["placeholder", "Search notes, people and files"],
+          ["aria-label", "Search"],
+        ],
+        children: [],
+      },
+    ],
+    [
+      {
+        type: "p",
+        props: [["className", "vs-search-heading"]],
+        children: [{ text: "Recent" }],
+      },
+    ],
+    ...["Quarterly plan", "Design review notes", "Team offsite"].map(
+      (label): PlayNode[] => [
+        {
+          type: "button",
+          props: [
+            ["type", "button"],
+            ["className", "vs-search-row"],
+          ],
+          children: [{ text: label }],
+        },
+      ],
+    ),
+  ],
+  css: `.vs-button-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vs-button-text {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.vs-search-field {
+  width: 100%;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--vista-sheet-surface-border);
+  background: var(--vista-sheet-surface);
+  color: var(--vista-sheet-text);
+  font: inherit;
+  padding: 0 14px;
+}
+
+.vs-search-field:focus-visible {
+  outline: 2px solid var(--vista-sheet-accent);
+  outline-offset: -2px;
+}
+
+.vs-search-heading {
+  margin: 16px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vista-sheet-text);
+  opacity: 0.6;
+}
+
+.vs-search-row {
+  width: 100%;
+  display: block;
+  text-align: left;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: var(--vista-sheet-text);
+  font-size: 15px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.vs-search-row:hover {
+  background: color-mix(in srgb, var(--vista-sheet-text) 5%, transparent);
+}
+
+.vs-search-row:focus-visible {
+  outline: 2px solid var(--vista-sheet-accent);
+  outline-offset: -2px;
+}`,
+};
+
+const CHAT_RECIPE: Recipe = {
+  id: "chat",
+  label: "Chat",
+  triggerLabel: "Open chat",
+  layout: { sheetMaxWidth: 420, sheetPadding: 16, sheetRadius: 28 },
+  button: {
+    icon: {
+      type: "svg",
+      props: [
+        ["className", "vs-button-icon"],
+        ["viewBox", "0 0 24 24"],
+        ["aria-hidden", "true"],
+      ],
+      children: [
+        { type: "path", props: [["d", "M4 5h16v11H9l-5 4z"]], children: [] },
+      ],
+    },
+    text: "Ask anything",
+  },
+  items: [
+    [
+      {
+        type: "h2",
+        props: [["id", "vs-sheet-title"]],
+        children: [{ text: "Chat" }],
+      },
+    ],
+    [
+      {
+        type: "div",
+        props: [["className", "vs-chat-thread"]],
+        children: [
+          {
+            type: "div",
+            props: [["className", "vs-chat-bubble vs-chat-bubble-in"]],
+            children: [{ text: "Hi! What can I help you find?" }],
+          },
+          {
+            type: "div",
+            props: [["className", "vs-chat-bubble vs-chat-bubble-out"]],
+            children: [{ text: "Where did we land on the launch date?" }],
+          },
+        ],
+      },
+    ],
+    [
+      {
+        type: "div",
+        props: [["className", "vs-chat-composer"]],
+        children: [
+          {
+            type: "input",
+            props: [
+              ["type", "text"],
+              ["className", "vs-chat-field"],
+              ["placeholder", "Message"],
+              ["aria-label", "Message"],
+            ],
+            children: [],
+          },
+          {
+            type: "button",
+            props: [
+              ["type", "button"],
+              ["className", "vs-chat-send"],
+              ["aria-label", "Send"],
+            ],
+            children: [
+              {
+                type: "svg",
+                props: [
+                  ["className", "vs-button-icon"],
+                  ["viewBox", "0 0 24 24"],
+                  ["aria-hidden", "true"],
+                ],
+                children: [
+                  {
+                    type: "path",
+                    props: [["d", "M5 12h14M13 6l6 6-6 6"]],
+                    children: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  ],
+  css: `.vs-chat-thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vs-chat-bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.vs-chat-bubble-in {
+  align-self: flex-start;
+  background: color-mix(in srgb, var(--vista-sheet-text) 6%, transparent);
+  color: var(--vista-sheet-text);
+}
+
+.vs-chat-bubble-out {
+  align-self: flex-end;
+  background: var(--vista-sheet-accent);
+  color: #ffffff;
+}
+
+.vs-chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.vs-chat-field {
+  flex: 1;
+  height: 44px;
+  border-radius: 9999px;
+  border: 1px solid var(--vista-sheet-surface-border);
+  background: var(--vista-sheet-surface);
+  color: var(--vista-sheet-text);
+  font: inherit;
+  padding: 0 16px;
+}
+
+.vs-chat-field:focus-visible {
+  outline: 2px solid var(--vista-sheet-accent);
+  outline-offset: -2px;
+}
+
+.vs-chat-send {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: none;
+  background: var(--vista-sheet-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.vs-chat-send:focus-visible {
+  outline: 2px solid var(--vista-sheet-accent);
+  outline-offset: 2px;
+}`,
+};
+
 export const RECIPES: Record<RecipeId, Recipe> = {
   basic: BASIC_RECIPE,
   list: LIST_RECIPE,
@@ -685,6 +984,8 @@ export const RECIPES: Record<RecipeId, Recipe> = {
   nav: NAV_RECIPE,
   media: MEDIA_RECIPE,
   video: VIDEO_RECIPE,
+  search: SEARCH_RECIPE,
+  chat: CHAT_RECIPE,
 };
 
 export function getRecipe(id: RecipeId): Recipe {

@@ -1,9 +1,11 @@
-import type { AnchorId, TriggerShape } from "../../src/index";
+import type { AnchorId, ButtonSize, TriggerShape } from "../../src/index";
 import { getRecipe, type RecipeId } from "./recipes";
 
 export type TriggerSize = "responsive" | 56 | 72 | 96 | 128 | 160;
 export type SheetMaxWidth = 320 | 360 | 420 | 480 | 560 | 640;
 export type PaletteId = "warm" | "warm-dark" | "neutral" | "neutral-dark";
+export type ButtonContent = "icon" | "icon-text" | "text";
+export type ButtonWidthOption = "label" | 200 | 240 | 280 | 320;
 
 export interface PlayState {
   recipe: RecipeId;
@@ -25,6 +27,9 @@ export interface PlayState {
   accent: string;
   triggerShadow: string;
   sheetShadow: string;
+  buttonSize: ButtonSize;
+  buttonContent: ButtonContent;
+  buttonWidth: ButtonWidthOption;
 }
 
 /** README theming-table defaults (package defaults, "Warm" palette). */
@@ -54,6 +59,7 @@ export const SHAPES: Array<{ id: TriggerShape; label: string }> = [
   { id: "squircle", label: "Squircle" },
   { id: "rounded-square", label: "Rounded square" },
   { id: "square", label: "Square" },
+  { id: "rectangle", label: "Rectangle" },
 ];
 
 interface PaletteDef {
@@ -144,6 +150,9 @@ export const DEFAULT_STATE: PlayState = {
   accent: PALETTES.warm.accent,
   triggerShadow: PALETTES.warm.triggerShadow,
   sheetShadow: PALETTES.warm.sheetShadow,
+  buttonSize: "m",
+  buttonContent: "icon-text",
+  buttonWidth: "label",
 };
 
 export function groundFor(state: PlayState): string {
@@ -168,9 +177,17 @@ export function applyPalette(state: PlayState, id: PaletteId): PlayState {
 
 export function applyRecipe(state: PlayState, id: RecipeId): PlayState {
   const recipe = getRecipe(id);
+  // Strawman (v0.2): the recipe decides disc vs button; Shared/Media aren't
+  // supported inside a rectangle trigger.
+  const shape = recipe.button
+    ? "rectangle"
+    : state.shape === "rectangle"
+      ? "circle"
+      : state.shape;
   return {
     ...state,
     recipe: id,
+    shape,
     sheetMaxWidth: recipe.layout.sheetMaxWidth,
     sheetPadding: recipe.layout.sheetPadding,
     sheetRadius: recipe.layout.sheetRadius,

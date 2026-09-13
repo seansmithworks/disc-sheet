@@ -445,4 +445,61 @@ test.describe("play-copy", () => {
     expect(jsx).not.toContain("VistaSheet.Content");
     expect(jsx).not.toContain("aria-labelledby");
   });
+
+  test("play-copy: search recipe, large, 240 wide, text only typecheck", async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+    await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("search");
+    await page.getByLabel("Button size", { exact: true }).selectOption("l");
+    await page.getByLabel("Button width", { exact: true }).selectOption("240");
+    await page
+      .getByLabel("Button content", { exact: true })
+      .selectOption("text");
+
+    const { jsx, css } = await readOutputs(page);
+    const readmeVars = getReadmeVars();
+
+    expect(jsx).toContain(
+      'import { VistaSheet } from "@seansmithworks/vista-sheet";',
+    );
+    assertNoMotionLeak(jsx);
+    const diags = typecheck({ case: jsx }).get("case") ?? [];
+    expect(diags, diags.join("\n")).toEqual([]);
+    assertCssOnlyReadmeVars(css, readmeVars);
+    assertNoShadowOrFilter(css);
+
+    expect(jsx).toContain('shape="rectangle"');
+    expect(jsx).toContain('buttonSize="l"');
+    expect(jsx).toContain("buttonWidth={240}");
+    expect(jsx).not.toContain("VistaSheet.Shared");
+    expect(jsx).not.toContain("vs-button-icon");
+  });
+
+  test("play-copy: chat recipe typecheck", async ({ page }) => {
+    test.setTimeout(120_000);
+    await gotoPlay(page);
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("chat");
+
+    const { jsx, css } = await readOutputs(page);
+    const readmeVars = getReadmeVars();
+
+    expect(jsx).toContain(
+      'import { VistaSheet } from "@seansmithworks/vista-sheet";',
+    );
+    assertNoMotionLeak(jsx);
+    const diags = typecheck({ case: jsx }).get("case") ?? [];
+    expect(diags, diags.join("\n")).toEqual([]);
+    assertCssOnlyReadmeVars(css, readmeVars);
+    assertNoShadowOrFilter(css);
+
+    expect(jsx).toContain('aria-label="Open chat"');
+    expect(jsx).toContain('shape="rectangle"');
+    expect(jsx).toContain("vs-button-icon");
+    expect(jsx).toContain("Ask anything");
+    expect(jsx).not.toContain("VistaSheet.Shared");
+  });
 });
