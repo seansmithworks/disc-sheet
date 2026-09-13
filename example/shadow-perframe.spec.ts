@@ -171,46 +171,34 @@ test("(pf) Shadow: surface reads and shadow writes each run at most once per ani
 
   const counters = await readCounters(page);
 
-  const maxRect = Math.max(0, ...counters.rect);
-  const maxStyle = Math.max(0, ...counters.style);
   const maxWrites = Math.max(0, ...counters.writes);
   const framesOver1 = (arr: number[]) => arr.filter((n) => n > 1).length;
 
   // The reported defect was a STEADY doubling across the whole morph (every
   // frame of the ~600-900ms open/close, apply() running twice because the
   // MutationObserver stayed connected for the component's whole lifetime).
-  // That is what these gates catch: the vast majority of frames must read
-  // 0 or 1. Motion's OWN settle correction can still legitimately write the
-  // surface's border-radius more than once within a handful of adjacent
-  // frames as it converges (confirmed by stack trace: distinct
-  // `ProjectionNode` writes a few ms apart, not a Shadow.tsx scheduling
-  // bug) — FRAMES_OVER_1_BUDGET and PEAK_BUDGET give that real, narrow
-  // tail room without re-permitting the reported whole-morph doubling.
+  // Measured (3 runs each): post-fix per-run framesOver1(rect/style/writes)
+  // = 3/3/0, peak = 4/4/1. Pre-fix (`src/Shadow.tsx` at 98cadb2)
+  // framesOver1 = 140/140/135, peak = 4/4/2. The rect/style PEAK budget of 6
+  // passes on BOTH pre- and post-fix code (peak never exceeds 4), so it is a
+  // dead gate — deleted. FRAMES_OVER_1_BUDGET stays: it separates the
+  // reported whole-morph doubling (140/140) from Motion's own narrow,
+  // legitimate settle-correction tail (3/3, confirmed by stack trace as
+  // distinct `ProjectionNode` writes, not a Shadow.tsx scheduling bug).
+  // Writes never exceed 1 per frame post-fix (contract: one shadow write
+  // per frame), so that gate is a strict maxWrites <= 1, not a budget.
   const FRAMES_OVER_1_BUDGET = 6;
-  const PEAK_BUDGET = 6;
 
   expect(
     framesOver1(counters.rect),
     `frames with >1 surface getBoundingClientRect() call from Shadow: ${JSON.stringify(counters.rect)}`,
   ).toBeLessThanOrEqual(FRAMES_OVER_1_BUDGET);
   expect(
-    maxRect,
-    `worst per-frame surface getBoundingClientRect() calls from Shadow: ${JSON.stringify(counters.rect)}`,
-  ).toBeLessThanOrEqual(PEAK_BUDGET);
-  expect(
     framesOver1(counters.style),
     `frames with >1 surface getComputedStyle() call from Shadow: ${JSON.stringify(counters.style)}`,
   ).toBeLessThanOrEqual(FRAMES_OVER_1_BUDGET);
   expect(
-    maxStyle,
-    `worst per-frame surface getComputedStyle() calls from Shadow: ${JSON.stringify(counters.style)}`,
-  ).toBeLessThanOrEqual(PEAK_BUDGET);
-  expect(
-    framesOver1(counters.writes),
-    `frames with >1 shadow style write: ${JSON.stringify(counters.writes)}`,
-  ).toBeLessThanOrEqual(FRAMES_OVER_1_BUDGET);
-  expect(
     maxWrites,
     `worst per-frame shadow style writes: ${JSON.stringify(counters.writes)}`,
-  ).toBeLessThanOrEqual(PEAK_BUDGET);
+  ).toBeLessThanOrEqual(1);
 });
