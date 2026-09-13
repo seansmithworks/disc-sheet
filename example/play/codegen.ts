@@ -298,7 +298,7 @@ export function buildCss(state: PlayState): string {
   pushIfChanged("surface-border", state.border, PACKAGE_DEFAULTS.border);
   pushIfChanged("text", state.text, PACKAGE_DEFAULTS.text);
   pushIfChanged("accent", state.accent, PACKAGE_DEFAULTS.accent);
-  if (state.sheetRadius !== 32) {
+  if (state.sheetRadius !== 48) {
     varLines.push(`  --vista-sheet-sheet-radius: ${state.sheetRadius}px;`);
   }
   if (state.sheetPadding !== 24) {

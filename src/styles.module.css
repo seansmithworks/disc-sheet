@@ -188,7 +188,7 @@
    * morph; this supplies the resting shape AND the reduced-motion shape,
    * which never gets an inline value at all (its render branch passes no
    * borderRadius) and previously rendered with square corners. */
-  border-radius: var(--vista-sheet-sheet-radius, 32px);
+  border-radius: var(--vista-sheet-sheet-radius, 48px);
   /* No shadow of its own, ever: Motion draws the growing sheet scaled down
    * (~37% on the first open frame), which squashed a sheet-painted shadow
    * into a dark, tight edge that then lightened as the box grew. Both looks

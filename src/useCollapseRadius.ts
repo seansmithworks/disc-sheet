@@ -46,7 +46,7 @@ export function useCollapseRadius({
   // reads the latest values without needing a "tick" motion value to force
   // recomputation — Motion's array-form useTransform only recomputes when one
   // of the listed MotionValues changes, not on ordinary re-render.
-  const radiusVarsRef = useRef({ sheetRadius: 32, triggerRadius: 9999 });
+  const radiusVarsRef = useRef({ sheetRadius: 48, triggerRadius: 9999 });
 
   // Read the shape tokens once per open — a designer's CSS override on
   // --vista-sheet-sheet-radius / --vista-sheet-trigger-radius is honored
@@ -57,7 +57,7 @@ export function useCollapseRadius({
       sheetRadius: readVarPx(
         varsElRef.current,
         "--vista-sheet-sheet-radius",
-        32,
+        48,
       ),
       triggerRadius: readVarPx(
         varsElRef.current,

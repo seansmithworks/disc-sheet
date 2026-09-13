@@ -313,7 +313,7 @@ Every variable is `--vista-sheet-*` and every one has a hardcoded fallback in th
 | `--vista-sheet-accent` | `#b4512e` | `--color-accent` (focus ring only) |
 | `--vista-sheet-sheet-max-width` | `480px` | `--contact-sheet-max-width` |
 | `--vista-sheet-shared-size` | matches `--vista-sheet-trigger-size` | `--contact-portrait-size` |
-| `--vista-sheet-sheet-radius` | `32px` | `tuning.sheetRadius` |
+| `--vista-sheet-sheet-radius` | `48px` | `tuning.sheetRadius` |
 | `--vista-sheet-trigger-radius` | `9999px` | `tuning.discRadius` |
 | `--vista-sheet-edge-margin` | `16px` | `EDGE_MARGIN` in `anchorPositions.ts` |
 | `--vista-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` | `.triggerSurface` box-shadow |
@@ -398,7 +398,7 @@ Each accepts a full Motion `Transition` as well as the `Spring` shorthand, so "I
 
 ### CSS variables: shape tokens
 
-`--vista-sheet-sheet-radius` (32px) and `--vista-sheet-trigger-radius` (9999px). These are read once when the sheet opens, via a small `readVarPx` helper modelled on the existing `useCssVarPx.ts`, and fed to the border-radius transform.
+`--vista-sheet-sheet-radius` (48px) and `--vista-sheet-trigger-radius` (9999px). These are read once when the sheet opens, via a small `readVarPx` helper modelled on the existing `useCssVarPx.ts`, and fed to the border-radius transform.
 
 Rationale: radius is a design token. A designer will want it sitting next to the rest of the surface styling in CSS, not buried in a JS prop object. Every other visual token in this package is a CSS variable, and radius should not be the exception just because JS happens to interpolate it.
 

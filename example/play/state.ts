@@ -140,7 +140,7 @@ export const DEFAULT_STATE: PlayState = {
   sheetMaxWidth: 480,
   dismissOnSwipe: true,
   dismissOnBackdrop: true,
-  sheetRadius: 32,
+  sheetRadius: 48,
   sheetPadding: 24,
   palette: "warm",
   surface: PALETTES.warm.surface,

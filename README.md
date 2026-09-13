@@ -345,7 +345,7 @@ package renders correctly out of the box:
 | `--vista-sheet-accent` | `#b4512e` |
 | `--vista-sheet-sheet-max-width` | `480px` |
 | `--vista-sheet-shared-size` | matches `--vista-sheet-trigger-size` |
-| `--vista-sheet-sheet-radius` | `32px` |
+| `--vista-sheet-sheet-radius` | `48px` |
 | `--vista-sheet-trigger-radius` | `9999px` |
 | `--vista-sheet-sheet-padding` | `24px` |
 | `--vista-sheet-shadow` | `0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)` |

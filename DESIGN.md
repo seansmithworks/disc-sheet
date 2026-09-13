@@ -18,7 +18,7 @@ colors:
   exampleTextSecondary: "#6e6e73"
   exampleAccent: "#1d1d1f"
 rounded:
-  sheet: "32px"
+  sheet: "48px"
   trigger: "9999px"
   close: "9999px"
   triggerRoundedSquare: "25% of trigger size (strawman, awaiting dial)"
@@ -74,7 +74,7 @@ Consumers override with `--vista-sheet-*` custom properties. Never add a hex to 
 ## 3. Shape and Depth
 
 - **Trigger:** `shape` on Root, default circle (`--vista-sheet-trigger-radius: 9999px`). Squircle is a true superellipse via `corner-shape` (Chromium; 27.16% radius elsewhere) and gives the sheet squircle corners too; rounded square is 25% of trigger size; square is 0. Surface, silhouette shadow, Shared clip and focus ring all follow the shape, and the shadow's corner uses the surface's own radius curve. It rests at its shape after every close path (geometry tests (o) and (o-shape)).
-- **Sheet:** `--vista-sheet-sheet-radius: 32px`. During the morph the radius is a pure function of `collapseProgress`, never its own spring.
+- **Sheet:** `--vista-sheet-sheet-radius: 48px`. During the morph the radius is a pure function of `collapseProgress`, never its own spring.
 - **Two shadow looks, one painter.** `<VistaSheet.Shadow>` paints both the thin disc shadow and the sheet's heavier resting shadow on its own silhouette, crossfaded by opacity as `collapseProgress` moves (2026-09-11). Nothing else paints a shadow.
 - **Close button:** 44px hit area, transparent, circular focus ring.
 - **Media sheet:** `<VistaSheet.Sheet aspectRatio>` contain-fits the media ratio; `<VistaSheet.Media>` covers the surface, centred, clipped by the surface shape (Strawman (v0.2): centred crop, no focal point).

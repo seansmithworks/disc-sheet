@@ -374,7 +374,7 @@ export function Root({
   // close. Owned here (not created fresh inside Sheet) purely so it's a
   // stable instance context can hand to both components regardless of
   // either one's mount lifecycle.
-  const collapseRadius = useMotionValue(32);
+  const collapseRadius = useMotionValue(48);
 
   const closeRegisteredRef = useRef(0);
   const registerClose = useCallback(() => {

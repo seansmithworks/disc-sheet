@@ -46,7 +46,7 @@ const BASIC_RECIPE: Recipe = {
   id: "basic",
   label: "Basic",
   triggerLabel: "Open sheet",
-  layout: { sheetMaxWidth: 480, sheetPadding: 24, sheetRadius: 32 },
+  layout: { sheetMaxWidth: 480, sheetPadding: 24, sheetRadius: 48 },
   shared: {
     type: "div",
     props: [["className", "vs-basic-art"]],
@@ -83,7 +83,7 @@ const LIST_RECIPE: Recipe = {
   id: "list",
   label: "List",
   triggerLabel: "Open quick actions",
-  layout: { sheetMaxWidth: 360, sheetPadding: 12, sheetRadius: 32 },
+  layout: { sheetMaxWidth: 360, sheetPadding: 12, sheetRadius: 48 },
   shared: {
     type: "div",
     props: [["className", "vs-list-icon"]],
@@ -215,7 +215,7 @@ const GRID_RECIPE: Recipe = {
   id: "grid",
   label: "Grid",
   triggerLabel: "Open apps",
-  layout: { sheetMaxWidth: 360, sheetPadding: 16, sheetRadius: 32 },
+  layout: { sheetMaxWidth: 360, sheetPadding: 16, sheetRadius: 48 },
   shared: {
     type: "div",
     props: [["className", "vs-grid-icon"]],
@@ -351,7 +351,7 @@ const NAV_RECIPE: Recipe = {
   id: "nav",
   label: "Nav",
   triggerLabel: "Open navigation",
-  layout: { sheetMaxWidth: 320, sheetPadding: 12, sheetRadius: 32 },
+  layout: { sheetMaxWidth: 320, sheetPadding: 12, sheetRadius: 48 },
   shared: {
     type: "div",
     props: [["className", "vs-nav-icon"]],
@@ -472,7 +472,7 @@ const MEDIA_RECIPE: Recipe = {
   id: "media",
   label: "Media",
   triggerLabel: "Open Wavelength preview",
-  layout: { sheetMaxWidth: 420, sheetPadding: 24, sheetRadius: 28 },
+  layout: { sheetMaxWidth: 420, sheetPadding: 24, sheetRadius: 48 },
   shared: {
     type: "div",
     props: [["className", "vs-media-icon"]],
@@ -672,7 +672,7 @@ const VIDEO_RECIPE: Recipe = {
   label: "Video",
   triggerLabel: "Open portrait video",
   sheetLabel: "Portrait video",
-  layout: { sheetMaxWidth: 420, sheetPadding: 24, sheetRadius: 32 },
+  layout: { sheetMaxWidth: 420, sheetPadding: 24, sheetRadius: 48 },
   media: {
     src: "/media/vista-sheet-portrait.mp4",
     poster: "/media/vista-sheet-portrait.jpg",
@@ -692,7 +692,7 @@ const SEARCH_RECIPE: Recipe = {
   id: "search",
   label: "Search",
   triggerLabel: "Open search",
-  layout: { sheetMaxWidth: 480, sheetPadding: 16, sheetRadius: 28 },
+  layout: { sheetMaxWidth: 480, sheetPadding: 16, sheetRadius: 48 },
   button: {
     icon: {
       type: "svg",
@@ -823,7 +823,7 @@ const CHAT_RECIPE: Recipe = {
   id: "chat",
   label: "Chat",
   triggerLabel: "Open chat",
-  layout: { sheetMaxWidth: 420, sheetPadding: 16, sheetRadius: 28 },
+  layout: { sheetMaxWidth: 420, sheetPadding: 16, sheetRadius: 48 },
   button: {
     icon: {
       type: "svg",

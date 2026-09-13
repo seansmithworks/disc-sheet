@@ -192,7 +192,7 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
       const inFlight = isInFlight(p);
       const withinSettleGrace =
         performance.now() - lastActiveAtRef.current < SURFACE_READ_GRACE_MS;
-      const sheetRadius = readVarPx(el, "--vista-sheet-sheet-radius", 32);
+      const sheetRadius = readVarPx(el, "--vista-sheet-sheet-radius", 48);
       const surfaceEl = el
         .closest("[data-vista-sheet-root]")
         ?.querySelector<HTMLElement>(
