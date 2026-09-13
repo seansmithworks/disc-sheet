@@ -447,10 +447,10 @@ test.describe("1440x900", () => {
       frame.getByPlaceholder("Search notes, people and files"),
     ).toBeVisible();
 
-    // Root identity only: a rectangle/button trigger has no
-    // trigger-surface part while its sheet is open (no Shared support, so
-    // no shared-layout element to tag — confirmed, not a bug), so
-    // stageIdentitySurvives' surface check doesn't apply here.
+    // Root identity only: trigger-surface is gated behind `{!open && ...}`
+    // in Trigger.tsx, so it's absent while ANY shape's sheet is open, not
+    // just rectangle's — stageIdentitySurvives' surface check doesn't apply
+    // here.
     const rootIdentitySurvives = await stageFrame.evaluate(() => {
       const w = window as unknown as { __vsIdentityTag?: boolean };
       const root = document.querySelector('[data-vista-sheet-root="specimen"]');

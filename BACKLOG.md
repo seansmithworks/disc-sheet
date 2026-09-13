@@ -459,12 +459,20 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 
 **v0.2 built: all four phases green, branches pushed, not merged or deployed.** Tip `v02/p3-buttons` `09d8f2e`. Orchestrator re-ran gates at `98cadb2`: 177/177 vitest · tsc 6 · audit PASS · build+banner · 248 geometry · perf PASS (raster 54.5, load 23.9).
 
-- [ ] carried — independent review of the Shadow per-frame fix `d3f294b`/`09d8f2e`, plus an orchestrator gate re-run on the tip. Agent-reported 249 geometry and perf 52.2; the test budget is ≤6 frames over 1 read, not strict ≤1.
-- [ ] carried — 48px default sheet radius across package + examples (Sean 2026-09-13: "a default sheet corner radius at 48px across board"). WIP `52b4070` on `v02/sheet-radius-48` covers 12 files; sheet-radius test assertions are NOT updated and it's unverified. → cherry-pick onto `v02/p3-buttons`, re-grep 32 incl. P3 additions, full gates.
-- [ ] new — playground live option switching (Sean 2026-09-13): switching circle → rounded square reloads the specimen and replays its entrance. Strawman: the stage applies state in place without remounting Root; a test asserts Root's DOM node survives a shape change with no entrance animation. Inferred cause near `example/play/Controls.tsx:117` (unverified).
-- [ ] carried — `play.html` captures per shape at 390×844 + 1440×900, sent to Sean.
+- [x] carried — independent review of the Shadow per-frame fix `d3f294b`/`09d8f2e`: PASS-WITH-FINDINGS; current spec proven red on pre-fix Shadow (framesOver1 140/141 vs budget 6, post-fix 3); dead peak gates removed, writes held ≤1/frame (`7dedb59`).
+- [x] carried — 48px default sheet radius across package + examples: `f5a3a8f` (incl. Search/Chat recipes 28→48, flagship 36→48 and media-card 28→48 kept as strawman); slider ceiling 48→64 `d5a9a3e` (strawman).
+- [x] new — playground live option switching: red `eb4eb25` → fix `58b0097` (example-only; specimen key was the whole generated JSX); recipe switch while open covered `9962b1e`; radio/label wrap fix `eb3d0dd`.
+- [x] carried — `play.html` captures per shape (contact sheet + full-size) sent to Sean, 2026-09-13.
 - [ ] carried — Sean apply-or-redline (strawmen live in code): squircle sheet corners = squircle (`9da07db`) · circle shadow mid-morph = surface curve (`c298df5`) · flagship 36→48 inside the radius change · dials: rounded square 25%, squircle fallback 27.16% (`src/shape.ts`).
 - [ ] carried — Sean's real portrait video replaces the ffmpeg placeholder.
 - [ ] parked — DESIGN.md §4.1 one-line exception for DOM-read radius (Shadow, Media); Sean's doc.
 - [ ] parked — merge, release cut line, demo deploy, npm publish (each needs Sean's go).
 - [ ] noted — stray RUN END ledger commit `9ad603e` on `v02/p4-media` (outside the P3 stack; harmless).
+- [x] found — media ratio self-check flake (failed 2 of 3 full runs under load): sampler now ends on the sheet's settled signal, not wall clock (`673a9a1`).
+- [x] found — orchestrator gates at `eb3d0dd`: vitest 177 · tsc 6 (baseline) · audit PASS · build+banner PASS · geometry 252/252 · perf PASS (load ~8, warning).
+- [ ] awaiting Sean — DialKit "Iridescent shadow" values he shared (Neon Gold, opacity 0.22, length 161, blur 69, saturation 1.40, spin 16s; crossfade 0–0.25) differ from the Neon Gold preset in `example/main.tsx:293` (0.30–0.60 / 42–60 / 32–46 / 10s); strawman: bake in as Neon Gold defaults. Not started.
+- [ ] noticed — playground iframe fully reloads when the window crosses the 900px breakpoint (iframe moves position in the page).
+- [ ] noticed — demo settings sheet uses the same whole-JSX key remount pattern (`example/main.tsx:750`).
+- [ ] noticed — `example/play/render.tsx` type+ordinal keys still shift same-type siblings (Item lists) on middle removal; unreachable by current controls.
+- [ ] noticed — copy-output identity after `58b0097` holds by construction only; `play-copy.spec.ts` checks substrings, not full output.
+- [ ] noticed — `58b0097` commit message says "32/32 (18 baseline + 2 new)"; real count was 20/20.
