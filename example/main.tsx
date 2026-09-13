@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { createRoot } from "react-dom/client";
 import { DialRoot, useDialKit, useDialKitController } from "dialkit";
 import "dialkit/styles.css";
-import { VistaSheet } from "../src/index";
+import { VistaSheet, type TriggerShape } from "../src/index";
 import { CloseMask } from "./CloseMask";
 import { ALL_ANCHORS, DEFAULT_ANCHOR, type AnchorId } from "../src/anchors";
 import "./example.css";
@@ -14,13 +14,13 @@ import "./example.css";
 // the child inside must fill whatever box it's given rather than assert its
 // own size. Passing two differently-sized children into the two slots is
 // exactly the footgun docs/PACKAGE-DESIGN.md §7B warns about (E1).
+// <VistaSheet.Shared> clips it to the trigger's shape, so it must not round itself.
 function ColorCircle() {
   return (
     <div
       style={{
         width: "100%",
         height: "100%",
-        borderRadius: "50%",
         background: "linear-gradient(135deg, #48484a 0%, #1d1d1f 100%)",
       }}
     />
@@ -607,15 +607,16 @@ function App() {
   // this. Placed here (not beside the other testParams overrides above)
   // so it doesn't shift naming.test.ts's line-number allowlist for the
   // frozen dialkit ids above.
-  const SHAPE_PARAM_VALUES = [
+  const SHAPE_PARAM_VALUES: readonly TriggerShape[] = [
     "circle",
     "squircle",
     "rounded-square",
     "square",
-  ] as const;
+  ];
   const shapeParam = testParams.get("shape");
-  const shapeOverride = SHAPE_PARAM_VALUES.find((s) => s === shapeParam);
-  const shapeProps = (shapeOverride ? { shape: shapeOverride } : {}) as object;
+  const shapeOverride: TriggerShape | undefined = SHAPE_PARAM_VALUES.find(
+    (s) => s === shapeParam,
+  );
   const c = dials.colors;
   const iriStyle = {
     "--iri-opacity": dials.opacity,
@@ -657,7 +658,7 @@ function App() {
       </p>
 
       <VistaSheet.Root
-        {...shapeProps}
+        shape={shapeOverride}
         id="main"
         zIndex={zIndexOverride}
         sheetMaxWidth={sheetMaxWidthOverride}

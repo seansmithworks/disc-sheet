@@ -21,6 +21,8 @@ rounded:
   sheet: "32px"
   trigger: "9999px"
   close: "9999px"
+  triggerRoundedSquare: "25% of trigger size (strawman, awaiting dial)"
+  triggerSquircleFallback: "27.16% of trigger size (strawman, awaiting dial)"
 shadows:
   silhouette: "0 1px 4px rgba(26,22,16,.14), 0 6px 24px rgba(0,0,0,.15)"
   sheetAtRest: "0 8px 48px rgba(0,0,0,.24), 0 2px 8px rgba(0,0,0,.12)"
@@ -64,7 +66,7 @@ Consumers override with `--vista-sheet-*` custom properties. Never add a hex to 
 
 ## 3. Shape and Depth
 
-- **Trigger:** a circle, always. `--vista-sheet-trigger-radius: 9999px`. It rests as a circle after every close path (gated by geometry test (o)).
+- **Trigger:** `shape` on Root, default circle (`--vista-sheet-trigger-radius: 9999px`). Squircle is a true superellipse via `corner-shape` (Chromium; 27.16% radius elsewhere) and gives the sheet squircle corners too; rounded square is 25% of trigger size; square is 0. Surface, silhouette shadow, Shared clip and focus ring all follow the shape, and the shadow's corner uses the surface's own radius curve. It rests at its shape after every close path (geometry tests (o) and (o-shape)).
 - **Sheet:** `--vista-sheet-sheet-radius: 32px`. During the morph the radius is a pure function of `collapseProgress`, never its own spring.
 - **Two shadow looks, one painter.** `<VistaSheet.Shadow>` paints both the thin disc shadow and the sheet's heavier resting shadow on its own silhouette, crossfaded by opacity as `collapseProgress` moves (2026-09-11). Nothing else paints a shadow.
 - **Close button:** 44px hit area, transparent, circular focus ring.

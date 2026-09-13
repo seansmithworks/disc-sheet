@@ -139,7 +139,6 @@ export default function ContactTrigger() {
             style={{
               width: "100%",
               height: "100%",
-              borderRadius: "100%",
               background: "#b4512e",
             }}
           />
@@ -152,7 +151,6 @@ export default function ContactTrigger() {
             style={{
               width: "100%",
               height: "100%",
-              borderRadius: "100%",
               background: "#b4512e",
             }}
           />
@@ -203,6 +201,21 @@ might have mixed up default and named imports.
 Nothing is missing an export. If you see this message after adding
 `<VistaSheet.Root>` to a file, the fix is to add `"use client"` as the very
 first line of that file.
+
+### Trigger shape
+
+`<VistaSheet.Root shape>` takes `"circle"` (default), `"squircle"`,
+`"rounded-square"` or `"square"`. The trigger surface, `<VistaSheet.Shadow>`,
+both `<VistaSheet.Shared>` slots and the focus ring all follow it.
+`--vista-sheet-trigger-radius` still caps the corner radius for every shape.
+With `"squircle"` the sheet's own corners use the squircle curve too, so the
+surface never switches corner geometry mid-morph. `<VistaSheet.Shared>`
+children should fill their box without applying their own `border-radius` —
+the slot clips them to the current shape.
+
+Browser support: `"squircle"` is a true superellipse where CSS `corner-shape`
+is supported (Chromium); Safari and Firefox get a close `border-radius`
+approximation.
 
 ### The escape hatch
 
@@ -288,7 +301,7 @@ to find the live element from outside the package via `useVistaSheet()` + a
 | --- | --- |
 | `trigger-root` | The trigger's fixed drag wrapper |
 | `trigger` | The trigger `<button>` |
-| `trigger-surface` | The trigger's circular seed surface (the FLIP source) |
+| `trigger-surface` | The trigger's seed surface (the FLIP source) |
 | `shared` | `<VistaSheet.Shared>`, on both its trigger- and sheet-side instances |
 | `sheet` | `<VistaSheet.Sheet>`'s panel |
 | `backdrop` | The invisible outside-click catcher (only when `dismissOnBackdrop`) |
@@ -305,6 +318,9 @@ relying on className precedence.
 `trigger-root` additionally carries `data-vista-sheet-closing` (empty string),
 present only while a close is in flight (removed once the sheet has fully
 closed).
+
+`trigger`, `trigger-surface`, `sheet`, `shared` and `shadow` additionally
+carry `data-vista-sheet-shape` (the Root's `shape`).
 
 `sheet` additionally carries `data-vista-sheet-settled` (empty string), present
 only once the open has finished and removed as soon as a close starts. This
