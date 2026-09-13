@@ -325,7 +325,7 @@ export function Controls({ state, setState }: ControlsProps) {
             id="play-sheet-radius"
             type="range"
             min={0}
-            max={48}
+            max={64}
             step={1}
             value={state.sheetRadius}
             onChange={(e) =>
