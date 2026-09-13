@@ -450,3 +450,4 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - P2 gate r2 @ bccccf3: vitest 122/0 · tsc new 0 · audit PASS · build PASS · geometry 153/0 · red-proof skipped · dial ok · perf raster 61.1ms/1 dropped/16.7ms longest, all PASS vs baseline
 - P1 gate r1 @ 7c74665: vitest 122/0 · tsc new 0 · audit PASS · build PASS · geometry 175/0 · red-proof proven · dial ok · perf raster 54.4ms/1 dropped/16.7ms longest, all PASS vs baseline (load1 4.50 warning)
 - P1 gate r2 @ 6cb3e64: vitest 122/0 · tsc new 0 · audit PASS · build PASS · geometry 175/0 · red-proof skipped · dial ok · perf raster 57.3ms/1 dropped/25.0ms longest, all PASS vs baseline (load1 4.83 warning)
+- P3 gate r1 @ 7873fbb: vitest 177/0 · tsc new 0 · audit PASS · build PASS · geometry 248/0 · red-proof NOT proven · dial ok · perf raster 64.0ms/1 dropped/16.7ms longest, all PASS vs baseline (load1 3.45)
