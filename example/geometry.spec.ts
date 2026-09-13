@@ -2068,6 +2068,51 @@ test.describe("Design settings sheet", () => {
       page.getByRole("combobox", { name: "Shadow speed" }),
     ).toHaveValue("Variable");
   });
+
+  // (z6) F2: the glow's rAF spin reads prefers-reduced-motion live (via a
+  // matchMedia `change` listener), matching the old CSS-driven spin's
+  // behaviour — toggling the OS setting mid-session must stop/start it
+  // without a reload.
+  test("(z6) reduced motion toggled mid-session stops and resumes the glow spin", async ({
+    page,
+  }) => {
+    await gotoExample(page, false);
+    await page.getByRole("button", { name: SETTINGS_LABEL }).click();
+    await page
+      .locator(
+        '[data-vista-sheet-root="settings"] [data-vista-sheet-part="sheet"]',
+      )
+      .waitFor();
+    await page.getByRole("switch", { name: "Iridescent shadow" }).click();
+    await page
+      .getByRole("combobox", { name: "Shadow speed" })
+      .selectOption("Fast");
+
+    const readAngle = () =>
+      page
+        .locator(".iri-shadow")
+        .evaluate((el) => getComputedStyle(el).getPropertyValue("--iri-angle"));
+
+    await page.waitForTimeout(100);
+    const a1 = await readAngle();
+    await page.waitForTimeout(150);
+    const a2 = await readAngle();
+    expect(a1).not.toBe(a2);
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.waitForTimeout(100);
+    const stopped1 = await readAngle();
+    await page.waitForTimeout(150);
+    const stopped2 = await readAngle();
+    expect(stopped1).toBe(stopped2);
+
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.waitForTimeout(100);
+    const resumed1 = await readAngle();
+    await page.waitForTimeout(150);
+    const resumed2 = await readAngle();
+    expect(resumed1).not.toBe(resumed2);
+  });
 });
 
 /**

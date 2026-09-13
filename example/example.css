@@ -103,10 +103,10 @@ body[data-surface="warm"] {
   --vista-sheet-accent: #b4512e;
 }
 
-/* Warm + Dark mode — strawman (2026-09-13), un-dialled. Same warm hue
- * family as the light warm cell above, darkened the way the neutral dark
- * cell darkens the neutral palette. Higher specificity than either single
- * attribute selector above, so it wins whenever both attributes are set. */
+/* Warm + Dark mode — chosen 2026-09-13. Same warm hue family as the light
+ * warm cell above, darkened the way the neutral dark cell darkens the
+ * neutral palette. Higher specificity than either single attribute selector
+ * above, so it wins whenever both attributes are set. */
 body[data-dark-mode="true"][data-surface="warm"] {
   --vista-sheet-surface: #1f1b17;
   --vista-sheet-surface-elevated: #29241f;

@@ -216,8 +216,8 @@ export const CLOSE_REVEAL_ROTATE_SPRING = {
 };
 
 /** Stagger interval (s) between <VistaSheet.Item> children. Widened from
- * 0.04 to 0.09 (2026-09-13, Sean's request) — a strawman so title, body and
- * actions read as separate beats instead of one, pending his feel pass. */
+ * 0.04 to 0.09 — settled (Sean, 2026-09-13) so title, body and actions read
+ * as separate beats instead of one. */
 export const ITEM_STAGGER_INTERVAL_SEC = 0.09;
 
 /** Drag-vs-tap threshold, px. */

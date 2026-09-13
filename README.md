@@ -269,7 +269,8 @@ package paints a shadow. If you don't render `<VistaSheet.Shadow>`, there is
 no shadow at all. An `asChild` swap receives
 `--vista-sheet-shadow-opacity`/`--vista-sheet-sheet-shadow-opacity` as custom
 properties on the cloned element so a replacement layer (e.g. a
-`@seansmithworks/surface-fx` dither) can reproduce the same crossfade.
+`@seansmithworks/surface-fx` dither) can reproduce the same crossfade. A ref
+already on the child is preserved (composed with Shadow's own), never dropped.
 
 `npm run audit:vars` checks this table against `src/styles.module.css` and
 `src/`: any `--vista-sheet-*` variable the CSS reads must be either written by

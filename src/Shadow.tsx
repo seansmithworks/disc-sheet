@@ -1,7 +1,7 @@
 "use client";
 
 import { cloneElement, isValidElement, useEffect, useRef } from "react";
-import type { CSSProperties, ReactElement } from "react";
+import type { CSSProperties, ReactElement, Ref } from "react";
 import { useVistaSheetInternal } from "./context";
 import { readVarPx } from "./readVarPx";
 import type { ShadowProps } from "./types";
@@ -33,7 +33,31 @@ import styles from "./styles.module.css";
  * opacities) onto it — the shape a consumer swaps in a
  * `@seansmithworks/surface-fx` dither layer through. This package never
  * imports surface-fx (docs/PACKAGE-DESIGN.md §4).
+ *
+ * A ref already on the child (object or callback — read from `child.props.ref`,
+ * the React 19 shape; the peer range is `react >=19`, so the React 18 side
+ * channel on the element itself is never consulted) is composed with Shadow's
+ * own internal ref rather than overwritten, via mergeShadowRef below.
  */
+
+/**
+ * Composes a consumer-supplied ref (object or callback, or none) with
+ * Shadow's own internal ref callback so an asChild clone forwards the DOM
+ * node to both instead of only the last one assigned.
+ */
+export function mergeShadowRef<T>(
+  childRef: Ref<T> | null | undefined,
+  internalRef: (node: T | null) => void,
+): (node: T | null) => void {
+  return (node) => {
+    internalRef(node);
+    if (typeof childRef === "function") {
+      childRef(node);
+    } else if (childRef) {
+      (childRef as { current: T | null }).current = node;
+    }
+  };
+}
 export function Shadow({ className, asChild, children }: ShadowProps) {
   const ctx = useVistaSheetInternal("Shadow");
   const {
@@ -158,11 +182,12 @@ export function Shadow({ className, asChild, children }: ShadowProps) {
   if (asChild && isValidElement(children)) {
     const childEl = children as ReactElement<Record<string, unknown>>;
     const childStyle = (childEl.props.style as CSSProperties | undefined) ?? {};
+    const childRef = (childEl.props as { ref?: Ref<HTMLElement> }).ref;
     return cloneElement(childEl, {
       ...sharedProps,
-      ref: (node: HTMLElement | null) => {
+      ref: mergeShadowRef(childRef, (node) => {
         elRef.current = node;
-      },
+      }),
       style: {
         position: "fixed",
         zIndex: zIndex - 1,

@@ -174,15 +174,15 @@ function SlidersIcon() {
   );
 }
 
-// Strawman palette presets for the "palette" select below — chosen for how
-// they read on video, not for a rebuild of the glow. Selecting one pushes
-// colours + saturation + spin onto the existing dials; the strength select
+// Palette presets for the "palette" select below — chosen for how they read
+// on video, not for a rebuild of the glow. Selecting one pushes colours +
+// saturation + spin onto the existing dials; the strength select
 // (Light/Medium/Bold) then supplies opacity/length/blur for that palette.
 // Every slider stays live and tweakable after either choice. One ordered
 // array is the single source of truth for the palette list (mildest to
 // wildest) — appending a palette here is the whole job, no other file to
 // touch. Bold is each palette's original opacity/length/blur; Light/Medium
-// are un-dialled strawmen (2026-09-13).
+// were chosen 2026-09-13.
 type GlowStrengthValues = { opacity: number; length: number; blur: number };
 type IriPreset = {
   saturation: number;
@@ -541,22 +541,22 @@ function App() {
   // leaving it either. Reduced motion: exactly as before, the glow simply
   // never turns (no rAF loop started).
   const iriAngleRef = useRef(0);
+  const iriShadowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!iri) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    // Queried by class rather than a ref: <VistaSheet.Shadow asChild> clones
-    // this div via its own Slot, which isn't guaranteed to compose a
-    // consumer-supplied ref onto the clone. The class is stable and
-    // unportalled for as long as `iri` is true (this effect's own guard),
-    // so a live query is exactly as reliable here.
-    const el = document.querySelector<HTMLElement>(".iri-shadow");
+    const el = iriShadowRef.current;
     if (!el) return;
+    // Live rather than read-once: the old CSS-driven spin reacted to the OS
+    // reduced-motion toggle mid-session (a media query in the stylesheet),
+    // so this rAF replacement has to react the same way — subscribe to the
+    // query's `change` event instead of just reading `.matches` on mount.
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const VARIABLE_PERIOD_MS = 24000;
     const vMin = 360 / SPIN_SPEED_STEPS[0].seconds; // Very slow
     const vMax = 360 / SPIN_SPEED_STEPS[SPIN_SPEED_STEPS.length - 1].seconds; // Fast
-    const start = performance.now();
-    let last = start;
     let raf = 0;
+    let last = performance.now();
+    let start = last;
     const frame = (now: number) => {
       const dtSec = (now - last) / 1000;
       last = now;
@@ -573,8 +573,30 @@ function App() {
       el.style.setProperty("--iri-angle", `${iriAngleRef.current}deg`);
       raf = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    const start_ = () => {
+      if (raf) return;
+      last = performance.now();
+      start = last;
+      raf = requestAnimationFrame(frame);
+    };
+    const stop = () => {
+      if (!raf) return;
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+    if (!media.matches) start_();
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        stop();
+      } else {
+        start_();
+      }
+    };
+    media.addEventListener("change", onChange);
+    return () => {
+      media.removeEventListener("change", onChange);
+      stop();
+    };
   }, [iri, settings.spinSpeed, dials.spinSeconds]);
   const shadowCrossfade = useDialKit(
     "Sheet shadow crossfade",
@@ -643,7 +665,7 @@ function App() {
       >
         {iri ? (
           <VistaSheet.Shadow asChild>
-            <div className="iri-shadow" style={iriStyle} />
+            <div ref={iriShadowRef} className="iri-shadow" style={iriStyle} />
           </VistaSheet.Shadow>
         ) : (
           <VistaSheet.Shadow />
