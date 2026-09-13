@@ -65,4 +65,5 @@ export type {
   StiffnessSpring,
   DurationSpring,
   TriggerShape,
+  ButtonSize,
 } from "./types";

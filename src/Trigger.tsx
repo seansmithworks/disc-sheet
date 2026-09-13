@@ -8,6 +8,7 @@ import {
   useLayoutEffect,
   useRef,
 } from "react";
+import type { TriggerBox } from "./shape";
 import type { ReactNode } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
@@ -51,8 +52,10 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     setAnchor,
     setIsDragging,
     draggable,
-    triggerSize,
     shape,
+    buttonSize,
+    triggerBox,
+    setMeasuredTriggerBox,
     reduceMotion,
     triggerId,
     sheetId,
@@ -97,14 +100,41 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
   // rather than fighting it live.
   const pendingResizeRef = useRef(false);
 
+  // Rectangle box measurement, held while the sheet is mounted — see
+  // publishBox below.
+  const sheetRectRef = useRef(sheetRect);
+  sheetRectRef.current = sheetRect;
+  const latestBoxRef = useRef<TriggerBox | null>(null);
+  const publishedBoxRef = useRef<TriggerBox | null>(null);
+
   // Seed x/y at the anchor's resting position on mount and whenever the
   // anchor or trigger size changes while the sheet is not being dragged.
+  //
+  // Strawman (v0.2): for shape="rectangle" this reads the wrapper's DOM box
+  // directly (wrapperRef.current, already attached by the time a layout
+  // effect runs, since ref callbacks commit before effects) rather than
+  // ctx.triggerBox — that context value is still the square triggerSize
+  // fallback on this component's very first commit (the rectangle
+  // measurement effect below hasn't published yet), and jumping to that
+  // wrong position now, then jumping again to the right one once
+  // setMeasuredTriggerBox lands, is a genuine two-commit layout change that
+  // the surface's shared layoutId FLIPs smoothly instead of skipping — a
+  // ~700ms drift across the viewport on first paint. Reading the DOM here
+  // instead means both commits compute the identical target, so x/y never
+  // actually moves and there is nothing for the layoutId to FLIP.
   useLayoutEffect(() => {
     if (typeof window === "undefined") return;
     const vpW = window.innerWidth;
     const vpH = window.innerHeight;
-    const targetX = restingLeft(anchor, vpW, triggerSize);
-    const targetY = restingTop(anchor, vpH, triggerSize);
+    const box =
+      shape === "rectangle" && wrapperRef.current
+        ? {
+            width: wrapperRef.current.offsetWidth,
+            height: wrapperRef.current.offsetHeight,
+          }
+        : triggerBox;
+    const targetX = restingLeft(anchor, vpW, box.width);
+    const targetY = restingTop(anchor, vpH, box.height);
     if (!mountedRef.current) {
       x.jump(targetX);
       y.jump(targetY);
@@ -113,7 +143,7 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       x.jump(targetX);
       y.jump(targetY);
     }
-  }, [anchor, triggerSize, x, y]);
+  }, [anchor, shape, triggerBox.width, triggerBox.height, x, y]);
 
   // Resize: re-seat the trigger at its anchor's new resting position. While
   // <Sheet> is mounted (sheetRect !== null), defer instead of jumping now —
@@ -128,12 +158,12 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         pendingResizeRef.current = true;
         return;
       }
-      x.jump(restingLeft(anchor, window.innerWidth, triggerSize));
-      y.jump(restingTop(anchor, window.innerHeight, triggerSize));
+      x.jump(restingLeft(anchor, window.innerWidth, triggerBox.width));
+      y.jump(restingTop(anchor, window.innerHeight, triggerBox.height));
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [anchor, triggerSize, sheetRect, x, y]);
+  }, [anchor, triggerBox.width, triggerBox.height, sheetRect, x, y]);
 
   // Flush a deferred resize once the morph is over (sheetRect settles back
   // to null at Sheet's onExitComplete, or was never set — the open case
@@ -143,9 +173,9 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     if (!pendingResizeRef.current) return;
     pendingResizeRef.current = false;
     if (typeof window === "undefined") return;
-    x.jump(restingLeft(anchor, window.innerWidth, triggerSize));
-    y.jump(restingTop(anchor, window.innerHeight, triggerSize));
-  }, [anchor, triggerSize, sheetRect, x, y]);
+    x.jump(restingLeft(anchor, window.innerWidth, triggerBox.width));
+    y.jump(restingTop(anchor, window.innerHeight, triggerBox.height));
+  }, [anchor, triggerBox.width, triggerBox.height, sheetRect, x, y]);
 
   // The trigger's RESTING shape, as a number Motion can mix from.
   //
@@ -175,7 +205,10 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
   // (src/shape.ts), the circle branch of which reproduces the min(token,
   // triggerSize/2) math above exactly.
   const triggerRestRadius = useMotionValue(
-    initialTriggerRestRadius(shape, triggerSize),
+    initialTriggerRestRadius(
+      shape,
+      Math.min(triggerBox.width, triggerBox.height),
+    ),
   );
   useEffect(() => {
     const el = surfaceRef.current;
@@ -184,12 +217,19 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     triggerRestRadius.set(
       resolveTriggerCornerRadius({
         shape,
-        triggerSize,
+        triggerSize: Math.min(triggerBox.width, triggerBox.height),
         token,
         cornerShapeSupported: supportsCornerShape(),
       }),
     );
-  }, [triggerSize, triggerRestRadius, sheetRect, open, shape]);
+  }, [
+    triggerBox.width,
+    triggerBox.height,
+    triggerRestRadius,
+    sheetRect,
+    open,
+    shape,
+  ]);
 
   // Report the trigger's live rect for the escape hatch (usePKG().triggerRect)
   // and for Sheet's shadow-mask morph. Also writes --vista-sheet-trigger-x/-y
@@ -267,6 +307,66 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     };
   }, [x, y, setTriggerRect]);
 
+  // Strawman (v0.2): a rectangle's measured size is held while the sheet is
+  // mounted and published at exit-complete - re-seating the wrapper
+  // mid-morph compounds with the surface FLIP (see pendingResizeRef).
+  const publishBox = useCallback(
+    (box: TriggerBox) => {
+      latestBoxRef.current = box;
+      if (sheetRectRef.current !== null) return;
+      const last = publishedBoxRef.current;
+      if (
+        last &&
+        Math.abs(last.width - box.width) < 0.5 &&
+        Math.abs(last.height - box.height) < 0.5
+      ) {
+        return;
+      }
+      publishedBoxRef.current = box;
+      setMeasuredTriggerBox(box);
+    },
+    [setMeasuredTriggerBox],
+  );
+
+  // Strawman (v0.2): the FIRST measurement is deferred one rAF rather than
+  // published synchronously in this layout effect (as the ResizeObserver's
+  // own callback below does for every later one) — measured directly:
+  // publishing it in the same commit as mount forces a SECOND React commit
+  // before paint (Root's triggerBox state flows back through context), and
+  // Motion's layoutId projection treats that second commit as a genuine
+  // layout update rather than the settled result of a mount it hasn't
+  // finished registering yet, FLIPping the surface in from (0,0) — a
+  // one-time ~300ms drift across the viewport on cold load, visible in nothing
+  // this package's existing (pre-rectangle) shapes ever triggered, since none
+  // of them cause a second commit between a layoutId child's mount and its
+  // first paint. One rAF is enough for Motion's own mount bookkeeping to
+  // settle; a later resize (real box change) still applies through the
+  // ResizeObserver callback with no delay, since by then there is a real,
+  // intentional layout change to FLIP.
+  useLayoutEffect(() => {
+    if (shape !== "rectangle") return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    const measure = () =>
+      publishBox({ width: el.offsetWidth, height: el.offsetHeight });
+    const raf = requestAnimationFrame(measure);
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : null;
+    resizeObserver?.observe(el);
+    return () => {
+      cancelAnimationFrame(raf);
+      resizeObserver?.disconnect();
+    };
+  }, [shape, publishBox]);
+
+  useEffect(() => {
+    if (sheetRect === null && latestBoxRef.current) {
+      publishBox(latestBoxRef.current);
+    }
+  }, [sheetRect, publishBox]);
+
   const handleDragStart = useCallback(() => {
     draggedRef.current = true;
     setIsDragging(true);
@@ -281,8 +381,8 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       const travel = Math.hypot(info.offset.x, info.offset.y);
       if (travel < DRAG_THRESHOLD_PX) {
         draggedRef.current = false;
-        x.set(restingLeft(anchor, vpW, triggerSize));
-        y.set(restingTop(anchor, vpH, triggerSize));
+        x.set(restingLeft(anchor, vpW, triggerBox.width));
+        y.set(restingTop(anchor, vpH, triggerBox.height));
         return;
       }
 
@@ -304,8 +404,8 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         ? { type: "tween" as const, duration: 0 }
         : { type: "spring" as const, ...SNAP_SPRING };
 
-      const targetX = restingLeft(pickedAnchor, vpW, triggerSize);
-      const targetY = restingTop(pickedAnchor, vpH, triggerSize);
+      const targetX = restingLeft(pickedAnchor, vpW, triggerBox.width);
+      const targetY = restingTop(pickedAnchor, vpH, triggerBox.height);
 
       if (pickedAnchor !== anchor) setAnchor(pickedAnchor);
 
@@ -317,7 +417,15 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         animate(y, targetY, snapSpring);
       }
     },
-    [anchor, triggerSize, reduceMotion, setAnchor, x, y],
+    [
+      anchor,
+      triggerBox.width,
+      triggerBox.height,
+      reduceMotion,
+      setAnchor,
+      x,
+      y,
+    ],
   );
 
   const handleClick = useCallback(() => {
@@ -424,11 +532,19 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       dragConstraints={{
         left: 0,
         right:
-          typeof window !== "undefined" ? window.innerWidth - triggerSize : 0,
+          typeof window !== "undefined"
+            ? window.innerWidth - triggerBox.width
+            : 0,
         top: 0,
         bottom:
-          typeof window !== "undefined" ? window.innerHeight - triggerSize : 0,
+          typeof window !== "undefined"
+            ? window.innerHeight - triggerBox.height
+            : 0,
       }}
+      data-vista-sheet-shape={shape}
+      data-vista-sheet-button-size={
+        shape === "rectangle" ? buttonSize : undefined
+      }
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
@@ -446,6 +562,9 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
         id={triggerId}
         onClick={handleClick}
         data-vista-sheet-shape={shape}
+        data-vista-sheet-button-size={
+          shape === "rectangle" ? buttonSize : undefined
+        }
         {...aria}
       >
         {!open && (

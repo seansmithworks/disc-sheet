@@ -26,6 +26,7 @@ export default defineConfig({
         contact: resolve(__dirname, "contact.html"),
         play: resolve(__dirname, "play.html"),
         video: resolve(__dirname, "video.html"),
+        buttons: resolve(__dirname, "buttons.html"),
       },
     },
   },

@@ -372,6 +372,49 @@
   }
 }
 
+/* Rectangle trigger (v0.2). Strawman (v0.2): S/M/L heights 36/44/52px,
+ * inline padding 14/18/22px, gap 6/8/10px, awaiting Sean's dial pass
+ * (DESIGN.md §3). Width is the label's max-content unless Root's buttonWidth
+ * writes --vista-sheet-button-width. JS measures this box; it never sizes
+ * it. */
+.dragWrapper[data-vista-sheet-shape="rectangle"] {
+  width: var(--vista-sheet-button-width, max-content);
+  height: 44px;
+}
+
+.dragWrapper[data-vista-sheet-shape="rectangle"][data-vista-sheet-button-size="s"] {
+  height: 36px;
+}
+
+.dragWrapper[data-vista-sheet-shape="rectangle"][data-vista-sheet-button-size="l"] {
+  height: 52px;
+}
+
+.triggerButton[data-vista-sheet-shape="rectangle"] {
+  box-sizing: border-box;
+  padding-inline: 18px;
+  gap: 8px;
+  white-space: nowrap;
+  font: inherit;
+  color: var(--vista-sheet-text, #1a1610);
+}
+
+.triggerButton[data-vista-sheet-shape="rectangle"][data-vista-sheet-button-size="s"] {
+  padding-inline: 14px;
+  gap: 6px;
+}
+
+.triggerButton[data-vista-sheet-shape="rectangle"][data-vista-sheet-button-size="l"] {
+  padding-inline: 22px;
+  gap: 10px;
+}
+
+/* Strawman (v0.2): a fixed buttonWidth narrower than the label clips it; no
+ * ellipsis. */
+.triggerButton[data-vista-sheet-shape="rectangle"] .triggerLabel {
+  overflow: hidden;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dragWrapper,
   .triggerButton {

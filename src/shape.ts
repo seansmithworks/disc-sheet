@@ -10,11 +10,41 @@ export const TRIGGER_SHAPES = [
   "squircle",
   "rounded-square",
   "square",
+  "rectangle",
 ] as const;
 
 export type TriggerShape = (typeof TRIGGER_SHAPES)[number];
 
 export const DEFAULT_TRIGGER_SHAPE: TriggerShape = "circle";
+
+export const BUTTON_SIZES = ["s", "m", "l"] as const;
+export type ButtonSize = (typeof BUTTON_SIZES)[number];
+export const DEFAULT_BUTTON_SIZE: ButtonSize = "m";
+
+export interface TriggerBox {
+  width: number;
+  height: number;
+}
+
+/**
+ * Resolve the trigger's actual box: for shape="rectangle" this is the
+ * measured DOM size (label-sized by default, or the consumer's fixed
+ * buttonWidth via CSS); every other shape is the square triggerSize.
+ * Returns the square fallback whenever no measurement has landed yet, so
+ * callers never have to null-check on first render.
+ */
+export function resolveTriggerBox({
+  shape,
+  triggerSize,
+  measured,
+}: {
+  shape: TriggerShape;
+  triggerSize: number;
+  measured: TriggerBox | null;
+}): TriggerBox {
+  if (shape === "rectangle" && measured !== null) return measured;
+  return { width: triggerSize, height: triggerSize };
+}
 
 // Strawman (v0.2): plain radius, 25% of trigger size, awaiting Sean's dial
 // pass (DESIGN.md §3).
@@ -42,7 +72,9 @@ export function supportsCornerShape(): boolean {
 /**
  * The trigger's resting corner radius in px. `token` is
  * --vista-sheet-trigger-radius and caps every shape (defaults to today's
- * 9999px CSS fallback). Exhaustive switch — a shape added to TRIGGER_SHAPES
+ * 9999px CSS fallback). `triggerSize` means the trigger's shorter side —
+ * callers with a non-square trigger (rectangle) pass
+ * min(width, height). Exhaustive switch — a shape added to TRIGGER_SHAPES
  * without a case here fails to compile.
  */
 export function resolveTriggerCornerRadius({
@@ -67,6 +99,11 @@ export function resolveTriggerCornerRadius({
       return Math.min(token, triggerSize * ROUNDED_SQUARE_RADIUS_FRACTION);
     case "square":
       return 0;
+    // Strawman (v0.2): a rectangle's corners follow the circle rule on its
+    // shorter side (callers pass min(width, height)) - a pill by default,
+    // capped by --vista-sheet-trigger-radius.
+    case "rectangle":
+      return Math.min(token, triggerSize / 2);
     default: {
       const exhaustive: never = shape;
       return exhaustive;
@@ -88,6 +125,7 @@ export function initialTriggerRestRadius(
   switch (shape) {
     case "circle":
     case "squircle":
+    case "rectangle":
       return 9999;
     case "rounded-square":
       return triggerSize * ROUNDED_SQUARE_RADIUS_FRACTION;

@@ -39,7 +39,7 @@ export function Sheet({
     open,
     setOpen,
     anchor,
-    triggerSize,
+    triggerBox,
     sheetMaxWidth,
     shape,
     reduceMotion,
@@ -215,7 +215,7 @@ export function Sheet({
     collapseProgress,
     open,
     shape,
-    triggerSize,
+    triggerSize: Math.min(triggerBox.width, triggerBox.height),
     varsElRef: sheetRef,
   });
 
@@ -230,7 +230,7 @@ export function Sheet({
           anchor,
           window.innerWidth,
           window.innerHeight,
-          triggerSize,
+          triggerBox.width,
           sheetMaxWidth,
           aspectRatio,
         )
@@ -238,7 +238,7 @@ export function Sheet({
           anchor,
           1440,
           900,
-          triggerSize,
+          triggerBox.width,
           sheetMaxWidth,
           aspectRatio,
         );

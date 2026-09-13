@@ -2,7 +2,14 @@ import { createContext, useContext } from "react";
 import type { MutableRefObject } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
-import type { VistaSheetState, Rect, SheetRect, TriggerShape } from "./types";
+import type {
+  VistaSheetState,
+  Rect,
+  SheetRect,
+  TriggerShape,
+  ButtonSize,
+} from "./types";
+import type { TriggerBox } from "./shape";
 
 /**
  * Internal context value — everything Trigger, Sheet, Shared, Content, Close
@@ -18,6 +25,13 @@ export interface VistaSheetContextValue extends VistaSheetState {
   sheetMaxWidth: number;
   /** Internal only — not part of the public VistaSheetState/useVistaSheet. */
   shape: TriggerShape;
+  /** Internal only — s/m/l for a shape="rectangle" trigger. */
+  buttonSize: ButtonSize;
+  /** Internal only — the trigger's actual box (label-sized for rectangle,
+   * square triggerSize for every other shape). */
+  triggerBox: TriggerBox;
+  /** Internal only — Trigger.tsx publishes its measured rectangle box here. */
+  setMeasuredTriggerBox: (box: TriggerBox) => void;
   reduceMotion: boolean;
   zIndex: number;
   idBase: string;

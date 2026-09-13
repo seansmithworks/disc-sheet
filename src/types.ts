@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
-import type { TriggerShape } from "./shape";
+import type { TriggerShape, ButtonSize } from "./shape";
 
 export type { AnchorId };
 export type { TriggerShape };
+export type { ButtonSize };
 
 export interface StiffnessSpring {
   stiffness: number;
@@ -108,9 +109,20 @@ export interface RootProps {
    * <VistaSheet.Shared> slots and the focus ring follow it;
    * --vista-sheet-trigger-radius caps the corner radius for every shape.
    * "squircle" is a true superellipse where CSS corner-shape is supported
-   * and a close border-radius approximation elsewhere.
+   * and a close border-radius approximation elsewhere. "rectangle" is a
+   * label-sized button trigger (plain children; Shared and Media are not
+   * supported inside it in v0.2).
    */
   shape?: TriggerShape;
+  /**
+   * Height and inline padding of a shape="rectangle" trigger: s 36px / m
+   * 44px / l 52px. Default "m". Ignored for other shapes.
+   */
+  buttonSize?: ButtonSize;
+  /**
+   * Fixed width in px for a rectangle trigger. Default sizes to its label.
+   */
+  buttonWidth?: number;
 
   // Motion
   /**

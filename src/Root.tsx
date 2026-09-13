@@ -10,7 +10,12 @@ import {
 import { DEFAULT_ANCHOR, type AnchorId } from "./anchors";
 import { VistaSheetContext, type VistaSheetContextValue } from "./context";
 import { resolveMotion, SURFACE_CLOSE_LEAD_DELAY_MS } from "./motion";
-import { DEFAULT_TRIGGER_SHAPE } from "./shape";
+import {
+  DEFAULT_BUTTON_SIZE,
+  DEFAULT_TRIGGER_SHAPE,
+  resolveTriggerBox,
+} from "./shape";
+import type { TriggerBox } from "./shape";
 import type { Transition } from "motion/react";
 import type { Rect, RootProps, SheetRect } from "./types";
 import {
@@ -43,6 +48,8 @@ export function Root({
   // Strawman (v0.2): shape lives on Root because Trigger, Sheet, Shared and
   // Shadow all need it through context, like triggerSize.
   shape = DEFAULT_TRIGGER_SHAPE,
+  buttonSize = DEFAULT_BUTTON_SIZE,
+  buttonWidth,
   preset,
   transition,
   surfaceCloseLeadDelayMs: surfaceCloseLeadDelayMsProp,
@@ -88,6 +95,17 @@ export function Root({
   );
 
   const triggerSize = useTriggerSize(triggerSizeProp);
+
+  // Strawman (v0.2): a rectangle's measured size is held in state here and
+  // resolved against the square triggerSize by resolveTriggerBox — every
+  // other shape's box is just { triggerSize, triggerSize }.
+  const [measuredTriggerBox, setMeasuredTriggerBox] =
+    useState<TriggerBox | null>(null);
+  const triggerBox = resolveTriggerBox({
+    shape,
+    triggerSize,
+    measured: measuredTriggerBox,
+  });
 
   // D3 fix — cold-first-open stale shared-layoutId FLIP origin
   // (docs/PACKAGE-DESIGN.md, reference_pinned-bottoms-collapse-dtop-and-
@@ -385,6 +403,9 @@ export function Root({
     triggerSize,
     sheetMaxWidth,
     shape,
+    buttonSize,
+    triggerBox,
+    setMeasuredTriggerBox,
     reduceMotion,
     zIndex,
     idBase,
@@ -443,6 +464,9 @@ export function Root({
             // viewport, defeating the whole point of resolving it in CSS.
             ["--vista-sheet-z" as string]: String(zIndex),
             ["--vista-sheet-sheet-max-width" as string]: `${sheetMaxWidth}px`,
+            ...(buttonWidth !== undefined
+              ? { ["--vista-sheet-button-width" as string]: `${buttonWidth}px` }
+              : {}),
           }}
         >
           {children}

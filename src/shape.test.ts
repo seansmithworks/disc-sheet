@@ -10,12 +10,13 @@ import { RADIUS_HOLD_FRACTION } from "./motion";
  * lands src/shape.ts.
  */
 describe("shape constants", () => {
-  it("TRIGGER_SHAPES lists all four shapes in order", () => {
+  it("TRIGGER_SHAPES lists all five shapes in order", () => {
     expect(TRIGGER_SHAPES).toEqual([
       "circle",
       "squircle",
       "rounded-square",
       "square",
+      "rectangle",
     ]);
   });
 
