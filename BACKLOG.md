@@ -428,3 +428,7 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [ ] carried — deploy the demo (Sean's explicit go per deploy; `vercel deploy` → `vercel promote`).
 - [ ] parked — stagger length scales with Item count: Design menu 9 rows → last row ~0.92s (was ~0.52s), list example ~0.65s (arithmetic, not measured). If long sheets feel slow, cap total stagger rather than shrink the interval.
 - [ ] parked — design-settings button draggable (unchanged, see above).
+
+## Overnight v0.2 run ledger — 2026-09-13
+
+- [x] e59c7a2 WIP verified at dc3bd44 before launch: 95 vitest · tsc 6 (baseline) · audit:vars PASS · build:lib + banner PASS · geometry 117 passed.
