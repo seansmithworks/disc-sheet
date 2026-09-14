@@ -9,7 +9,7 @@ import {
   useRef,
 } from "react";
 import type { TriggerBox } from "./shape";
-import type { ReactNode } from "react";
+import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { animate, motion, useMotionValue } from "motion/react";
 import type { PanInfo } from "motion/react";
 import { nearestAnchor, restingLeft, restingTop } from "./anchors";
@@ -70,7 +70,16 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
 
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  const draggedRef = useRef(false);
+  // Per-gesture travel, not sticky across gestures: reset on every
+  // pointerdown, raised from onDrag's cumulative offset, read once by
+  // handleClick. A drag that snaps to a new anchor releases the pointer off
+  // the button, so no click ever lands there to clear a "was dragging" flag
+  // — a ref that only handleClick or the sub-threshold branch of
+  // handleDragEnd ever cleared stayed armed forever and silently ate the
+  // next Enter/tap (a11y M1 = code M2). Deciding activation from THIS
+  // gesture's own travel, not a flag left over from the last one, removes
+  // the bug class instead of patching the one instance.
+  const maxTravelRef = useRef(0);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const surfaceRef = useRef<HTMLDivElement | null>(null);
@@ -372,10 +381,18 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     }
   }, [sheetRect, publishBox]);
 
+  const handlePointerDown = useCallback(() => {
+    maxTravelRef.current = 0;
+  }, []);
+
   const handleDragStart = useCallback(() => {
-    draggedRef.current = true;
     setIsDragging(true);
   }, [setIsDragging]);
+
+  const handleDrag = useCallback((_e: unknown, info: PanInfo) => {
+    const travel = Math.hypot(info.offset.x, info.offset.y);
+    if (travel > maxTravelRef.current) maxTravelRef.current = travel;
+  }, []);
 
   const handleDragEnd = useCallback(
     (_e: unknown, info: PanInfo) => {
@@ -385,7 +402,6 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
 
       const travel = Math.hypot(info.offset.x, info.offset.y);
       if (travel < DRAG_THRESHOLD_PX) {
-        draggedRef.current = false;
         x.set(restingLeft(anchor, vpW, triggerBox.width));
         y.set(restingTop(anchor, vpH, triggerBox.height));
         return;
@@ -433,13 +449,17 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
     ],
   );
 
-  const handleClick = useCallback(() => {
-    if (draggedRef.current) {
-      draggedRef.current = false;
-      return;
-    }
-    setOpen(true);
-  }, [setOpen]);
+  const handleClick = useCallback(
+    (e: ReactMouseEvent<HTMLButtonElement>) => {
+      // e.detail === 0 covers keyboard/AT activation (Enter/Space dispatch
+      // a click with no mouse behind it), which never touches maxTravelRef
+      // at all — a real click only opens when THIS gesture's own travel
+      // stayed under the drag threshold.
+      if (e.detail !== 0 && maxTravelRef.current >= DRAG_THRESHOLD_PX) return;
+      setOpen(true);
+    },
+    [setOpen],
+  );
 
   const labelUnsubRef = useRef<(() => void) | null>(null);
   const attachLabelRef = useCallback(
@@ -550,7 +570,9 @@ export function Trigger({ children, className, ...aria }: TriggerProps) {
       data-vista-sheet-button-size={
         shape === "rectangle" ? buttonSize : undefined
       }
+      onPointerDown={handlePointerDown}
       onDragStart={handleDragStart}
+      onDrag={handleDrag}
       onDragEnd={handleDragEnd}
     >
       <button
