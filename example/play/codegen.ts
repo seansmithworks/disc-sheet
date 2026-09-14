@@ -1,5 +1,4 @@
 import type { PlayState } from "./state";
-import { PACKAGE_DEFAULTS } from "./state";
 import { getRecipe, type PlayNode } from "./recipes";
 
 type PropValue = string | number | boolean;
@@ -222,17 +221,34 @@ export function printJsxFile(state: PlayState): string {
   ].join("\n");
 }
 
-function norm(value: string): string {
-  return value.trim().toLowerCase();
-}
-
 // Hard rule (DESIGN.md §4.1 single painter; Motion owns transforms, per
 // ORCHESTRATOR.md "Fragile areas"): neither BASE_CSS nor any recipe's css
 // may declare box-shadow, filter or transform — those are the package's own
 // single-painter Shadow layer and Motion's job respectively, never a
 // consumer override. transition/preset/snappy/gentle never appear either
 // (the un-dialled motion presets stay out of the copy tool).
-const BASE_CSS = `.vs-theme [data-vista-sheet-part="close"] {
+//
+// BASE_CSS also carries every rule shared by more than one recipe
+// (.vs-button-icon, .vs-button-text) — buildCss only ever emits the ACTIVE
+// recipe's own css block, so a rule two recipes both use has to live here or
+// the second recipe renders it unstyled (see Bug B, chat's icon/composer).
+const BASE_CSS = `.vs-button-icon {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.vs-button-text {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.vs-theme [data-vista-sheet-part="close"] {
   position: absolute;
   top: 16px;
   right: 16px;
@@ -263,49 +279,39 @@ const BASE_CSS = `.vs-theme [data-vista-sheet-part="close"] {
 }`;
 
 /**
- * Builds the CSS pane: a `.vs-theme` var-override block (only values that
- * differ from the README theming-table defaults; omitted entirely when
- * nothing differs — Strawman (v0.2): the default Warm palette equals those
- * defaults, so the first copy has no var block at all), the always-present
- * base content styling ported from example.css, then the active recipe's
- * own css.
+ * Builds the CSS pane: a `.vs-theme` var block declaring every palette token
+ * for the CURRENT palette, the always-present base content styling ported
+ * from example.css (also the home for any rule shared by more than one
+ * recipe — see BASE_CSS), then the active recipe's own css.
+ *
+ * The var block is never omitted, even when the current palette equals the
+ * package's own README defaults (Warm): a recipe's css can read any
+ * `--vista-sheet-*` token via `var(...)` with no fallback (e.g. the chat
+ * bubble's `background: var(--vista-sheet-accent)`), so the copied CSS must
+ * be self-contained on every palette or that token resolves to nothing.
+ * (Previously this block was emitted only for values that differed from
+ * PACKAGE_DEFAULTS, which meant Warm — the default palette — never declared
+ * it at all.)
  */
 export function buildCss(state: PlayState): string {
   const recipe = getRecipe(state.recipe);
-  const varLines: string[] = [];
-
-  const pushIfChanged = (name: string, current: string, def: string) => {
-    if (norm(current) !== norm(def)) {
-      varLines.push(`  --vista-sheet-${name}: ${current};`);
-    }
-  };
-
-  pushIfChanged("surface", state.surface, PACKAGE_DEFAULTS.surface);
-  pushIfChanged(
-    "surface-elevated",
-    state.surfaceElevated,
-    PACKAGE_DEFAULTS.surfaceElevated,
-  );
-  pushIfChanged("surface-border", state.border, PACKAGE_DEFAULTS.border);
-  pushIfChanged("text", state.text, PACKAGE_DEFAULTS.text);
-  pushIfChanged("accent", state.accent, PACKAGE_DEFAULTS.accent);
+  const varLines: string[] = [
+    `  --vista-sheet-surface: ${state.surface};`,
+    `  --vista-sheet-surface-elevated: ${state.surfaceElevated};`,
+    `  --vista-sheet-surface-border: ${state.border};`,
+    `  --vista-sheet-text: ${state.text};`,
+    `  --vista-sheet-accent: ${state.accent};`,
+  ];
   if (state.sheetRadius !== 48) {
     varLines.push(`  --vista-sheet-sheet-radius: ${state.sheetRadius}px;`);
   }
   if (state.sheetPadding !== 24) {
     varLines.push(`  --vista-sheet-sheet-padding: ${state.sheetPadding}px;`);
   }
-  pushIfChanged("shadow", state.triggerShadow, PACKAGE_DEFAULTS.triggerShadow);
-  pushIfChanged(
-    "sheet-shadow",
-    state.sheetShadow,
-    PACKAGE_DEFAULTS.sheetShadow,
-  );
+  varLines.push(`  --vista-sheet-shadow: ${state.triggerShadow};`);
+  varLines.push(`  --vista-sheet-sheet-shadow: ${state.sheetShadow};`);
 
-  const blocks: string[] = [];
-  if (varLines.length > 0) {
-    blocks.push(`.vs-theme {\n${varLines.join("\n")}\n}`);
-  }
+  const blocks: string[] = [`.vs-theme {\n${varLines.join("\n")}\n}`];
   blocks.push(BASE_CSS);
   blocks.push(recipe.css);
 

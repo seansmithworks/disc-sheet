@@ -9,6 +9,11 @@ import { defineConfig } from "@playwright/test";
  */
 export default defineConfig({
   testDir: ".",
+  // Default testMatch also picks up "*.test.ts", which is vitest's suffix
+  // (see example/play/codegen.test.ts, a pure-codegen vitest suite with no
+  // browser) — restrict to Playwright's own specs so it doesn't try to run
+  // vitest-only files through the Playwright test runner.
+  testMatch: /.*\.spec\.ts$/,
   timeout: 30_000,
   fullyParallel: false,
   retries: 0,

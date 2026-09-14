@@ -756,23 +756,7 @@ const SEARCH_RECIPE: Recipe = {
       ],
     ),
   ],
-  css: `.vs-button-icon {
-  width: 18px;
-  height: 18px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.vs-button-text {
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.vs-search-field {
+  css: `.vs-search-field {
   width: 100%;
   height: 44px;
   border-radius: 12px;
@@ -931,7 +915,7 @@ const CHAT_RECIPE: Recipe = {
 .vs-chat-bubble-out {
   align-self: flex-end;
   background: var(--vista-sheet-accent);
-  color: #ffffff;
+  color: var(--vista-sheet-surface);
 }
 
 .vs-chat-composer {
