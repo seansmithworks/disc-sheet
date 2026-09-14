@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { AnchorId } from "../../src/index";
 import { useVistaSheetInternal } from "../../src/context";
@@ -9,33 +9,60 @@ import { groundFor, type PlayState } from "./state";
 import "./stage.css";
 
 /**
- * Renderer-only, never printed by codegen: applies a control-driven anchor
- * change to the live specimen via the package's own internal `setAnchor`.
- * `usePersistedAnchor` only reads `defaultAnchor` at mount, so this is the
- * one anchor update the specimen key removal (below) doesn't cover for
- * free. Applied only while the sheet is closed — Sean accepted a jump
- * (no glide) for a control-driven change, unlike a live drag re-anchor.
+ * Renderer-only, never printed by codegen: applies a `set-anchor` COMMAND
+ * (Anchor dropdown only, never a drag REPORT) to the live specimen via the
+ * package's own internal `setAnchor`. `usePersistedAnchor` only reads
+ * `defaultAnchor` at mount, so this is the one anchor update the specimen
+ * key removal (below) doesn't cover for free.
+ *
+ * A command received while the sheet is open is held — not applied, not
+ * discarded — and fires once the sheet closes; Sean accepted a jump (no
+ * glide) for a control-driven change, unlike a live drag re-anchor. This
+ * component never reads or compares the live anchor: doing that (to decide
+ * whether a change was "control-driven") is what let a drag's own report
+ * loop back on itself forever.
  */
-function AnchorSync({ anchor }: { anchor: AnchorId }) {
-  const { open, anchor: liveAnchor, setAnchor } = useVistaSheetInternal("Root");
+function AnchorCommand({
+  pending,
+  onApplied,
+  applyingRef,
+}: {
+  pending: AnchorId | null;
+  onApplied: () => void;
+  applyingRef: { current: boolean };
+}) {
+  const { open, setAnchor } = useVistaSheetInternal("Root");
   useEffect(() => {
-    if (!open && liveAnchor !== anchor) setAnchor(anchor);
-  }, [anchor, open, liveAnchor, setAnchor]);
+    if (pending === null || open) return;
+    // Root's setAnchor calls onAnchorChange synchronously (src/Root.tsx),
+    // so this flag brackets exactly the one report a command's own
+    // setAnchor call would otherwise trigger — the report belongs to a
+    // drag, and echoing a command back as a report is the loop this fix
+    // removes.
+    applyingRef.current = true;
+    setAnchor(pending);
+    applyingRef.current = false;
+    onApplied();
+  }, [pending, open, setAnchor, onApplied, applyingRef]);
   return null;
 }
 
 function Stage() {
   const [state, setState] = useState<PlayState | null>(null);
+  const [pendingAnchor, setPendingAnchor] = useState<AnchorId | null>(null);
+  const applyingCommandRef = useRef(false);
 
   useEffect(() => {
     window.parent.postMessage({ type: "vista-sheet-play:ready" }, "*");
 
     function onMessage(e: MessageEvent) {
       if (e.source !== window.parent || e.origin !== location.origin) return;
-      if (!isPlayMessage(e.data) || e.data.type !== "vista-sheet-play:state") {
-        return;
+      if (!isPlayMessage(e.data)) return;
+      if (e.data.type === "vista-sheet-play:state") {
+        setState(e.data.state);
+      } else if (e.data.type === "vista-sheet-play:set-anchor") {
+        setPendingAnchor(e.data.anchor);
       }
-      setState(e.data.state);
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -48,6 +75,13 @@ function Stage() {
   if (!state) return null;
 
   function onAnchorChange(anchor: AnchorId) {
+    // A report, not a command: skip the one call a command's own setAnchor
+    // triggers (see AnchorCommand) so applying a command never echoes back
+    // up as a report.
+    if (applyingCommandRef.current) {
+      applyingCommandRef.current = false;
+      return;
+    }
     window.parent.postMessage(
       { type: "vista-sheet-play:anchor", anchor },
       location.origin,
@@ -70,7 +104,14 @@ function Stage() {
           persistKey: false,
           onAnchorChange,
         },
-        [<AnchorSync key="renderer:anchor-sync" anchor={state.anchor} />],
+        [
+          <AnchorCommand
+            key="renderer:anchor-command"
+            pending={pendingAnchor}
+            onApplied={() => setPendingAnchor(null)}
+            applyingRef={applyingCommandRef}
+          />,
+        ],
       )}
     </>
   );

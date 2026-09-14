@@ -16,11 +16,15 @@ import {
 } from "./state";
 import { buildCss, printJsxFile } from "./codegen";
 import { getRecipe, type RecipeId } from "./recipes";
-import type { ButtonSize } from "../../src/index";
+import type { AnchorId, ButtonSize } from "../../src/index";
 
 interface ControlsProps {
   state: PlayState;
   setState: (updater: (state: PlayState) => PlayState) => void;
+  // A user command, distinct from setState: only the Anchor dropdown calls
+  // this, so the shell can tell the stage to move the specimen without
+  // confusing that command with the stage's own drag reports.
+  onAnchorCommand: (anchor: AnchorId) => void;
 }
 
 const RECIPE_OPTIONS: Array<{ id: RecipeId; label: string }> = [
@@ -122,7 +126,7 @@ function ColorRow({ id, label, value, onCommit }: ColorRowProps) {
  * `snappy`/`gentle` are un-dialled and stay out of the copy tool; the tuner
  * is linked from the shell, never duplicated.
  */
-export function Controls({ state, setState }: ControlsProps) {
+export function Controls({ state, setState, onAnchorCommand }: ControlsProps) {
   const palette = matchPalette(state);
   const isButtonRecipe = getRecipe(state.recipe).button !== undefined;
 
@@ -241,10 +245,7 @@ export function Controls({ state, setState }: ControlsProps) {
             id="play-anchor"
             value={state.anchor}
             onChange={(e) =>
-              setState((s) => ({
-                ...s,
-                anchor: e.target.value as PlayState["anchor"],
-              }))
+              onAnchorCommand(e.target.value as PlayState["anchor"])
             }
           >
             {ANCHORS.map((a) => (

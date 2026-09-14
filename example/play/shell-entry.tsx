@@ -122,6 +122,19 @@ function Shell() {
     );
   }, [state]);
 
+  // Command, not report: only the Anchor dropdown calls this. It updates
+  // `state.anchor` (codegen + dropdown display) and separately posts a
+  // `set-anchor` command so the stage can tell it apart from its own
+  // `vista-sheet-play:anchor` drag reports (line 107) — conflating the two
+  // is what made a drag loop forever.
+  function onAnchorCommand(anchor: AnchorId) {
+    setState((s) => ({ ...s, anchor }));
+    iframeRef.current?.contentWindow?.postMessage(
+      { type: "vista-sheet-play:set-anchor", anchor },
+      location.origin,
+    );
+  }
+
   function copy(kind: "jsx" | "css") {
     const text = kind === "jsx" ? printJsxFile(state) : buildCss(state);
     void navigator.clipboard.writeText(text);
@@ -197,7 +210,11 @@ function Shell() {
                 </VistaSheet.Item>
 
                 <VistaSheet.Item>
-                  <Controls state={state} setState={setState} />
+                  <Controls
+                    state={state}
+                    setState={setState}
+                    onAnchorCommand={onAnchorCommand}
+                  />
                 </VistaSheet.Item>
 
                 <VistaSheet.Item>
@@ -220,7 +237,11 @@ function Shell() {
           <a href="./tune.html">Motion tuner</a>
           <p>Motion uses the package's dialled defaults.</p>
         </header>
-        <Controls state={state} setState={setState} />
+        <Controls
+          state={state}
+          setState={setState}
+          onAnchorCommand={onAnchorCommand}
+        />
         <CopyBar copyStatus={copyStatus} onCopy={copy} />
       </aside>
     </main>

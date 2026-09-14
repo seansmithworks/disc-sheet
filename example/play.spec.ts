@@ -109,6 +109,33 @@ function expectBoxesStill(
   }
 }
 
+/** Records every `vista-sheet-play:anchor` REPORT the shell's top window
+ * receives, via addInitScript so the listener attaches before the page's
+ * own handler does. Proves a drag settles in exactly one report and a
+ * dropdown command (`vista-sheet-play:set-anchor`) never produces one at
+ * all — the two feeding back into each other on this channel is what
+ * looped forever. */
+async function installAnchorMessageRecorder(page: Page) {
+  await page.addInitScript(() => {
+    (window as unknown as { __anchorMessages: string[] }).__anchorMessages = [];
+    window.addEventListener("message", (e) => {
+      const data = e.data as { type?: string; anchor?: string } | undefined;
+      if (data?.type === "vista-sheet-play:anchor" && data.anchor) {
+        (
+          window as unknown as { __anchorMessages: string[] }
+        ).__anchorMessages.push(data.anchor);
+      }
+    });
+  });
+}
+
+function readAnchorMessages(page: Page) {
+  return page.evaluate(
+    () =>
+      (window as unknown as { __anchorMessages: string[] }).__anchorMessages,
+  );
+}
+
 test.describe("1440x900", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -485,10 +512,15 @@ test.describe("1440x900", () => {
     expect(errors).toEqual([]);
   });
 
-  test("play-ui: desktop dragging the specimen updates the anchor control and copy output", async ({
+  test("play-ui: desktop dragging the specimen settles at the drop anchor without an anchor-message loop", async ({
     page,
   }) => {
+    await installAnchorMessageRecorder(page);
     const frame = await gotoPlay(page);
+    const stageFrame = page.frame({ url: /stage=1/ });
+    expect(stageFrame).not.toBeNull();
+    if (!stageFrame) return;
+
     const iframeLocator = page.locator("iframe[data-play-stage]");
     const iframeBox = await iframeLocator.boundingBox();
     expect(iframeBox).not.toBeNull();
@@ -503,19 +535,95 @@ test.describe("1440x900", () => {
 
     const startX = iframeBox.x + trigBox.x + trigBox.width / 2;
     const startY = iframeBox.y + trigBox.y + trigBox.height / 2;
+    const centerX = iframeBox.x + iframeBox.width / 2;
+    const centerY = iframeBox.y + iframeBox.height / 2;
 
     await page.mouse.move(startX, startY);
     await page.mouse.down();
-    await page.mouse.move(iframeBox.x + 80, iframeBox.y + 80, { steps: 12 });
+    await page.mouse.move(centerX, centerY, { steps: 12 });
     await page.mouse.up();
 
     await expect(page.getByLabel("Anchor", { exact: true })).toHaveValue(
-      "top-left",
+      "center",
       { timeout: 5000 },
     );
     await expect(page.locator('pre[data-play-output="jsx"]')).toContainText(
-      'defaultAnchor="top-left"',
+      'defaultAnchor="center"',
     );
+
+    // A broken (looping) build could transiently pass through "center" and
+    // still satisfy toHaveValue above — wait past the loop window, then
+    // require exactly one report and prove the value and position are
+    // stable, not merely observed once.
+    await page.waitForTimeout(1000);
+    expect(await readAnchorMessages(page)).toEqual(["center"]);
+
+    const boxesPromise = sampleTriggerSurfaceBoxes(stageFrame, 500);
+    for (let i = 0; i < 10; i++) {
+      await expect(page.getByLabel("Anchor", { exact: true })).toHaveValue(
+        "center",
+      );
+      await page.waitForTimeout(50);
+    }
+    expectBoxesStill(await boxesPromise);
+    expect(await readAnchorMessages(page)).toEqual(["center"]);
+  });
+
+  test("play-ui: desktop Anchor dropdown commands the specimen without echoing a report, and holds while the sheet is open", async ({
+    page,
+  }) => {
+    await installAnchorMessageRecorder(page);
+    const frame = await gotoPlay(page);
+
+    const trigger = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+
+    // Closed: the command applies immediately and never posts an :anchor
+    // report — only a drag reports.
+    await page.getByLabel("Anchor", { exact: true }).selectOption("top-left");
+    await expect
+      .poll(async () => {
+        const box = await trigger.boundingBox();
+        return box ? box.x < 150 && box.y < 150 : false;
+      })
+      .toBe(true);
+    await page.waitForTimeout(500);
+    expect(await readAnchorMessages(page)).toEqual([]);
+
+    // Open: the command is held, not applied, until the sheet closes.
+    await frame
+      .getByRole("button", { name: "Open sheet", exact: true })
+      .click();
+    const sheet = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="sheet"]',
+    );
+    await expect(sheet).toBeVisible();
+
+    await page
+      .getByLabel("Anchor", { exact: true })
+      .selectOption("bottom-right");
+    await page.waitForTimeout(300);
+    const boxWhileOpen = await trigger.boundingBox();
+    expect(boxWhileOpen).not.toBeNull();
+    if (boxWhileOpen) {
+      expect(boxWhileOpen.x).toBeLessThan(150);
+      expect(boxWhileOpen.y).toBeLessThan(150);
+    }
+
+    await frame.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(sheet).toHaveCount(0, { timeout: 5000 });
+    await expect
+      .poll(async () => {
+        const box = await trigger.boundingBox();
+        const vp = page.viewportSize();
+        return box && vp
+          ? box.x > vp.width / 2 && box.y > vp.height / 2
+          : false;
+      })
+      .toBe(true);
+
+    expect(await readAnchorMessages(page)).toEqual([]);
   });
 
   test("play-ui: desktop Copy JSX writes the JSX pane to the clipboard", async ({
