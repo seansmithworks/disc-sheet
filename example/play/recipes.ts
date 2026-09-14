@@ -321,6 +321,11 @@ const GRID_RECIPE: Recipe = {
   outline-offset: -2px;
 }
 
+.vs-grid-label {
+  color: var(--vista-sheet-text);
+  font-size: 12px;
+}
+
 .vs-grid-glyph {
   width: 44px;
   height: 44px;

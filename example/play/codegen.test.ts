@@ -93,13 +93,7 @@ function collectClassNames(node: PlayNode, out: Set<string>): void {
  * pure structural/theme-scoping class). Each entry needs a one-line reason;
  * an empty allowlist is the expected, healthy state.
  */
-const CLASSNAME_ALLOWLIST: Record<string, string> = {
-  // Pre-existing orphan (present at 44aa28d, unrelated to Bug A/B): GRID_RECIPE
-  // renders a `vs-grid-label` span but its css has no rule for it. Out of
-  // this task's scope (BACKLOG "noticed"); not fixed here.
-  "vs-grid-label":
-    "GRID_RECIPE has no .vs-grid-label rule; pre-existing, tracked in BACKLOG.",
-};
+const CLASSNAME_ALLOWLIST: Record<string, string> = {};
 
 function hasSelectorFor(css: string, className: string): boolean {
   const escaped = className.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
