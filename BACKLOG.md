@@ -430,7 +430,7 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [x] `6a7e3a7` Design menu: Shadow speed (Very slow 24s … Fast 3s + Variable, rAF-integrated, no phase jumps) · Glow colour + Glow strength with per-palette Light/Medium/Bold · 8 palettes mildest→wildest (Mono, Midnight Purple, Aurora, Rainbow, Neon Gold, Biolume, Demon Pink, Glitch) · warm × dark as a 4-cell CSS model (Warm + Dark mode painted cream sheets before) · DialRoot `productionEnabled` (Show dials did nothing on Vercel: dialkit defaults to dev-only). Independent review: pass, no blockers.
 - [x] **DECIDED 2026-09-13 (Sean): "we are taking our strawman and hardening it now."** Tonight's values are decisions, not strawmen: 90ms stagger, palettes + strengths, speed steps, warm dark hexes. Older strawmen (snappy/gentle) stay marked.
 - [x] carried — `e59c7a2` WIP: F1 `<VistaSheet.Shadow asChild>` overwrote the child's ref (package defect, `src/Shadow.tsx` cloneElement) → composed + `src/Shadow.test.ts`; F2 reduced-motion subscribed live; F3 labels hardened; F4 demo uses a ref. UNVERIFIED (see first item).
-- [ ] carried — deploy the demo (Sean's explicit go per deploy; `vercel deploy` → `vercel promote`).
+- [x] carried — deploy the demo (Sean's explicit go per deploy; `vercel deploy` → `vercel promote`). → deployed 2dfe523, see VistaSheet afternoon section.
 - [ ] parked — stagger length scales with Item count: Design menu 9 rows → last row ~0.92s (was ~0.52s), list example ~0.65s (arithmetic, not measured). If long sheets feel slow, cap total stagger rather than shrink the interval.
 - [ ] parked — design-settings button draggable (unchanged, see above).
 
@@ -470,9 +470,13 @@ Root cause: two painters (`<MorphSheet.Shadow>` + `.sheet[data-morph-sheet-settl
 - [ ] noted — stray RUN END ledger commit `9ad603e` on `v02/p4-media` (outside the P3 stack; harmless).
 - [x] found — media ratio self-check flake (failed 2 of 3 full runs under load): sampler now ends on the sheet's settled signal, not wall clock (`673a9a1`).
 - [x] found — orchestrator gates at `eb3d0dd`: vitest 177 · tsc 6 (baseline) · audit PASS · build+banner PASS · geometry 252/252 · perf PASS (load ~8, warning).
-- [ ] awaiting Sean — DialKit "Iridescent shadow" values he shared (Neon Gold, opacity 0.22, length 161, blur 69, saturation 1.40, spin 16s; crossfade 0–0.25) differ from the Neon Gold preset in `example/main.tsx:293` (0.30–0.60 / 42–60 / 32–46 / 10s); strawman: bake in as Neon Gold defaults. Not started.
+- [x] awaiting Sean — DialKit "Iridescent shadow" values he shared (Neon Gold, opacity 0.22, length 161, blur 69, saturation 1.40, spin 16s; crossfade 0–0.25) differ from the Neon Gold preset in `example/main.tsx:293` (0.30–0.60 / 42–60 / 32–46 / 10s); strawman: bake in as Neon Gold defaults. → baked in 2dfe523 (Bold 0.22/161/69, Medium 0.17/140/60, Light 0.11/113/48 — Light/Medium scaled by old ratios, strawman; spin 16s = Slow step; crossfade already 0–0.25).
 - [ ] noticed — playground iframe fully reloads when the window crosses the 900px breakpoint (iframe moves position in the page).
 - [ ] noticed — demo settings sheet uses the same whole-JSX key remount pattern (`example/main.tsx:750`).
 - [ ] noticed — `example/play/render.tsx` type+ordinal keys still shift same-type siblings (Item lists) on middle removal; unreachable by current controls.
 - [ ] noticed — copy-output identity after `58b0097` holds by construction only; `play-copy.spec.ts` checks substrings, not full output.
 - [ ] noticed — `58b0097` commit message says "32/32 (18 baseline + 2 new)"; real count was 20/20.
+- [x] v0.2 stack fast-forwarded into main (Sean's go, 2026-09-13): main 973cc2f → c10def5 → 2dfe523, pushed. Not merged on purpose: v02/p4-media's 9ad603e (stale "P3 stopped" ledger line) and v02/sheet-radius-48's 52b4070 (WIP superseded by f5a3a8f).
+- [x] Old branches deleted locally and on origin (Sean's go): v02/p1-playground, v02/p2-shapes, v02/p3-buttons, v02/p4-media, v02/sheet-radius-48, feat/customization-parity.
+- [x] Demo deployed to production from main @ 2dfe523 (Sean ran the CLI; the auto-mode classifier blocks vercel deploy and self-edits to permissions): https://vista-sheet.vercel.app serves index-DWTJnWuG.css (48px) + main-BQfH1qgx.js (Neon Gold 161). Deployment dpl_XXgwjYXsnggseCVfzTZgr4tnHdfS.
+- [ ] noticed — to let Claude deploy without Sean pasting the CLI, Sean adds `Bash(vercel link *)` and `Bash(vercel deploy *)` via /permissions (Claude is blocked from editing its own permission files).
