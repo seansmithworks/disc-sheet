@@ -38,7 +38,9 @@ function AnchorCommand({
     // so this flag brackets exactly the one report a command's own
     // setAnchor call would otherwise trigger — the report belongs to a
     // drag, and echoing a command back as a report is the loop this fix
-    // removes.
+    // removes. Relies on the play app not rendering under StrictMode
+    // (double-invoked effects would double-fire setAnchor and desync the
+    // flag from the report it's meant to bracket).
     applyingRef.current = true;
     setAnchor(pending);
     applyingRef.current = false;
