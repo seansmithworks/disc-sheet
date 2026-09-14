@@ -4,12 +4,12 @@ name: "vista-sheet — Design System"
 preset: refined-minimal
 colors:
   # Package defaults (README theming table; consumers override via --vista-sheet-* vars)
-  surface: "#faf7f2"
-  surfaceElevated: "#f4f0e8"
-  border: "#e6dfd2"
-  textPrimary: "#1a1610"
-  accent: "#b4512e"
-  # Example pages (neutral override, example/example.css)
+  surface: "#fafafa"
+  surfaceElevated: "#ffffff"
+  border: "#e5e5e5"
+  textPrimary: "#1d1d1f"
+  accent: "#1d1d1f"
+  # Example pages (match the package defaults, example/example.css)
   exampleBackground: "#f5f5f7"
   exampleSurface: "#fafafa"
   exampleSurfaceElevated: "#ffffff"
@@ -17,6 +17,12 @@ colors:
   exampleTextPrimary: "#1d1d1f"
   exampleTextSecondary: "#6e6e73"
   exampleAccent: "#1d1d1f"
+  # Warm palette (alternate, no longer the package default)
+  warmSurface: "#faf7f2"
+  warmSurfaceElevated: "#f4f0e8"
+  warmBorder: "#e6dfd2"
+  warmTextPrimary: "#1a1610"
+  warmAccent: "#1a1610"
 rounded:
   sheet: "48px"
   trigger: "9999px"
@@ -52,7 +58,7 @@ Preset `refined-minimal`, with motion governed by §4 below instead of the prese
 
 ## 1. Visual Theme
 
-A bare disc that becomes a sheet. Everything else on screen is quiet so the morph is the only event. Warm paper by default (the seansmithdesign.com origin); the example pages go neutral so the motion, not the palette, is what a viewer reads.
+A bare disc that becomes a sheet. Everything else on screen is quiet so the morph is the only event. Neutral by default, so the motion, not the palette, is what a viewer reads; Warm paper (the seansmithdesign.com origin) is an alternate palette a consumer opts into.
 
 - Near-monochrome. One accent, used only for focus rings.
 - Whitespace and a hairline border carry structure; the sheet's one shadow is the only substantial shadow on the page.
@@ -60,14 +66,14 @@ A bare disc that becomes a sheet. Everything else on screen is quiet so the morp
 
 ## 2. Color
 
-| Role | Package default | Example pages |
-| --- | --- | --- |
-| Surface (trigger) | `#faf7f2` | `#fafafa` |
-| Surface, elevated (sheet) | `#f4f0e8` | `#ffffff` |
-| Border | `#e6dfd2` | `#e5e5e5` |
-| Text | `#1a1610` | `#1d1d1f` |
-| Accent (focus ring only) | `#b4512e` | `#1d1d1f` |
-| Page background | consumer's | `#f5f5f7` |
+| Role | Package default | Example pages | Warm palette |
+| --- | --- | --- | --- |
+| Surface (trigger) | `#fafafa` | `#fafafa` | `#faf7f2` |
+| Surface, elevated (sheet) | `#ffffff` | `#ffffff` | `#f4f0e8` |
+| Border | `#e5e5e5` | `#e5e5e5` | `#e6dfd2` |
+| Text | `#1d1d1f` | `#1d1d1f` | `#1a1610` |
+| Accent (focus ring only) | `#1d1d1f` | `#1d1d1f` | `#1a1610` |
+| Page background | consumer's | `#f5f5f7` | consumer's |
 
 Consumers override with `--vista-sheet-*` custom properties. Never add a hex to `src/styles.module.css` that is not a `var()` fallback.
 

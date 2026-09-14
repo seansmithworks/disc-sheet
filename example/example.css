@@ -7,7 +7,7 @@
  * never package defects (review finding E2).
  */
 
-/* Neutral palette for this page, overriding the package's warm defaults. */
+/* Neutral palette for this page — matches the package's own neutral defaults. */
 :root {
   --vista-sheet-surface: #fafafa;
   --vista-sheet-surface-elevated: #ffffff;
@@ -87,10 +87,10 @@ body[data-dark-mode="true"] {
   --demo-text-muted: #a1a1a6;
 }
 
-/* Warm surface — package defaults (DESIGN.md "Package defaults" column).
- * Set on body (not an inline style on `.page`, bug fix 2026-09-13): an
- * inline custom property always wins the cascade over
- * body[data-dark-mode]'s dark tokens above, which made Warm + Dark mode
+/* Warm surface — an alternate palette (DESIGN.md "Warm palette" column), no
+ * longer the package default. Set on body (not an inline style on `.page`,
+ * bug fix 2026-09-13): an inline custom property always wins the cascade
+ * over body[data-dark-mode]'s dark tokens above, which made Warm + Dark mode
  * paint cream sheets on a black page. The palette now resolves from the
  * (surface × darkMode) pair as four cells — this one, the neutral :root
  * default, the neutral dark cell above, and the warm dark cell below —
@@ -100,7 +100,7 @@ body[data-surface="warm"] {
   --vista-sheet-surface-elevated: #f4f0e8;
   --vista-sheet-surface-border: #e6dfd2;
   --vista-sheet-text: #1a1610;
-  --vista-sheet-accent: #b4512e;
+  --vista-sheet-accent: #1a1610;
 }
 
 /* Warm + Dark mode — chosen 2026-09-13. Same warm hue family as the light

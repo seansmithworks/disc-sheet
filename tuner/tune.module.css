@@ -197,6 +197,6 @@
 
   /* Outline always on; fill alpha is dialled (--avatar-fill, 0 = see-through)
      so the shell's box stays visible behind the avatar while tuning. */
-  border: 2px solid #b4512e;
-  background: rgba(180, 81, 46, var(--avatar-fill, 0.2));
+  border: 2px solid #1d1d1f;
+  background: rgba(29, 29, 31, var(--avatar-fill, 0.2));
 }

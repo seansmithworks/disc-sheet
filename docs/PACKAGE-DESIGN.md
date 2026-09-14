@@ -306,11 +306,11 @@ Every variable is `--vista-sheet-*` and every one has a hardcoded fallback in th
 
 | Package variable | Default (fallback baked in the CSS) | Current site variable |
 | --- | --- | --- |
-| `--vista-sheet-surface` | `#faf7f2` | `--color-paper` |
-| `--vista-sheet-surface-elevated` | `#f4f0e8` | `--color-paper-soft` (midnight sheet fill) |
-| `--vista-sheet-surface-border` | `#e6dfd2` | `--color-paper-edge` |
-| `--vista-sheet-text` | `#1a1610` | `--color-ink` |
-| `--vista-sheet-accent` | `#b4512e` | `--color-accent` (focus ring only) |
+| `--vista-sheet-surface` | `#fafafa` | `--color-paper` |
+| `--vista-sheet-surface-elevated` | `#ffffff` | `--color-paper-soft` (midnight sheet fill) |
+| `--vista-sheet-surface-border` | `#e5e5e5` | `--color-paper-edge` |
+| `--vista-sheet-text` | `#1d1d1f` | `--color-ink` |
+| `--vista-sheet-accent` | `#1d1d1f` | `--color-accent` (focus ring only) |
 | `--vista-sheet-sheet-max-width` | `480px` | `--contact-sheet-max-width` |
 | `--vista-sheet-shared-size` | matches `--vista-sheet-trigger-size` | `--contact-portrait-size` |
 | `--vista-sheet-sheet-radius` | `48px` | `tuning.sheetRadius` |

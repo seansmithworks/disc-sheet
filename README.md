@@ -139,7 +139,7 @@ export default function ContactTrigger() {
             style={{
               width: "100%",
               height: "100%",
-              background: "#b4512e",
+              background: "#1d1d1f",
             }}
           />
         </VistaSheet.Shared>
@@ -151,7 +151,7 @@ export default function ContactTrigger() {
             style={{
               width: "100%",
               height: "100%",
-              background: "#b4512e",
+              background: "#1d1d1f",
             }}
           />
         </VistaSheet.Shared>
@@ -338,11 +338,11 @@ package renders correctly out of the box:
 
 | Variable | Default |
 | --- | --- |
-| `--vista-sheet-surface` | `#faf7f2` |
-| `--vista-sheet-surface-elevated` | `#f4f0e8` |
-| `--vista-sheet-surface-border` | `#e6dfd2` |
-| `--vista-sheet-text` | `#1a1610` |
-| `--vista-sheet-accent` | `#b4512e` |
+| `--vista-sheet-surface` | `#fafafa` |
+| `--vista-sheet-surface-elevated` | `#ffffff` |
+| `--vista-sheet-surface-border` | `#e5e5e5` |
+| `--vista-sheet-text` | `#1d1d1f` |
+| `--vista-sheet-accent` | `#1d1d1f` |
 | `--vista-sheet-sheet-max-width` | `480px` |
 | `--vista-sheet-shared-size` | matches `--vista-sheet-trigger-size` |
 | `--vista-sheet-sheet-radius` | `48px` |

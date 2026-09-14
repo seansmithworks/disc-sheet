@@ -55,7 +55,7 @@
 }
 
 .triggerButton:focus-visible {
-  outline: 2px solid var(--vista-sheet-accent, #b4512e);
+  outline: 2px solid var(--vista-sheet-accent, #1d1d1f);
   outline-offset: 5px;
   border-radius: var(--vista-sheet-trigger-radius, 9999px);
 }
@@ -77,11 +77,11 @@
    * way. */
   z-index: -1;
   border-radius: var(--vista-sheet-trigger-radius, 9999px);
-  background: var(--vista-sheet-surface, #faf7f2);
+  background: var(--vista-sheet-surface, #fafafa);
   /* 2px, not 1px — .shared[data-vista-sheet-slot="trigger"]'s inset:2px exists to
    * expose exactly this ring; the two must agree or the ring reads as
    * lopsided. */
-  border: 2px solid var(--vista-sheet-surface-border, #e6dfd2);
+  border: 2px solid var(--vista-sheet-surface-border, #e5e5e5);
   /* No box-shadow here: <VistaSheet.Shadow> paints the silhouette shadow
    * (docs/PACKAGE-DESIGN.md §4). This surface used to carry the same shadow
    * too, so the resting disc painted it twice and the first frame of every
@@ -182,8 +182,8 @@
   height: fit-content;
   display: flex;
   flex-direction: column;
-  background: var(--vista-sheet-surface-elevated, #f4f0e8);
-  border: 1px solid var(--vista-sheet-surface-border, #e6dfd2);
+  background: var(--vista-sheet-surface-elevated, #ffffff);
+  border: 1px solid var(--vista-sheet-surface-border, #e5e5e5);
   /* Motion's inline borderRadius MotionValue (Sheet.tsx) wins during the
    * morph; this supplies the resting shape AND the reduced-motion shape,
    * which never gets an inline value at all (its render branch passes no
@@ -204,7 +204,7 @@
    * over this. Matches the default anchor (bottom-center). */
   max-height: 88dvh;
   overflow: hidden;
-  color: var(--vista-sheet-text, #1a1610);
+  color: var(--vista-sheet-text, #1d1d1f);
 }
 
 .sheet:focus {
@@ -240,14 +240,14 @@
   border: none;
   border-radius: 50%;
   background: transparent;
-  color: var(--vista-sheet-text, #1a1610);
+  color: var(--vista-sheet-text, #1d1d1f);
   cursor: pointer;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
 .closeButton:focus-visible {
-  outline: 2px solid var(--vista-sheet-accent, #b4512e);
+  outline: 2px solid var(--vista-sheet-accent, #1d1d1f);
   outline-offset: 2px;
 }
 
@@ -396,7 +396,7 @@
   gap: 8px;
   white-space: nowrap;
   font: inherit;
-  color: var(--vista-sheet-text, #1a1610);
+  color: var(--vista-sheet-text, #1d1d1f);
 }
 
 .triggerButton[data-vista-sheet-shape="rectangle"][data-vista-sheet-button-size="s"] {

@@ -32,13 +32,13 @@ export interface PlayState {
   buttonWidth: ButtonWidthOption;
 }
 
-/** README theming-table defaults (package defaults, "Warm" palette). */
+/** README theming-table defaults (package defaults, "Neutral" palette). */
 export const PACKAGE_DEFAULTS = {
-  surface: "#faf7f2",
-  surfaceElevated: "#f4f0e8",
-  border: "#e6dfd2",
-  text: "#1a1610",
-  accent: "#b4512e",
+  surface: "#fafafa",
+  surfaceElevated: "#ffffff",
+  border: "#e5e5e5",
+  text: "#1d1d1f",
+  accent: "#1d1d1f",
   triggerShadow:
     "0 1px 4px rgba(26, 22, 16, 0.14), 0 6px 24px rgba(0, 0, 0, 0.15)",
   sheetShadow: "0 8px 48px rgba(0, 0, 0, 0.24), 0 2px 8px rgba(0, 0, 0, 0.12)",
@@ -79,7 +79,7 @@ const DARK_SHADOW =
 const DARK_SHEET_SHADOW =
   "0 8px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35)";
 
-// Strawman (v0.2): "Warm" is the default palette because it equals the
+// Strawman (v0.2): "Neutral" is the default palette because it equals the
 // package's own README defaults — the first copy the playground shows has
 // no var-override block at all, which is the clearest possible starting
 // point for a stranger reading the copied CSS.
@@ -87,11 +87,11 @@ export const PALETTES: Record<PaletteId, PaletteDef> = {
   warm: {
     label: "Warm",
     ground: "#eeede8",
-    surface: PACKAGE_DEFAULTS.surface,
-    surfaceElevated: PACKAGE_DEFAULTS.surfaceElevated,
-    border: PACKAGE_DEFAULTS.border,
-    text: PACKAGE_DEFAULTS.text,
-    accent: PACKAGE_DEFAULTS.accent,
+    surface: "#faf7f2",
+    surfaceElevated: "#f4f0e8",
+    border: "#e6dfd2",
+    text: "#1a1610",
+    accent: "#1a1610",
     triggerShadow: PACKAGE_DEFAULTS.triggerShadow,
     sheetShadow: PACKAGE_DEFAULTS.sheetShadow,
   },
@@ -142,14 +142,14 @@ export const DEFAULT_STATE: PlayState = {
   dismissOnBackdrop: true,
   sheetRadius: 48,
   sheetPadding: 24,
-  palette: "warm",
-  surface: PALETTES.warm.surface,
-  surfaceElevated: PALETTES.warm.surfaceElevated,
-  border: PALETTES.warm.border,
-  text: PALETTES.warm.text,
-  accent: PALETTES.warm.accent,
-  triggerShadow: PALETTES.warm.triggerShadow,
-  sheetShadow: PALETTES.warm.sheetShadow,
+  palette: "neutral",
+  surface: PALETTES.neutral.surface,
+  surfaceElevated: PALETTES.neutral.surfaceElevated,
+  border: PALETTES.neutral.border,
+  text: PALETTES.neutral.text,
+  accent: PALETTES.neutral.accent,
+  triggerShadow: PALETTES.neutral.triggerShadow,
+  sheetShadow: PALETTES.neutral.sheetShadow,
   buttonSize: "m",
   buttonContent: "icon-text",
   buttonWidth: "label",
