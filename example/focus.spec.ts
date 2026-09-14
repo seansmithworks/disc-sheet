@@ -2,9 +2,11 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * focus.spec.ts — N2 (wave.md "### N2"): the Tab trap owns every focusable
- * control (form fields included, disabled/hidden excluded), initial focus
- * goes to the sheet's first text-entry control once it settles, and the
- * trap/scroll-lock/aria-hiding all outlive `open` through the close
+ * control (form fields included, disabled/hidden excluded), the panel holds
+ * initial focus by default and `Sheet initialFocus` is the opt-in escape
+ * hatch (Search and Chat's recipes emit it — see the "search recipe:"
+ * describe block below, which drives the real playground/recipe path), and
+ * the trap/scroll-lock/aria-hiding all outlive `open` through the close
  * animation. Runs against example/fixtures/focus.tsx — a fixture built
  * specifically so its tab order can't be discovered from the trap's own
  * selector (see the comment on the fixture's trailing <input>).
@@ -13,8 +15,13 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 const TRIGGER_LABEL = "Open focus fixture";
 const CLOSE_LABEL = "Close";
 
-async function openFixture(page: Page): Promise<Locator> {
-  await page.goto("/fixtures/focus.html");
+async function openFixture(
+  page: Page,
+  { initialFocus = false }: { initialFocus?: boolean } = {},
+): Promise<Locator> {
+  await page.goto(
+    initialFocus ? "/fixtures/focus.html?initialFocus" : "/fixtures/focus.html",
+  );
   await page.getByRole("button", { name: TRIGGER_LABEL }).click();
   const sheet = page.locator('[data-vista-sheet-part="sheet"]');
   await sheet.waitFor();
@@ -30,15 +37,30 @@ async function waitForSettle(page: Page, sheet: Locator): Promise<void> {
 }
 
 test.describe("N2 focus model", () => {
-  test("initial focus: settles on the sheet's first text-entry control, not the panel", async ({
+  test("initial focus: without an initialFocus prop, the panel keeps focus at settle, not any control", async ({
     page,
   }) => {
     const sheet = await openFixture(page);
     await waitForSettle(page, sheet);
 
-    // Notes (<textarea>) is the first text-entry control in DOM order —
-    // ahead of the <select> and the trailing <input>.
-    await expect(sheet.getByTestId("field-textarea")).toBeFocused();
+    // The opt-in default (wave.md: "The panel gets focus at the open
+    // commit... skipped if focus is already inside") — no auto-focus onto
+    // the first text-entry control or anything else.
+    await expect(sheet).toBeFocused();
+    await expect(sheet.getByTestId("field-textarea")).not.toBeFocused();
+  });
+
+  test("initialFocus prop: a sheet with the prop settles focus on that target control, not the first one", async ({
+    page,
+  }) => {
+    const sheet = await openFixture(page, { initialFocus: true });
+    await waitForSettle(page, sheet);
+
+    // The fixture points initialFocus at field-input, the LAST control in
+    // tab order — proves the prop targets whatever ref it's given, not
+    // coincidentally the first tabbable (which is field-textarea, per the
+    // traversal test below).
+    await expect(sheet.getByTestId("field-input")).toBeFocused();
   });
 
   test("Tab and Shift+Tab visit every visible enabled control in DOM order and wrap, never leaving the panel", async ({
@@ -53,20 +75,14 @@ test.describe("N2 focus model", () => {
     const select = sheet.getByTestId("field-select");
     const input = sheet.getByTestId("field-input");
 
-    // Settle already left focus on the textarea (first text-entry control).
-    await expect(textarea).toBeFocused();
+    // Settle leaves focus on the panel itself (no initialFocus prop here).
+    await expect(sheet).toBeFocused();
 
+    // DOM order: Close, then Content (tabbable while it overflows), then
+    // the fields inside it. The disabled button and the display:none link
+    // sit between select and input in the DOM (see the fixture) — Tab from
+    // select must skip both and land on input directly, not stop on either.
     await page.keyboard.press("Tab");
-    await expect(select).toBeFocused();
-
-    await page.keyboard.press("Tab");
-    await expect(input).toBeFocused();
-
-    // The disabled button and the display:none link sit between select and
-    // input in the DOM (see the fixture) — Tab from select must skip both
-    // and land on input directly, not stop on either.
-    await page.keyboard.press("Tab");
-    // Wraps past the end of the sequence back to the start.
     await expect(close).toBeFocused();
 
     await page.keyboard.press("Tab");
@@ -75,7 +91,26 @@ test.describe("N2 focus model", () => {
     await page.keyboard.press("Tab");
     await expect(textarea).toBeFocused();
 
+    await page.keyboard.press("Tab");
+    await expect(select).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(input).toBeFocused();
+
+    // Wraps past the end of the sequence back to the start.
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
+
     // Shift+Tab reverses the exact same sequence.
+    await page.keyboard.press("Shift+Tab");
+    await expect(input).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(select).toBeFocused();
+
+    await page.keyboard.press("Shift+Tab");
+    await expect(textarea).toBeFocused();
+
     await page.keyboard.press("Shift+Tab");
     await expect(content).toBeFocused();
 
@@ -87,6 +122,43 @@ test.describe("N2 focus model", () => {
     await expect(input).toBeFocused();
   });
 
+  test("Close reveals immediately on keyboard focus, even before the open spring settles", async ({
+    page,
+  }) => {
+    await page.goto("/fixtures/focus.html");
+    await page.getByRole("button", { name: TRIGGER_LABEL }).click();
+    const sheet = page.locator('[data-vista-sheet-part="sheet"]');
+    await sheet.waitFor();
+
+    // This only exercises the intended race if the open hasn't already
+    // settled by the time we get here — data-vista-sheet-settled flips at
+    // the exact same collapseProgress threshold Close's own natural reveal
+    // uses, so if it's already present the settle-triggered reveal and a
+    // focus-triggered reveal are indistinguishable and this assertion
+    // catches that rather than passing by accident.
+    await expect(sheet).not.toHaveAttribute("data-vista-sheet-settled", "");
+
+    const close = sheet.getByRole("button", { name: CLOSE_LABEL });
+    // Tab to Close immediately, before waiting for settle — the panel holds
+    // focus at the open commit, so a single Tab reaches Close (first in DOM
+    // order) while the open spring is very likely still animating.
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
+
+    // Still pre-settle: confirm the race window is genuinely still open,
+    // then require Close to already be revealing (opacity above 0, not
+    // pinned there waiting for the spring) — a check on inline opacity
+    // rather than "eventually reaches 1", which any settle-triggered reveal
+    // satisfies too and proves nothing about focus.
+    await expect(sheet).not.toHaveAttribute("data-vista-sheet-settled", "");
+    await expect(async () => {
+      const opacity = await close.evaluate((el) =>
+        Number(getComputedStyle(el).opacity),
+      );
+      expect(opacity).toBeGreaterThan(0);
+    }).toPass({ timeout: 200 });
+  });
+
   test("PageDown scrolls the content region once it holds focus", async ({
     page,
   }) => {
@@ -94,15 +166,8 @@ test.describe("N2 focus model", () => {
     await waitForSettle(page, sheet);
 
     const content = sheet.locator('[data-vista-sheet-part="content"]');
-    // Tab from the settled textarea, through select/input, wraps to close,
-    // then content — see the order test above. Tabbing through the fields
-    // already scrolled the region close to its bottom (the browser's own
-    // focus-follows-scroll behaviour, nothing to do with the trap) — reset
-    // to the top so the assertion below is actually exercising PageDown,
-    // not just observing scroll position Tab happened to leave behind.
-    await page.keyboard.press("Tab"); // -> select
-    await page.keyboard.press("Tab"); // -> input
-    await page.keyboard.press("Tab"); // -> close (wrap)
+    // From the settled panel: Tab -> close -> content.
+    await page.keyboard.press("Tab"); // -> close
     await page.keyboard.press("Tab"); // -> content
     await expect(content).toBeFocused();
     await content.evaluate((el) => {
@@ -143,5 +208,45 @@ test.describe("N2 focus model", () => {
     await sheet.waitFor({ state: "detached", timeout: 5000 });
 
     await expect(trigger).toBeFocused();
+  });
+});
+
+test.describe("N2 focus model: search recipe (real playground path)", () => {
+  test("Search's field is focused after settle", async ({ page }) => {
+    // Drives the actual playground page + Search recipe (not a fixture
+    // stand-in) — proves recipes.ts + codegen.ts's real wiring, not just
+    // useDialogBehavior in isolation.
+    await page.goto("/play.html");
+    await expect(page.locator("[data-play-shell]")).toBeVisible();
+    const frame = page.frameLocator("iframe[data-play-stage]");
+    const trigger = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="trigger"]',
+    );
+    await expect(trigger).toBeVisible();
+
+    await page.getByLabel("Recipe", { exact: true }).selectOption("search");
+    await frame
+      .getByRole("button", { name: "Open search", exact: true })
+      .click();
+
+    const sheet = frame.locator(
+      '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="sheet"]',
+    );
+    await expect(sheet).toBeVisible();
+
+    const stageFrame = page.frame({ url: /stage=1/ });
+    expect(stageFrame).not.toBeNull();
+    if (!stageFrame) return;
+    await stageFrame.waitForFunction(() => {
+      const el = document.querySelector(
+        '[data-vista-sheet-root="specimen"] [data-vista-sheet-part="sheet"]',
+      );
+      return el?.hasAttribute("data-vista-sheet-settled") ?? false;
+    });
+
+    const searchField = frame.getByPlaceholder(
+      "Search notes, people and files",
+    );
+    await expect(searchField).toBeFocused();
   });
 });

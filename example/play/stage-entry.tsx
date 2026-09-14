@@ -53,6 +53,11 @@ function Stage() {
   const [state, setState] = useState<PlayState | null>(null);
   const [pendingAnchor, setPendingAnchor] = useState<AnchorId | null>(null);
   const applyingCommandRef = useRef(false);
+  // Stable across every re-render (state messages arrive per drag frame) —
+  // renderPlayTree wires this onto whichever field a recipe marks with
+  // INITIAL_FOCUS_PROP (Search, Chat) and onto <VistaSheet.Sheet>'s
+  // `initialFocus`; recipes with no marked field just never populate it.
+  const initialFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     window.parent.postMessage({ type: "vista-sheet-play:ready" }, "*");
@@ -114,6 +119,7 @@ function Stage() {
             applyingRef={applyingCommandRef}
           />,
         ],
+        initialFocusRef,
       )}
     </>
   );

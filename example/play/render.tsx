@@ -1,12 +1,21 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, type ReactNode, type RefObject } from "react";
 import { VistaSheet } from "../../src/index";
-import type { PlayNode } from "./recipes";
+import { INITIAL_FOCUS_PROP, type PlayNode } from "./recipes";
 
 type PropValue = string | number | boolean;
 type RootOverrides = Record<string, unknown>;
 
 function isText(node: PlayNode): node is { text: string } {
   return "text" in node;
+}
+
+/** True if `node` or any descendant carries INITIAL_FOCUS_PROP — computed
+ * once per render so the ancestor <VistaSheet.Sheet> knows to wire
+ * `initialFocus` before the marked descendant is even reached. */
+function hasInitialFocusMarker(node: PlayNode): boolean {
+  if (isText(node)) return false;
+  if (node.props.some(([name]) => name === INITIAL_FOCUS_PROP)) return true;
+  return node.children.some(hasInitialFocusMarker);
 }
 
 function resolveComponent(type: string): unknown {
@@ -40,8 +49,22 @@ export function renderPlayTree(
   node: PlayNode,
   rootOverrides: RootOverrides = {},
   rendererChildren: ReactNode[] = [],
+  /** Wired onto the marked recipe field (INITIAL_FOCUS_PROP) as its DOM ref,
+   * and onto the ancestor <VistaSheet.Sheet> as `initialFocus` — Search and
+   * Chat's recipes are the only ones that mark a field; every other recipe
+   * renders exactly as it did before (the panel keeps focus at settle). */
+  initialFocusRef?: RefObject<HTMLElement | null>,
 ): ReactNode {
-  return renderNode(node, rootOverrides, true, "root", rendererChildren);
+  const needsInitialFocus = hasInitialFocusMarker(node);
+  return renderNode(
+    node,
+    rootOverrides,
+    true,
+    "root",
+    rendererChildren,
+    initialFocusRef,
+    needsInitialFocus,
+  );
 }
 
 /**
@@ -56,19 +79,41 @@ function renderNode(
   isRoot: boolean,
   key: string,
   rendererChildren: ReactNode[],
+  initialFocusRef: RefObject<HTMLElement | null> | undefined,
+  needsInitialFocus: boolean,
 ): ReactNode {
   if (isText(node)) return node.text;
 
+  const marked = node.props.some(([name]) => name === INITIAL_FOCUS_PROP);
+  const domProps = marked
+    ? node.props.filter(([name]) => name !== INITIAL_FOCUS_PROP)
+    : node.props;
   const component = resolveComponent(node.type);
-  const props: Record<string, unknown> = propsToObject(node.props);
+  const props: Record<string, unknown> = propsToObject(domProps);
   if (isRoot) Object.assign(props, rootOverrides);
+  if (marked && initialFocusRef) props.ref = initialFocusRef;
+  if (
+    node.type === "VistaSheet.Sheet" &&
+    needsInitialFocus &&
+    initialFocusRef
+  ) {
+    props.initialFocus = initialFocusRef;
+  }
 
   const seen = new Map<string, number>();
   const children = node.children.map((child) => {
     const kind = isText(child) ? "text" : child.type;
     const ordinal = seen.get(kind) ?? 0;
     seen.set(kind, ordinal + 1);
-    return renderNode(child, rootOverrides, false, `${kind}:${ordinal}`, []);
+    return renderNode(
+      child,
+      rootOverrides,
+      false,
+      `${kind}:${ordinal}`,
+      [],
+      initialFocusRef,
+      needsInitialFocus,
+    );
   });
   if (isRoot) children.push(...rendererChildren);
 

@@ -9,6 +9,17 @@ export type PlayNode =
 export type RecipeId =
   "basic" | "list" | "grid" | "nav" | "media" | "video" | "search" | "chat";
 
+/**
+ * Marks the PlayNode that gets initial focus once the sheet settles (`Sheet
+ * initialFocus`, wave.md "### N2") — Search's search field, Chat's composer
+ * field. A prop on the node itself, not a separate lookup table, so the
+ * marked node travels with `recipe.items` through both the live playground
+ * tree (render.tsx) and the generated copy-in JSX (codegen.ts) without
+ * either one having to know the recipe's shape. Stripped before it ever
+ * reaches the DOM or the printed output — see INITIAL_FOCUS_PROP's readers.
+ */
+export const INITIAL_FOCUS_PROP = "data-vista-play-initial-focus";
+
 export interface RecipeMedia {
   src: string;
   poster: string;
@@ -737,6 +748,7 @@ const SEARCH_RECIPE: Recipe = {
           ["className", "vs-search-field"],
           ["placeholder", "Search notes, people and files"],
           ["aria-label", "Search"],
+          [INITIAL_FOCUS_PROP, true],
         ],
         children: [],
       },
@@ -865,6 +877,7 @@ const CHAT_RECIPE: Recipe = {
               ["className", "vs-chat-field"],
               ["placeholder", "Message"],
               ["aria-label", "Message"],
+              [INITIAL_FOCUS_PROP, true],
             ],
             children: [],
           },

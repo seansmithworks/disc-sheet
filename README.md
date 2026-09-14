@@ -557,11 +557,15 @@ the type checker, as the guard.
   `aria-expanded`, `aria-controls`.
 - `role="dialog"` `aria-modal="true"` sheet; the `Labelled` union makes a
   missing accessible name a type error.
-- Focus lands on the panel on open (not the first control), then moves to
-  the sheet's first text-entry control (an `<input>` of a textual type, a
-  `<textarea>`, or a contenteditable host) once the open settles, if it has
-  one; Escape closes unconditionally, but only while open; focus restores
-  to the trigger on exit-complete, not at state-change.
+- Focus lands on the panel on open and stays there by default. Pass a ref
+  to `Sheet`'s `initialFocus` prop to move focus to that control (a search
+  field, a chat composer) once the open settles instead — opt-in, so opening
+  a sheet never pre-highlights a control on its own. Escape closes
+  unconditionally, but only while open; focus restores to the trigger on
+  exit-complete, not at state-change.
+- `<VistaSheet.Close>` reveals on keyboard focus, not only once the open
+  spring settles — a Tab that reaches it before the sheet has visibly
+  finished arriving still finds a visible control, not an invisible one.
 - Body scroll lock, background `aria-hiding` and the Tab trap all last for
   the whole close animation, not just while `open` is true — they release
   on exit-complete, same as focus restore.

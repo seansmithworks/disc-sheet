@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import type { MotionValue, Transition } from "motion/react";
 import type { AnchorId } from "./anchors";
 import type { TriggerShape, ButtonSize } from "./shape";
@@ -180,6 +180,16 @@ export type SheetProps = Labelled & {
    * sheetMaxWidth and the anchor's max height. A value that is not a finite
    * positive number is ignored. */
   aspectRatio?: number;
+  /**
+   * Focused once the open settles (docs/PACKAGE-DESIGN.md §6). Opt-in: by
+   * default the dialog panel itself keeps focus at the open commit and holds
+   * it, so opening a sheet never pre-highlights a control. Pass a ref at a
+   * text-entry control (a search field, a chat composer) to move focus there
+   * once the sheet has visibly arrived. Skipped if focus has already moved
+   * off the panel by settle time, whether that's the user tabbing away or a
+   * consumer focusing something itself.
+   */
+  initialFocus?: RefObject<HTMLElement | null>;
 };
 
 export interface SharedProps {

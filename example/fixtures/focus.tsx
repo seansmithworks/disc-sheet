@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { createRoot } from "react-dom/client";
 import { VistaSheet } from "../../src/index";
 
@@ -8,7 +9,18 @@ import { VistaSheet } from "../../src/index";
 // controls of its own, so Content's own tab stop (only present while it
 // overflows) is exercised too. Deliberately minimal: no styling, no
 // recipe wiring, just the DOM shapes focus.spec.ts asserts against.
+//
+// `?initialFocus` opts the sheet into `Sheet initialFocus`, pointed at the
+// LAST control (field-input, not the first) — proving the prop targets
+// whatever ref it's given, not just coincidentally the first tabbable.
+// Without the query param, no `initialFocus` prop is passed at all: the
+// panel keeps focus at settle (the opt-in default).
 function App() {
+  const withInitialFocus = new URLSearchParams(window.location.search).has(
+    "initialFocus",
+  );
+  const inputRef = useRef<HTMLInputElement>(null);
+
   return (
     <div className="page">
       <VistaSheet.Root>
@@ -18,7 +30,10 @@ function App() {
           <VistaSheet.Shared>Open</VistaSheet.Shared>
         </VistaSheet.Trigger>
 
-        <VistaSheet.Sheet aria-labelledby="focus-sheet-title">
+        <VistaSheet.Sheet
+          aria-labelledby="focus-sheet-title"
+          initialFocus={withInitialFocus ? inputRef : undefined}
+        >
           <VistaSheet.Shared>Open</VistaSheet.Shared>
 
           <VistaSheet.Close aria-label="Close" />
@@ -73,7 +88,12 @@ function App() {
                 was structurally incapable of catching. */}
             <VistaSheet.Item>
               <label htmlFor="focus-input">Text field</label>
-              <input id="focus-input" type="text" data-testid="field-input" />
+              <input
+                id="focus-input"
+                type="text"
+                data-testid="field-input"
+                ref={inputRef}
+              />
             </VistaSheet.Item>
           </VistaSheet.Content>
         </VistaSheet.Sheet>

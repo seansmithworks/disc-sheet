@@ -3,17 +3,6 @@ import type { RefObject } from "react";
 import type { MotionValue } from "motion/react";
 import { CLOSE_REVEAL_PROGRESS } from "./motion";
 
-const TEXT_INPUT_TYPES = new Set([
-  "text",
-  "search",
-  "email",
-  "url",
-  "tel",
-  "password",
-  "number",
-  "", // <input> with no type attribute defaults to text
-]);
-
 /**
  * Live-DOM tab order (docs/PACKAGE-DESIGN.md §6, code M3/a11y B1 fix). A
  * TreeWalker over every element under `root`, not a fixed selector list —
@@ -55,18 +44,6 @@ function getTabbables(root: HTMLElement): HTMLElement[] {
     node = walker.nextNode();
   }
   return results;
-}
-
-function isTextInput(el: HTMLElement): boolean {
-  if (el instanceof HTMLTextAreaElement) return true;
-  if (el.isContentEditable) return true;
-  if (el instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(el.type);
-  return false;
-}
-
-/** First text-entry control in tab order, or null if the sheet has none. */
-function getInitialFocusTarget(panel: HTMLElement): HTMLElement | null {
-  return getTabbables(panel).find(isTextInput) ?? null;
 }
 
 /**
@@ -119,18 +96,18 @@ function hideOutsideSiblings(target: Element): () => void {
  * down at the request would let Tab walk out of a sheet that is still
  * visibly on screen and still scroll-locking the page underneath.
  *
- * Initial focus lands on the dialog panel itself at the open commit (not
- * the first control), so opening never pre-highlights a link. If the sheet
- * declares a text-entry control (an <input> of a textual type, a
- * <textarea>, or a contenteditable host), focus moves there once the open
- * has settled (collapseProgress <= CLOSE_REVEAL_PROGRESS, the same
- * threshold <Close> reveals on) rather than at the commit — stealing focus
- * into a text field before the sheet has visibly arrived can pop a mobile
- * keyboard mid-morph. Skipped entirely once focus has moved off the panel
- * by settle time, whether that's the user tabbing away or a consumer
- * focusing something itself. Focus restore to the trigger happens on
- * `onExitComplete` (Sheet.tsx), not at the moment `open` flips, so the
- * restore doesn't cause a visible scroll jump mid-close.
+ * Initial focus lands on the dialog panel itself at the open commit and
+ * stays there — opening never pre-highlights a control of its own accord.
+ * `initialFocus` (Sheet.tsx, types.ts) is opt-in: when a consumer passes a
+ * ref, focus moves to that element once the open has settled
+ * (collapseProgress <= CLOSE_REVEAL_PROGRESS, the same threshold <Close>
+ * reveals on) rather than at the commit — stealing focus into a text field
+ * before the sheet has visibly arrived can pop a mobile keyboard mid-morph.
+ * Skipped entirely once focus has moved off the panel by settle time,
+ * whether that's the user tabbing away or a consumer focusing something
+ * itself. Focus restore to the trigger happens on `onExitComplete`
+ * (Sheet.tsx), not at the moment `open` flips, so the restore doesn't cause
+ * a visible scroll jump mid-close.
  */
 export function useDialogBehavior({
   isOpen,
@@ -138,6 +115,7 @@ export function useDialogBehavior({
   panelRef,
   collapseProgress,
   onClose,
+  initialFocus,
 }: {
   isOpen: boolean;
   /** True from the open commit until AnimatePresence's onExitComplete —
@@ -146,6 +124,8 @@ export function useDialogBehavior({
   panelRef: RefObject<HTMLElement | null>;
   collapseProgress: MotionValue<number>;
   onClose: () => void;
+  /** Opt-in target focused at settle; see types.ts SheetProps.initialFocus. */
+  initialFocus?: RefObject<HTMLElement | null>;
 }): void {
   useEffect(() => {
     if (!isPresent || typeof document === "undefined") return;
@@ -203,24 +183,26 @@ export function useDialogBehavior({
       panel.focus({ preventScroll: true });
     };
 
-    const focusInitialTextInput = () => {
+    const focusInitialTarget = () => {
       // Only steal focus off the panel itself: by settle time the user may
       // already have tabbed elsewhere, or a consumer may have focused
       // something of its own, and either one must win.
       if (document.activeElement !== panel) return;
-      getInitialFocusTarget(panel)?.focus({ preventScroll: true });
+      initialFocus?.current?.focus({ preventScroll: true });
     };
 
     focusPanelIfNeeded();
 
+    if (!initialFocus) return;
+
     if (collapseProgress.get() <= CLOSE_REVEAL_PROGRESS) {
-      focusInitialTextInput();
+      focusInitialTarget();
       return;
     }
     return collapseProgress.on("change", (v) => {
-      if (v <= CLOSE_REVEAL_PROGRESS) focusInitialTextInput();
+      if (v <= CLOSE_REVEAL_PROGRESS) focusInitialTarget();
     });
-  }, [isOpen, panelRef, collapseProgress]);
+  }, [isOpen, panelRef, collapseProgress, initialFocus]);
 
   useEffect(() => {
     if (!isPresent) return;

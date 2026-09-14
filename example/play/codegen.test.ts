@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCss, buildSpecimenTree } from "./codegen";
+import { buildCss, buildSpecimenTree, printJsxFile } from "./codegen";
 import { getRecipe, type PlayNode, type RecipeId } from "./recipes";
 import {
   applyPalette,
@@ -197,4 +197,63 @@ describe("chat bubble: surface-on-accent meets WCAG AA (>= 4.5)", () => {
       ).toBeGreaterThanOrEqual(4.5);
     });
   }
+});
+
+// --- N2: `Sheet initialFocus` is opt-in; Search and Chat's recipes are the
+// only two that emit it (wave.md "### N2" — "New `Sheet initialFocus` ref
+// is focused at settle; Search and Chat recipes emit it"). -----------------
+
+describe("codegen: initialFocus ref wiring", () => {
+  it("search: declares the ref, attaches it to the search field, and passes it to Sheet", () => {
+    const state = applyRecipe(DEFAULT_STATE, "search");
+    const jsx = printJsxFile(state);
+
+    expect(jsx).toContain('import { useRef } from "react";');
+    expect(jsx).toContain(
+      "const initialFocusRef = useRef<HTMLInputElement>(null);",
+    );
+    expect(jsx).toContain("ref={initialFocusRef}");
+    expect(jsx).toContain("initialFocus={initialFocusRef}");
+    // The ref lands on the search input specifically, not some other
+    // element — props print one per line when a tag doesn't fit inline, so
+    // find the whole <input ... /> block and check it holds both.
+    const inputStart = jsx.indexOf("<input");
+    const inputBlock = jsx.slice(inputStart, jsx.indexOf("/>", inputStart) + 2);
+    expect(inputBlock).toContain('type="search"');
+    expect(inputBlock).toContain("ref={initialFocusRef}");
+  });
+
+  it("chat: declares the ref, attaches it to the composer field, and passes it to Sheet", () => {
+    const state = applyRecipe(DEFAULT_STATE, "chat");
+    const jsx = printJsxFile(state);
+
+    expect(jsx).toContain('import { useRef } from "react";');
+    expect(jsx).toContain(
+      "const initialFocusRef = useRef<HTMLInputElement>(null);",
+    );
+    expect(jsx).toContain("ref={initialFocusRef}");
+    expect(jsx).toContain("initialFocus={initialFocusRef}");
+    const inputStart = jsx.indexOf("<input");
+    const inputBlock = jsx.slice(inputStart, jsx.indexOf("/>", inputStart) + 2);
+    expect(inputBlock).toContain('aria-label="Message"');
+    expect(inputBlock).toContain("ref={initialFocusRef}");
+  });
+
+  it("every other recipe emits no ref, no useRef import, and no initialFocus prop", () => {
+    const others: RecipeId[] = [
+      "basic",
+      "list",
+      "grid",
+      "nav",
+      "media",
+      "video",
+    ];
+    for (const recipeId of others) {
+      const state = applyRecipe(DEFAULT_STATE, recipeId);
+      const jsx = printJsxFile(state);
+      expect(jsx, recipeId).not.toContain("useRef");
+      expect(jsx, recipeId).not.toContain("initialFocus");
+      expect(jsx, recipeId).not.toContain("ref={");
+    }
+  });
 });

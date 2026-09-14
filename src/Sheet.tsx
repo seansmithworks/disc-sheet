@@ -38,6 +38,7 @@ export function Sheet({
   dismissOnSwipe = true,
   dismissOnBackdrop = true,
   aspectRatio,
+  initialFocus,
   ...labelled
 }: SheetProps) {
   const ctx = useVistaSheetInternal("Sheet");
@@ -83,6 +84,7 @@ export function Sheet({
     panelRef: sheetRef,
     collapseProgress,
     onClose: () => setOpen(false),
+    initialFocus,
   });
 
   // Reset the drag offset on every open — a value left over from the

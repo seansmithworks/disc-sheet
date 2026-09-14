@@ -40,10 +40,15 @@ function DefaultCloseGlyph() {
  * control rendered (docs/PACKAGE-DESIGN.md §1). Escape and backdrop click are
  * not a substitute.
  *
- * Reveals only once the open has finished (collapseProgress reaches
+ * Reveals once the open has finished (collapseProgress reaches
  * CLOSE_REVEAL_PROGRESS): fades in and springs from scale 0 while turning
  * into place. A passive effect, so it reads collapseProgress after Root's
- * layout effect has reset it to 1 for this open.
+ * layout effect has reset it to 1 for this open. Also reveals immediately on
+ * focus — a keyboard user can Tab onto Close before the spring settles (the
+ * panel holds initial focus and the trap's first target is whatever's first
+ * in DOM order), and a focused-but-invisible control (opacity 0, scale 0)
+ * is a defect: still in the tab order, just not visible to a sighted
+ * keyboard user.
  */
 export function Close({ children, className, ...aria }: CloseProps) {
   const ctx = useVistaSheetInternal("Close");
@@ -75,6 +80,7 @@ export function Close({ children, className, ...aria }: CloseProps) {
       className={`${styles.closeButton} ${className ?? ""}`}
       data-vista-sheet-part="close"
       onClick={() => setOpen(false)}
+      onFocus={() => setRevealed(true)}
       initial={hidden}
       animate={revealed ? shown : hidden}
       transition={{

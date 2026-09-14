@@ -1,11 +1,22 @@
 import type { PlayState } from "./state";
-import { getRecipe, type PlayNode } from "./recipes";
+import { getRecipe, INITIAL_FOCUS_PROP, type PlayNode } from "./recipes";
 
 type PropValue = string | number | boolean;
 type ElementNode = Extract<PlayNode, { type: string }>;
 
+const INITIAL_FOCUS_REF_NAME = "initialFocusRef";
+
 function isText(node: PlayNode): node is { text: string } {
   return "text" in node;
+}
+
+/** True if `node` or any descendant carries INITIAL_FOCUS_PROP (Search and
+ * Chat's recipes mark their field; see recipes.ts). Every other recipe's
+ * printed JSX is unaffected — no ref, no import, no `initialFocus` prop. */
+function hasInitialFocusMarker(node: PlayNode): boolean {
+  if (isText(node)) return false;
+  if (node.props.some(([name]) => name === INITIAL_FOCUS_PROP)) return true;
+  return node.children.some(hasInitialFocusMarker);
 }
 
 /**
@@ -144,22 +155,48 @@ function renderText(raw: string): string {
 
 function buildOpeningTagInline(
   tag: string,
-  props: Array<[string, PropValue]>,
+  propStrings: string[],
   selfClose: boolean,
 ): string {
-  const propsStr = props.map((p) => ` ${formatPropPair(p)}`).join("");
+  const propsStr = propStrings.map((p) => ` ${p}`).join("");
   return `<${tag}${propsStr}${selfClose ? " />" : ">"}`;
 }
 
-function printNode(node: PlayNode, indent: number): string[] {
+function printNode(
+  node: PlayNode,
+  indent: number,
+  focusRefName: string | null,
+  treeHasFocus: boolean,
+): string[] {
   if (isText(node)) return [`${" ".repeat(indent)}${renderText(node.text)}`];
-  return printElement(node, indent);
+  return printElement(node, indent, focusRefName, treeHasFocus);
 }
 
-function printElement(node: ElementNode, indent: number): string[] {
+function printElement(
+  node: ElementNode,
+  indent: number,
+  focusRefName: string | null,
+  treeHasFocus: boolean,
+): string[] {
   const { type: tag, props, children } = node;
+  const marked =
+    focusRefName !== null &&
+    props.some(([name]) => name === INITIAL_FOCUS_PROP);
+  const isSheet = tag === "VistaSheet.Sheet";
+
+  const propStrings = props
+    .filter(([name]) => name !== INITIAL_FOCUS_PROP)
+    .map(formatPropPair);
+  // `ref`/`initialFocus` are JS identifiers, not string/number/boolean
+  // PropValues — appended as raw text rather than routed through
+  // formatPropPair, which always quotes or brace-wraps its input.
+  if (marked) propStrings.push(`ref={${focusRefName}}`);
+  if (isSheet && treeHasFocus && focusRefName) {
+    propStrings.push(`initialFocus={${focusRefName}}`);
+  }
+
   const selfClose = children.length === 0;
-  const inlineOpen = buildOpeningTagInline(tag, props, selfClose);
+  const inlineOpen = buildOpeningTagInline(tag, propStrings, selfClose);
   const fitsInline = indent + inlineOpen.length <= 80;
 
   let openLines: string[];
@@ -167,8 +204,8 @@ function printElement(node: ElementNode, indent: number): string[] {
     openLines = [`${" ".repeat(indent)}${inlineOpen}`];
   } else {
     const lines = [`${" ".repeat(indent)}<${tag}`];
-    for (const prop of props) {
-      lines.push(`${" ".repeat(indent + 2)}${formatPropPair(prop)}`);
+    for (const propStr of propStrings) {
+      lines.push(`${" ".repeat(indent + 2)}${propStr}`);
     }
     lines.push(`${" ".repeat(indent)}${selfClose ? "/>" : ">"}`);
     openLines = lines;
@@ -190,7 +227,9 @@ function printElement(node: ElementNode, indent: number): string[] {
   }
 
   const lines = [...openLines];
-  for (const child of children) lines.push(...printNode(child, indent + 2));
+  for (const child of children) {
+    lines.push(...printNode(child, indent + 2, focusRefName, treeHasFocus));
+  }
   lines.push(`${" ".repeat(indent)}</${tag}>`);
   return lines;
 }
@@ -204,21 +243,24 @@ function printElement(node: ElementNode, indent: number): string[] {
  */
 export function printJsxFile(state: PlayState): string {
   const tree = buildSpecimenTree(state);
-  const body = printNode(tree, 4).join("\n");
+  const treeHasFocus = hasInitialFocusMarker(tree);
+  const focusRefName = treeHasFocus ? INITIAL_FOCUS_REF_NAME : null;
+  const body = printNode(tree, 4, focusRefName, treeHasFocus).join("\n");
 
-  return [
-    '"use client";',
-    "",
+  const lines = ['"use client";', ""];
+  if (treeHasFocus) lines.push('import { useRef } from "react";');
+  lines.push(
     'import { VistaSheet } from "@seansmithworks/vista-sheet";',
     "// Styles: paste the CSS output into your global stylesheet.",
     "",
     "export default function VistaSheetExample() {",
-    "  return (",
-    body,
-    "  );",
-    "}",
-    "",
-  ].join("\n");
+  );
+  if (treeHasFocus) {
+    lines.push(`  const ${focusRefName} = useRef<HTMLInputElement>(null);`);
+  }
+  lines.push("  return (", body, "  );", "}", "");
+
+  return lines.join("\n");
 }
 
 // Hard rule (DESIGN.md §4.1 single painter; Motion owns transforms, per
