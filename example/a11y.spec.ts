@@ -124,34 +124,33 @@ test.describe("§6 accessibility contract", () => {
     await sheet.waitFor();
     await page.waitForTimeout(150);
 
-    const focusables = sheet.locator(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    const count = await focusables.count();
-    expect(count).toBeGreaterThan(0);
+    // Named locators for the example sheet's own three controls (Close, two
+    // links — see main.tsx:699-727), not a selector that mirrors the trap's
+    // own `getTabbables()` walk: a locator built from the same selector as
+    // the implementation shifts in lockstep with any regression in that
+    // implementation and can never observe one.
+    const close = sheet.getByRole("button", { name: CLOSE_LABEL });
+    const exampleLink = sheet.getByRole("link", { name: "Example.com" });
+    const githubLink = sheet.getByRole("link", { name: "GitHub" });
 
-    const first = focusables.first();
-    const last = focusables.last();
-
-    // The trap only intercepts Tab/Shift+Tab once focus is ON first/last —
-    // focus starts on the panel itself (§6: "not the first control"), so
+    // Focus starts on the panel itself (§6: "not the first control"), so
     // move there first via an ordinary Tab.
     await page.keyboard.press("Tab");
-    expect(await first.evaluate((el) => document.activeElement === el)).toBe(
-      true,
-    );
+    await expect(close).toBeFocused();
 
-    // Shift+Tab from the first focusable wraps to the last.
-    await page.keyboard.press("Shift+Tab");
-    expect(await last.evaluate((el) => document.activeElement === el)).toBe(
-      true,
-    );
-
-    // Tab from the last focusable wraps to the first.
     await page.keyboard.press("Tab");
-    expect(await first.evaluate((el) => document.activeElement === el)).toBe(
-      true,
-    );
+    await expect(exampleLink).toBeFocused();
+
+    await page.keyboard.press("Tab");
+    await expect(githubLink).toBeFocused();
+
+    // Tab from the last control wraps to the first.
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
+
+    // Shift+Tab from the first control wraps to the last.
+    await page.keyboard.press("Shift+Tab");
+    await expect(githubLink).toBeFocused();
   });
 
   test("body scroll lock: overflow hidden while open, restored on close", async ({

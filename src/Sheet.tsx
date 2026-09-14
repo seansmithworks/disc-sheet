@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { sheetPlacement } from "./anchors";
 import { SlotContext, useVistaSheetInternal } from "./context";
@@ -59,9 +65,23 @@ export function Sheet({
 
   const sheetRef = useRef<HTMLDivElement | null>(null);
 
+  // Outlives `open` through the whole close animation: `open` flips false
+  // the instant a close is REQUESTED, but AnimatePresence keeps the panel
+  // mounted and interactive until onExitComplete below. useDialogBehavior's
+  // scroll lock, background aria-hiding and Tab trap key on this, not on
+  // `open`, so they stay live for exactly as long as the panel is actually
+  // on screen. Seeded from `open` so a defaultOpen mount doesn't need a
+  // first render + effect round trip to become present.
+  const [isPresent, setIsPresent] = useState(open);
+  useEffect(() => {
+    if (open) setIsPresent(true);
+  }, [open]);
+
   useDialogBehavior({
     isOpen: open,
+    isPresent,
     panelRef: sheetRef,
+    collapseProgress,
     onClose: () => setOpen(false),
   });
 
@@ -316,8 +336,11 @@ export function Sheet({
         onExitComplete={() => {
           triggerElRef.current?.focus();
           // Exit-complete is when the close morph is actually done — the
-          // correct moment to drop sheetRect (see the measure effect above).
+          // correct moment to drop sheetRect (see the measure effect above)
+          // and to release the scroll lock / aria-hiding / Tab trap that
+          // isPresent keeps alive through the animation.
           setSheetRect(null);
+          setIsPresent(false);
         }}
       >
         {open && (

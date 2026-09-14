@@ -1,0 +1,85 @@
+import { createRoot } from "react-dom/client";
+import { VistaSheet } from "../../src/index";
+
+// N2 red-proof fixture (wave.md "### N2"): a sheet whose content ends in
+// every control the focus trap has to reason about correctly — a text
+// input, a textarea, a select, a disabled button (excluded), a
+// display:none link (excluded) — plus 3000px of plain content with no
+// controls of its own, so Content's own tab stop (only present while it
+// overflows) is exercised too. Deliberately minimal: no styling, no
+// recipe wiring, just the DOM shapes focus.spec.ts asserts against.
+function App() {
+  return (
+    <div className="page">
+      <VistaSheet.Root>
+        <VistaSheet.Shadow />
+
+        <VistaSheet.Trigger aria-label="Open focus fixture">
+          <VistaSheet.Shared>Open</VistaSheet.Shared>
+        </VistaSheet.Trigger>
+
+        <VistaSheet.Sheet aria-labelledby="focus-sheet-title">
+          <VistaSheet.Shared>Open</VistaSheet.Shared>
+
+          <VistaSheet.Close aria-label="Close" />
+
+          <VistaSheet.Content>
+            <VistaSheet.Item>
+              <h2 id="focus-sheet-title">Focus fixture</h2>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <div style={{ height: 3000 }} data-testid="long-content">
+                3000px of plain content with no controls of its own.
+              </div>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <label htmlFor="focus-textarea">Notes</label>
+              <textarea id="focus-textarea" data-testid="field-textarea" />
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <label htmlFor="focus-select">Choice</label>
+              <select id="focus-select" data-testid="field-select">
+                <option value="a">A</option>
+                <option value="b">B</option>
+              </select>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <button type="button" disabled data-testid="field-disabled">
+                Disabled
+              </button>
+            </VistaSheet.Item>
+
+            <VistaSheet.Item>
+              <a
+                href="#nowhere"
+                style={{ display: "none" }}
+                data-testid="field-hidden-link"
+              >
+                Hidden link
+              </a>
+            </VistaSheet.Item>
+
+            {/* Last in the sheet, deliberately: the a11y test this fixture
+                replaces (a11y.spec.ts's old "focusables" locator) used the
+                trap's own `a[href], button, [tabindex]` selector to find
+                its bounds — a selector that never matches a plain <input>
+                (no [tabindex] attribute), so a trap that dropped inputs
+                entirely still passed that test. An input that ends the
+                tab sequence is the one shape that selector-mirroring test
+                was structurally incapable of catching. */}
+            <VistaSheet.Item>
+              <label htmlFor="focus-input">Text field</label>
+              <input id="focus-input" type="text" data-testid="field-input" />
+            </VistaSheet.Item>
+          </VistaSheet.Content>
+        </VistaSheet.Sheet>
+      </VistaSheet.Root>
+    </div>
+  );
+}
+
+createRoot(document.getElementById("root")!).render(<App />);

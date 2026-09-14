@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { useVistaSheetInternal } from "./context";
 import {
@@ -22,6 +23,24 @@ import styles from "./styles.module.css";
 export function Content({ children, className }: ContentProps) {
   const ctx = useVistaSheetInternal("Content");
   const { reduceMotion, contentScrollElRef } = ctx;
+
+  // When the content is taller than the scroll region, the region itself
+  // needs a tab stop (a11y B1/m1) — otherwise a sheet whose content has no
+  // interactive controls of its own (long text, a video, a static list) is
+  // unreachable by keyboard/AT: nothing inside it is tabbable, so the trap
+  // holds focus on the panel forever and PageDown/arrow scrolling never
+  // gets a target. Recomputed at mount and on resize; content that changes
+  // height after that (an image loading, a live update) is not covered —
+  // out of scope for this fix.
+  const [tabbable, setTabbable] = useState(false);
+  useEffect(() => {
+    const el = contentScrollElRef.current;
+    if (!el) return;
+    const check = () => setTabbable(el.scrollHeight > el.clientHeight + 1);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [contentScrollElRef]);
 
   const variants = reduceMotion
     ? {
@@ -72,6 +91,7 @@ export function Content({ children, className }: ContentProps) {
       ref={contentScrollElRef}
       className={`${styles.content} ${className ?? ""}`}
       data-vista-sheet-part="content"
+      tabIndex={tabbable ? 0 : undefined}
       variants={variants}
       initial="hidden"
       animate="visible"

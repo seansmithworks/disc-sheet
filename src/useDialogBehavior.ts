@@ -1,8 +1,73 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
+import type { MotionValue } from "motion/react";
+import { CLOSE_REVEAL_PROGRESS } from "./motion";
 
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+const TEXT_INPUT_TYPES = new Set([
+  "text",
+  "search",
+  "email",
+  "url",
+  "tel",
+  "password",
+  "number",
+  "", // <input> with no type attribute defaults to text
+]);
+
+/**
+ * Live-DOM tab order (docs/PACKAGE-DESIGN.md §6, code M3/a11y B1 fix). A
+ * TreeWalker over every element under `root`, not a fixed selector list —
+ * inputs, selects, textareas and contenteditable hosts all get a native
+ * tabIndex of 0 without an explicit [tabindex] attribute, so `tabIndex >= 0`
+ * alone covers them; a hand-written selector (the previous shape here) has
+ * to enumerate every tag and silently misses whichever one the author
+ * forgot. `checkVisibility()` is not used — Safari only ships it from 17.4
+ * (wave.md "Push back"); `getClientRects().length` plus computed visibility
+ * is the portable substitute.
+ */
+function isTabbable(el: HTMLElement): boolean {
+  if (el.tabIndex < 0) return false;
+  if (
+    (el instanceof HTMLButtonElement ||
+      el instanceof HTMLInputElement ||
+      el instanceof HTMLSelectElement ||
+      el instanceof HTMLTextAreaElement) &&
+    el.disabled
+  ) {
+    return false;
+  }
+  if (el.closest("[inert], [hidden]")) return false;
+  if (el.getClientRects().length === 0) return false;
+  const style = window.getComputedStyle(el);
+  if (style.visibility === "hidden" || style.visibility === "collapse") {
+    return false;
+  }
+  return true;
+}
+
+function getTabbables(root: HTMLElement): HTMLElement[] {
+  const results: HTMLElement[] = [];
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+  let node = walker.nextNode();
+  while (node) {
+    const el = node as HTMLElement;
+    if (isTabbable(el)) results.push(el);
+    node = walker.nextNode();
+  }
+  return results;
+}
+
+function isTextInput(el: HTMLElement): boolean {
+  if (el instanceof HTMLTextAreaElement) return true;
+  if (el.isContentEditable) return true;
+  if (el instanceof HTMLInputElement) return TEXT_INPUT_TYPES.has(el.type);
+  return false;
+}
+
+/** First text-entry control in tab order, or null if the sheet has none. */
+function getInitialFocusTarget(panel: HTMLElement): HTMLElement | null {
+  return getTabbables(panel).find(isTextInput) ?? null;
+}
 
 /**
  * Sets aria-hidden="true" on every element that is a sibling of `target` at
@@ -43,25 +108,47 @@ function hideOutsideSiblings(target: Element): () => void {
  * Escape, and focus restore on exit-complete (docs/PACKAGE-DESIGN.md §6).
  *
  * Escape is unconditional and not configurable: a modal surface that traps
- * focus and cannot be dismissed by keyboard is a defect, not a variant.
+ * focus and cannot be dismissed by keyboard is a defect, not a variant. It
+ * only fires `onClose` while `isOpen` — once a close has already been
+ * requested there is nothing left to dismiss.
  *
- * Focus lands on the dialog panel itself on open (not the first control) so
- * opening the sheet never pre-highlights a link. Focus restore to the
- * trigger happens on `onExitComplete`, called by <VistaSheet.Sheet>'s
- * AnimatePresence — not at the moment `open` flips false — so the restore
- * doesn't cause a visible scroll jump mid-close.
+ * Scroll lock, background aria-hiding and the Tab trap key on `isPresent`,
+ * not `isOpen`: `isOpen` flips false the instant a close is REQUESTED, but
+ * the panel stays mounted and interactive through the whole exit animation
+ * (Sheet's AnimatePresence only unmounts it at onExitComplete). Tearing this
+ * down at the request would let Tab walk out of a sheet that is still
+ * visibly on screen and still scroll-locking the page underneath.
+ *
+ * Initial focus lands on the dialog panel itself at the open commit (not
+ * the first control), so opening never pre-highlights a link. If the sheet
+ * declares a text-entry control (an <input> of a textual type, a
+ * <textarea>, or a contenteditable host), focus moves there once the open
+ * has settled (collapseProgress <= CLOSE_REVEAL_PROGRESS, the same
+ * threshold <Close> reveals on) rather than at the commit — stealing focus
+ * into a text field before the sheet has visibly arrived can pop a mobile
+ * keyboard mid-morph. Skipped entirely once focus has moved off the panel
+ * by settle time, whether that's the user tabbing away or a consumer
+ * focusing something itself. Focus restore to the trigger happens on
+ * `onExitComplete` (Sheet.tsx), not at the moment `open` flips, so the
+ * restore doesn't cause a visible scroll jump mid-close.
  */
 export function useDialogBehavior({
   isOpen,
+  isPresent,
   panelRef,
+  collapseProgress,
   onClose,
 }: {
   isOpen: boolean;
+  /** True from the open commit until AnimatePresence's onExitComplete —
+   * outlives `isOpen` through the whole close animation. */
+  isPresent: boolean;
   panelRef: RefObject<HTMLElement | null>;
+  collapseProgress: MotionValue<number>;
   onClose: () => void;
 }): void {
   useEffect(() => {
-    if (!isOpen || typeof document === "undefined") return;
+    if (!isPresent || typeof document === "undefined") return;
     const { body } = document;
     const prevOverflow = body.style.overflow;
     const prevPaddingRight = body.style.paddingRight;
@@ -82,13 +169,13 @@ export function useDialogBehavior({
       body.style.overflow = prevOverflow;
       body.style.paddingRight = prevPaddingRight;
     };
-  }, [isOpen]);
+  }, [isPresent]);
 
   // Hide everything outside the dialog from assistive tech. aria-modal is a
   // hint browsers don't act on — a screen reader will otherwise read the
   // whole page behind the open sheet.
   useEffect(() => {
-    if (!isOpen || typeof document === "undefined") return;
+    if (!isPresent || typeof document === "undefined") return;
     const panel = panelRef.current;
     if (!panel) return;
     // Hide from the WIDGET's root, not the dialog panel node itself. The
@@ -104,59 +191,75 @@ export function useDialogBehavior({
     // portal root.
     const root = panel.closest("[data-vista-sheet-root]") ?? panel;
     return hideOutsideSiblings(root);
-  }, [isOpen, panelRef]);
+  }, [isPresent, panelRef]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const id = window.setTimeout(() => {
-      panelRef.current?.focus();
-    }, 50);
-    return () => window.clearTimeout(id);
-  }, [isOpen, panelRef]);
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    const focusPanelIfNeeded = () => {
+      if (panel.contains(document.activeElement)) return;
+      panel.focus({ preventScroll: true });
+    };
+
+    const focusInitialTextInput = () => {
+      // Only steal focus off the panel itself: by settle time the user may
+      // already have tabbed elsewhere, or a consumer may have focused
+      // something of its own, and either one must win.
+      if (document.activeElement !== panel) return;
+      getInitialFocusTarget(panel)?.focus({ preventScroll: true });
+    };
+
+    focusPanelIfNeeded();
+
+    if (collapseProgress.get() <= CLOSE_REVEAL_PROGRESS) {
+      focusInitialTextInput();
+      return;
+    }
+    return collapseProgress.on("change", (v) => {
+      if (v <= CLOSE_REVEAL_PROGRESS) focusInitialTextInput();
+    });
+  }, [isOpen, panelRef, collapseProgress]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isPresent) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (!isOpen) return;
         e.preventDefault();
         onClose();
         return;
       }
       if (e.key !== "Tab" || !panelRef.current) return;
       const panel = panelRef.current;
-      const items = Array.from(
-        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      );
+      const items = getTabbables(panel);
       // No focusable descendant: the panel itself (tabIndex=-1, focused
       // programmatically on open) is the only thing to hold focus on.
       const focusTargets = items.length > 0 ? items : [panel];
-      const first = focusTargets[0];
-      const last = focusTargets[focusTargets.length - 1];
-      const active = document.activeElement;
-      const focusIsInsidePanel =
-        active instanceof Node && panel.contains(active);
 
-      // The trap must hold from ANY starting position, not just from the
-      // panel's own first/last focusable — a Tab press while focus is still
-      // on the trigger (outside the panel, still in the page's tab
-      // order) or during the initial-focus setTimeout window must be
-      // redirected INTO the panel, not allowed to walk past it.
-      if (!focusIsInsidePanel) {
-        e.preventDefault();
-        (e.shiftKey ? last : first).focus();
-        return;
+      // The trap owns every Tab press outright — always preventDefault and
+      // move programmatically — rather than only intercepting at the
+      // first/last boundary. A boundary check trusts the browser's own tab
+      // walk to agree with `focusTargets` in between, which silently breaks
+      // the moment the two diverge (a control the browser considers
+      // focusable that `focusTargets` doesn't, or vice versa); owning every
+      // press makes `focusTargets` the only source of truth, unconditionally.
+      e.preventDefault();
+      const active = document.activeElement as HTMLElement | null;
+      const currentIndex = active ? focusTargets.indexOf(active) : -1;
+      let nextIndex: number;
+      if (currentIndex === -1) {
+        nextIndex = e.shiftKey ? focusTargets.length - 1 : 0;
+      } else if (e.shiftKey) {
+        nextIndex =
+          (currentIndex - 1 + focusTargets.length) % focusTargets.length;
+      } else {
+        nextIndex = (currentIndex + 1) % focusTargets.length;
       }
-      if (e.shiftKey) {
-        if (active === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else if (active === last) {
-        e.preventDefault();
-        first.focus();
-      }
+      focusTargets[nextIndex].focus();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, onClose, panelRef]);
+  }, [isPresent, isOpen, onClose, panelRef]);
 }

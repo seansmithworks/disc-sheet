@@ -557,10 +557,18 @@ the type checker, as the guard.
   `aria-expanded`, `aria-controls`.
 - `role="dialog"` `aria-modal="true"` sheet; the `Labelled` union makes a
   missing accessible name a type error.
-- Focus lands on the panel on open (not the first control); Escape closes
-  unconditionally; focus restores to the trigger on exit-complete, not at
-  state-change.
-- Body scroll lock while open; Tab/Shift+Tab cycle within the panel.
+- Focus lands on the panel on open (not the first control), then moves to
+  the sheet's first text-entry control (an `<input>` of a textual type, a
+  `<textarea>`, or a contenteditable host) once the open settles, if it has
+  one; Escape closes unconditionally, but only while open; focus restores
+  to the trigger on exit-complete, not at state-change.
+- Body scroll lock, background `aria-hiding` and the Tab trap all last for
+  the whole close animation, not just while `open` is true — they release
+  on exit-complete, same as focus restore.
+- Tab/Shift+Tab cycle every tabbable control in live DOM order — inputs,
+  selects, textareas and contenteditable hosts included, disabled or
+  hidden ones excluded — and never leave the panel; a scrollable
+  `<VistaSheet.Content>` gets its own tab stop while it overflows.
 - `<VistaSheet.Close>` is required in practice; Root logs a dev-only warning
   if the sheet opens with none registered.
 
